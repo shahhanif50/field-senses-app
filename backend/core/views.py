@@ -53,6 +53,7 @@ class LoginView(APIView):
                     "email": email,
                     "roleCode": "ADMIN",
                     "departmentId": "admin",
+                    "employeeId": "admin",
                     "profilePhoto": None
                 })
             return Response({"error": "Invalid username or password"}, status=status.HTTP_401_UNAUTHORIZED)
@@ -64,6 +65,7 @@ class LoginView(APIView):
         
         return Response({
             "id": employee.id,
+            "employeeId": employee.employeeId,
             "fullName": employee.fullName,
             "email": employee.email,
             "roleCode": roleCode,

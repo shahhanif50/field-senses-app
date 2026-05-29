@@ -206,8 +206,20 @@ export const ReportsTab = () => {
   const [generatedReport, setGeneratedReport] = useState<boolean>(false);
   const [showPreview, setShowPreview] = useState(false);
 
+  const userRole = sessionStorage.getItem("userRole") || "employee";
+  const userName = sessionStorage.getItem("userName") || "";
+  const isAdmin = userRole.toLowerCase() === "admin";
+
   const currentModuleConfig = reportModules.find(m => m.module === selectedModule)!;
-  const reportData = generateMockReportData(selectedModule);
+  const rawReportData = generateMockReportData(selectedModule);
+  
+  // Filter report data if not admin
+  const reportData = isAdmin ? rawReportData : rawReportData.filter((row: any) => {
+    return row.employee === userName || row.assignee === userName;
+  });
+
+  // Filter employees dropdown if not admin
+  const availableEmployees = isAdmin ? employees : employees.filter(e => e.fullName === userName);
 
   const handleGenerateReport = () => {
     setIsGenerating(true);
@@ -402,7 +414,7 @@ export const ReportsTab = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Employees</SelectItem>
-                    {employees.map((emp) => (
+                    {availableEmployees.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
                     ))}
                   </SelectContent>

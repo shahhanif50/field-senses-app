@@ -43,7 +43,7 @@ export function EmployeePortalTab() {
 
   const userRole = sessionStorage.getItem("userRole") || "Employee";
 
-  if (userRole !== "Admin") {
+  if (userRole.toLowerCase() !== "admin") {
     return <EmployeeWalletDashboard />;
   }
 

@@ -34,15 +34,24 @@ interface TrackingSettings {
 
 
 // Sub tabs for Daily Tracking - Combined modules
-const subTabs = [
+const allSubTabs = [
   { id: "live-tracking", label: "Live Tracking / Route History", icon: MapPin },
   { id: "attendance", label: "Attendance Log", icon: Clock },
-  { id: "geo-fence", label: "Geo-Fence Alerts", icon: Map },
-  { id: "analytics-settings", label: "Tracking Analytics & Settings", icon: BarChart3 },
+  { id: "geo-fence", label: "Geo-Fence Alerts", icon: Map, adminOnly: true },
+  { id: "analytics-settings", label: "Tracking Analytics & Settings", icon: BarChart3, adminOnly: true },
 ];
 
 export function DailyTrackingTab() {
-  const { trackingEntries: trackingData, attendanceEntries: attendanceData, geoFenceAlerts } = useMasterData();
+  const { trackingEntries, attendanceEntries, geoFenceAlerts } = useMasterData();
+  const userRole = sessionStorage.getItem("userRole") || "employee";
+  const userName = sessionStorage.getItem("userName") || "";
+  const isAdmin = userRole.toLowerCase() === "admin";
+
+  const subTabs = allSubTabs.filter(tab => !tab.adminOnly || isAdmin);
+
+  const trackingData = isAdmin ? trackingEntries : trackingEntries.filter((t: any) => t.employeeName === userName);
+  const attendanceData = isAdmin ? attendanceEntries : attendanceEntries.filter((a: any) => a.employeeName === userName);
+
   const [selectedEmployee, setSelectedEmployee] = useState<TrackingEntry | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState("live-tracking");
