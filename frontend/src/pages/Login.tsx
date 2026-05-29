@@ -30,7 +30,7 @@ const Login = () => {
 
     try {
       const host = window.location.hostname;
-      const BASE = `http://${host}:8000/api`;
+      const BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : `http://${host}:8000/api`;
       
       const response = await fetch(`${BASE}/auth/login/`, {
         method: "POST",

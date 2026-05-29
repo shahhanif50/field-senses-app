@@ -503,7 +503,7 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
   React.useEffect(() => {
     // Dynamically detect hostname so mobile devices accessing via local IP can connect
     const host = window.location.hostname;
-    const BASE = `http://${host}:8000/api`;
+    const BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : `http://${host}:8000/api`;
     const get = (url: string) => fetch(url).then(res => res.json()).catch(() => null);
 
     // Core entities
