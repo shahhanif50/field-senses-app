@@ -18,8 +18,9 @@ import { SalesExecutiveTab } from "@/components/tabs/SalesExecutiveTab";
 import { EmployeePortalTab } from "@/components/tabs/EmployeePortalTab";
 import InventoryManagementTab from "@/components/tabs/InventoryManagementTab";
 import { DailyTrackingTab } from "@/components/tabs/DailyTrackingTab";
-import { PlaceholderTab } from "@/components/tabs/PlaceholderTab";
 import { AlertsTab } from "@/components/tabs/AlertsTab";
+import { ApprovalsTab } from "@/components/tabs/ApprovalsTab";
+import { ProfileTab } from "@/components/tabs/ProfileTab";
 import { ReportsTab } from "@/components/tabs/ReportsTab";
 import { MasterDataProvider } from "@/contexts/MasterDataContext";
 import { LiveTrackingMap } from "@/components/tracking/LiveTrackingMap";
@@ -80,6 +81,10 @@ const Index = () => {
             icon={FileText}
           />
         );
+      case "approvals":
+        return <ApprovalsTab />;
+      case "profile":
+        return <ProfileTab />;
       default:
         return <MasterSetupTab />;
     }

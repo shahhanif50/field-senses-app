@@ -43,6 +43,8 @@ const allTabs = [
   { id: "reports", label: "Reports", icon: BarChart3, roles: ["admin", "manager"] },
   { id: "alerts", label: "Alerts", icon: AlertTriangle, roles: ["admin", "manager"] },
   { id: "documents", label: "Documents", icon: FileText, roles: ["admin", "manager"] },
+  { id: "approvals", label: "Approvals", icon: UserPlus, roles: ["admin"] },
+  { id: "profile", label: "My Profile", icon: UserCircle, roles: ["admin", "manager", "WH_MGR", "employee"] },
 ];
 
 export function TopNavigation({

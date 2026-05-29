@@ -5,12 +5,14 @@ const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:
 interface AddEmployeeModalProps {
   onClose: () => void;
   onSuccess: () => void;
+  initialData?: any;
+  requestId?: string;
 }
 
 interface Role { id: string; roleName: string; roleCode: string; }
 interface Department { id: string; departmentName: string; }
 
-export function AddEmployeeModal({ onClose, onSuccess }: AddEmployeeModalProps) {
+export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }: AddEmployeeModalProps) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
@@ -18,11 +20,11 @@ export function AddEmployeeModal({ onClose, onSuccess }: AddEmployeeModalProps) 
   const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
-    employeeId: '',
-    fullName: '',
-    email: '',
-    mobileNumber: '',
-    password: '',
+    employeeId: initialData?.employeeId || '',
+    fullName: initialData?.fullName || '',
+    email: initialData?.email || '',
+    mobileNumber: initialData?.mobileNumber || '',
+    password: initialData?.password || '',
     designation: '',
     workMode: 'Office',
     roleId: '',
@@ -63,6 +65,18 @@ export function AddEmployeeModal({ onClose, onSuccess }: AddEmployeeModalProps) 
       });
 
       if (response.ok) {
+        if (requestId) {
+          // Mark the request as approved
+          try {
+            await fetch(`${API}/api/registration-requests/${requestId}/`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'approved' })
+            });
+          } catch (e) {
+            console.error("Failed to approve request", e);
+          }
+        }
         onSuccess();
       } else {
         const errorData = await response.json();

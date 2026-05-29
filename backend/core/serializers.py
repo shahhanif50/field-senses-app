@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager
+from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager, RegistrationRequest
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -34,4 +34,9 @@ class RolePermissionSerializer(serializers.ModelSerializer):
 class ReportingManagerSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReportingManager
+        fields = '__all__'
+
+class RegistrationRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RegistrationRequest
         fields = '__all__'

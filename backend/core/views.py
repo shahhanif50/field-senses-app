@@ -1,11 +1,11 @@
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager
+from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager, RegistrationRequest
 from .serializers import (
     RoleSerializer, DepartmentSerializer, StatusMasterSerializer, 
     ProjectSerializer, EmployeeSerializer, RolePermissionSerializer,
-    ReportingManagerSerializer
+    ReportingManagerSerializer, RegistrationRequestSerializer
 )
 
 class RoleViewSet(viewsets.ModelViewSet):
@@ -52,7 +52,8 @@ class LoginView(APIView):
                     "fullName": "System Admin",
                     "email": email,
                     "roleCode": "ADMIN",
-                    "departmentId": "admin"
+                    "departmentId": "admin",
+                    "profilePhoto": None
                 })
             return Response({"error": "Invalid username or password"}, status=status.HTTP_401_UNAUTHORIZED)
             
@@ -66,5 +67,10 @@ class LoginView(APIView):
             "fullName": employee.fullName,
             "email": employee.email,
             "roleCode": roleCode,
-            "departmentId": employee.departmentId.id if employee.departmentId else None
+            "departmentId": employee.departmentId.id if employee.departmentId else None,
+            "profilePhoto": employee.profilePhoto
         })
+
+class RegistrationRequestViewSet(viewsets.ModelViewSet):
+    queryset = RegistrationRequest.objects.all()
+    serializer_class = RegistrationRequestSerializer

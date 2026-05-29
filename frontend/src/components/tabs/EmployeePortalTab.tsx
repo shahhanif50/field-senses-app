@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AddEmployeeModal } from '../modals/AddEmployeeModal'; 
+import { User } from 'lucide-react';
 import { EmployeeWalletDashboard } from './EmployeeWalletDashboard';
 import { AdminEarningsDashboard } from './AdminEarningsDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +11,7 @@ interface Employee {
   fullName: string;
   email: string;
   mobileNumber: string;
+  profilePhoto?: string | null;
 }
 
 export function EmployeePortalTab() {
@@ -65,10 +67,19 @@ export function EmployeePortalTab() {
           <div className="grid gap-4">
             {employees.length > 0 ? (
               employees.map((emp) => (
-                <div key={emp.id} className="border p-4 rounded-xl shadow-sm bg-card flex justify-between items-center">
-                  <div>
-                    <p className="font-bold text-lg">{emp.fullName}</p>
-                    <p className="text-sm text-muted-foreground">ID: {emp.employeeId} | Email: {emp.email}</p>
+                <div key={emp.id} className="border p-4 rounded-xl shadow-sm bg-card flex justify-between items-center gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full border overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                      {emp.profilePhoto ? (
+                        <img src={emp.profilePhoto} alt={emp.fullName} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-6 h-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-bold text-lg">{emp.fullName}</p>
+                      <p className="text-sm text-muted-foreground">ID: {emp.employeeId} | Email: {emp.email}</p>
+                    </div>
                   </div>
                   <div className="text-sm font-medium">
                     {emp.mobileNumber}

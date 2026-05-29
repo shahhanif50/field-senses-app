@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     RoleViewSet, DepartmentViewSet, StatusMasterViewSet,
     ProjectViewSet, EmployeeViewSet, RolePermissionViewSet,
-    ReportingManagerViewSet, LoginView
+    ReportingManagerViewSet, LoginView, RegistrationRequestViewSet
 )
 
 router = DefaultRouter()
@@ -14,6 +14,7 @@ router.register(r'projects', ProjectViewSet)
 router.register(r'employees', EmployeeViewSet)
 router.register(r'role-permissions', RolePermissionViewSet)
 router.register(r'reporting-managers', ReportingManagerViewSet)
+router.register(r'registration-requests', RegistrationRequestViewSet)
 
 urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='api-login'),

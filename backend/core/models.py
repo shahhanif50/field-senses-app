@@ -66,7 +66,7 @@ class Employee(models.Model):
     email = models.EmailField(unique=True)
     mobileNumber = models.CharField(max_length=20)
     password = models.CharField(max_length=128)
-    profilePhoto = models.URLField(blank=True, null=True)
+    profilePhoto = models.TextField(blank=True, null=True)
     roleId = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True)
     departmentId = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True)
     designation = models.CharField(max_length=100)
@@ -117,4 +117,17 @@ class ReportingManager(models.Model):
 
     def __str__(self):
         return f"{self.employeeName} -> {self.managerName}"
+
+class RegistrationRequest(models.Model):
+    id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    fullName = models.CharField(max_length=200)
+    email = models.EmailField(unique=True)
+    mobileNumber = models.CharField(max_length=20)
+    password = models.CharField(max_length=128)
+    STATUS_CHOICES = (('pending', 'pending'), ('approved', 'approved'), ('rejected', 'rejected'))
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
+    requestDate = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.fullName
 
