@@ -20,6 +20,7 @@ import {
   Package,
   UserPlus, // Added this icon for the new tab
   Navigation, // For Live Tracking
+  LogOut,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ export function TopNavigation({
   const [notifications] = useState(3);
   
   const rawRole = sessionStorage.getItem("userRole") || "employee";
+  const userName = sessionStorage.getItem("userName") || "User";
   
   // Normalize the backend roleCode to match our frontend tab permissions
   const userRole = ["ADMIN", "admin"].includes(rawRole) ? "admin" 
@@ -94,7 +96,7 @@ export function TopNavigation({
             </div>
             <div className="hidden sm:block">
               <h1 className="font-display font-bold text-lg gradient-text">Field Senses</h1>
-              <p className="text-xs text-muted-foreground">Admin Portal</p>
+              <p className="text-xs text-muted-foreground capitalize">{userName} • {rawRole.toLowerCase()}</p>
             </div>
           </div>
 
@@ -128,11 +130,11 @@ export function TopNavigation({
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={onThemeToggle}>
+            <Button variant="ghost" size="icon" onClick={onThemeToggle} title="Toggle Theme">
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleLogout}>
-              <Settings className="w-5 h-5" />
+            <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
+              <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>

@@ -45,6 +45,7 @@ const Login = () => {
       }
 
       sessionStorage.setItem("userRole", data.roleCode);
+      sessionStorage.setItem("userName", data.fullName || "User");
       sessionStorage.setItem("isAdminLoggedIn", "true");
       navigate("/");
 
