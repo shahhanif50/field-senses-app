@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play, Pause, Navigation, Clock, Banknote, MapPin, CheckCircle2, LogOut, User } from 'lucide-react';
+import { Play, Pause, Navigation, Clock, Banknote, MapPin, CheckCircle2, LogOut, User, Navigation2 } from 'lucide-react';
 
 // Fix for default marker icons in Leaflet with Webpack/Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -40,7 +40,8 @@ const PREDEFINED_LOCATIONS = [
 const RATE_PER_KM = 5; // ₹5 per km
 
 export function LiveTrackingMap() {
-  const [currentPath, setCurrentPath] = useState<any[]>([FULL_ROUTE[0]]);
+  const [detailedRoute, setDetailedRoute] = useState<any[]>(FULL_ROUTE);
+  const [currentPathIndex, setCurrentPathIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [distance, setDistance] = useState(0); // km
   const [timeSpent, setTimeSpent] = useState(0); // minutes
@@ -52,6 +53,8 @@ export function LiveTrackingMap() {
   const [otpType, setOtpType] = useState<"checkin" | "checkout" | null>(null);
   const [otpInput, setOtpInput] = useState("");
   const [otpError, setOtpError] = useState("");
+  const [isNearDestination, setIsNearDestination] = useState(false);
+  const [arrivedSite, setArrivedSite] = useState<any>(null);
 
   const [tripStartTime, setTripStartTime] = useState<Date | null>(null);
   const [siteCheckInTime, setSiteCheckInTime] = useState<Date | null>(null);
@@ -104,41 +107,64 @@ export function LiveTrackingMap() {
   };
 
   useEffect(() => {
+    const fetchRoute = async () => {
+      try {
+        const coordsStr = FULL_ROUTE.map(p => `${p.lng},${p.lat}`).join(';');
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`);
+        const data = await res.json();
+        if (data.routes && data.routes.length > 0) {
+          const highResPoints = data.routes[0].geometry.coordinates.map((c: number[]) => ({ lat: c[1], lng: c[0] }));
+          setDetailedRoute(highResPoints);
+        }
+      } catch(e) {
+        console.error("Failed to fetch route", e);
+      }
+    };
+    fetchRoute();
+  }, []);
+
+  useEffect(() => {
     let interval: any;
-    if (isPlaying && currentPath.length < FULL_ROUTE.length) {
+    if (isPlaying && currentPathIndex < detailedRoute.length) {
       interval = setInterval(() => {
-        setCurrentPath(prev => {
-          const nextIndex = prev.length;
-          const nextPoint = FULL_ROUTE[nextIndex];
-          const lastPoint = prev[prev.length - 1];
+        setCurrentPathIndex(prev => {
+          const nextIndex = prev + 1;
+          if (nextIndex >= detailedRoute.length) {
+            setIsPlaying(false);
+            return prev;
+          }
+          
+          const nextPoint = detailedRoute[nextIndex];
+          const lastPoint = detailedRoute[prev];
           
           if (lastPoint && nextPoint) {
              const dist = getDistanceFromLatLonInKm(lastPoint.lat, lastPoint.lng, nextPoint.lat, nextPoint.lng);
              setDistance(d => d + dist);
-             setTimeSpent(t => t + 5); // Add 5 mins per segment
+             
+             // Time roughly proportional to distance (assume ~30 km/h)
+             setTimeSpent(t => t + (dist / 30) * 60);
 
-             // Check if we hit a predefined site
+             // Check if we hit a predefined site (within ~100m)
              const siteMatch = PREDEFINED_LOCATIONS.find(loc => 
-               Math.abs(loc.lat - nextPoint.lat) < 0.0001 && Math.abs(loc.lng - nextPoint.lng) < 0.0001
+               getDistanceFromLatLonInKm(loc.lat, loc.lng, nextPoint.lat, nextPoint.lng) < 0.1
              );
 
              if (siteMatch && !visitedSites.includes(siteMatch.id)) {
                setTimeout(() => {
                  setIsPlaying(false);
-                 setActiveSite(siteMatch);
-                 setOtpType("checkin");
-                 setOtpModalOpen(true);
+                 setArrivedSite(siteMatch);
+                 setIsNearDestination(true);
                }, 0);
              }
           }
-          return [...prev, nextPoint];
+          return nextIndex;
         });
-      }, 2000); // Add a point every 2 seconds
-    } else if (currentPath.length >= FULL_ROUTE.length) {
+      }, 50); // Fast interval for high-res points
+    } else if (currentPathIndex >= detailedRoute.length - 1) {
       setIsPlaying(false);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, currentPath, visitedSites]);
+  }, [isPlaying, currentPathIndex, detailedRoute, visitedSites]);
 
   const handleVerifyOtp = () => {
     if (otpInput === "1234") {
@@ -159,6 +185,8 @@ export function LiveTrackingMap() {
          setSiteCheckInTime(null);
          setVisitedSites(prev => [...prev, activeSite.id]);
          setActiveSite(null);
+         setArrivedSite(null);
+         setIsNearDestination(false);
          setIsPlaying(true); // Resume simulation
       }
     } else {
@@ -167,12 +195,14 @@ export function LiveTrackingMap() {
   };
 
   const reset = () => {
-    setCurrentPath([FULL_ROUTE[0]]);
+    setCurrentPathIndex(0);
     setDistance(0);
     setTimeSpent(0);
     setIsPlaying(false);
     setVisitedSites([]);
     setActiveSite(null);
+    setArrivedSite(null);
+    setIsNearDestination(false);
     setOtpModalOpen(false);
     setTripStartTime(null);
     setSiteCheckInTime(null);
@@ -287,7 +317,29 @@ export function LiveTrackingMap() {
       alert('Failed to deposit earnings');
     }
   };
-  const currentLocation = currentPath[currentPath.length - 1];
+  const currentPath = detailedRoute.slice(0, currentPathIndex + 1);
+  const currentLocation = currentPath[currentPathIndex];
+  
+  const nextDestination = PREDEFINED_LOCATIONS.find(loc => !visitedSites.includes(loc.id) && loc.id !== activeSite?.id && loc.id !== arrivedSite?.id);
+  let distanceToNext = 0;
+  let etaToNext = 0;
+  if (nextDestination && currentLocation) {
+    distanceToNext = getDistanceFromLatLonInKm(currentLocation.lat, currentLocation.lng, nextDestination.lat, nextDestination.lng);
+    etaToNext = (distanceToNext / 30) * 60; // 30 km/h average
+  }
+
+  const empName = userRole === "Admin" ? employees.find(e => e.employeeId === selectedEmployeeId)?.fullName || selectedEmployeeId : (sessionStorage.getItem("userName") || "Employee");
+  const avatarUrl = `https://ui-avatars.com/api/?name=${empName}&background=0D8ABC&color=fff&size=128`;
+  
+  const customMarkerIcon = new L.DivIcon({
+    className: 'custom-employee-marker',
+    html: `<div class="w-12 h-12 rounded-full border-4 border-white shadow-[0_10px_25px_-5px_rgba(0,0,0,0.5)] bg-primary flex items-center justify-center overflow-hidden transition-transform hover:scale-110">
+             <img src="${avatarUrl}" alt="Employee" class="w-full h-full object-cover" />
+           </div>`,
+    iconSize: [48, 48],
+    iconAnchor: [24, 48],
+    popupAnchor: [0, -48]
+  });
 
   return (
     <div className="relative w-full h-[600px] md:h-[700px] rounded-xl overflow-hidden shadow-xl border border-border">
@@ -317,15 +369,18 @@ export function LiveTrackingMap() {
           </Marker>
         ))}
 
-        {/* Route Line */}
-        <Polyline positions={currentPath.map(p => [p.lat, p.lng])} color="#3b82f6" weight={5} />
+        {/* Full Route Line (Faded) */}
+        <Polyline positions={detailedRoute.map(p => [p.lat, p.lng])} color="#94a3b8" weight={5} opacity={0.4} dashArray="5, 10" />
+
+        {/* Traversed Route Line */}
+        <Polyline positions={currentPath.map(p => [p.lat, p.lng])} color="#3b82f6" weight={6} />
         
-        {/* Current Location Marker */}
+        {/* Current Location Marker with Custom Employee Logo */}
         {currentLocation && (
-          <Marker position={[currentLocation.lat, currentLocation.lng]}>
+          <Marker position={[currentLocation.lat, currentLocation.lng]} icon={customMarkerIcon}>
             <Popup>
-              <div className="font-semibold">Amit Patel</div>
-              <div className="text-sm text-muted-foreground">Moving...</div>
+              <div className="font-semibold">{empName}</div>
+              <div className="text-sm text-muted-foreground">Speed: ~30 km/h</div>
             </Popup>
           </Marker>
         )}
@@ -412,9 +467,48 @@ export function LiveTrackingMap() {
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="w-3 h-3" /> Duration
                 </p>
-                <p className="font-semibold text-lg">{timeSpent} mins</p>
+                <p className="font-semibold text-lg">{timeSpent.toFixed(0)} mins</p>
               </div>
             </div>
+
+            {/* Smart Navigation / Next Destination UI */}
+            {nextDestination && isPlaying && !activeSite && !isNearDestination && (
+              <div className="pt-3 border-t border-border">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-primary mb-1 uppercase tracking-wider">Next Destination</p>
+                    <p className="text-sm font-medium">{nextDestination.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {distanceToNext.toFixed(1)} km away • ~{etaToNext.toFixed(0)} mins ETA
+                    </p>
+                  </div>
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white rounded-full h-8" onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${nextDestination.lat},${nextDestination.lng}`, '_blank')}>
+                    <Navigation2 className="w-3 h-3 mr-1" /> Navigate
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* I've Arrived UI (Rapido-style) */}
+            {isNearDestination && arrivedSite && !otpModalOpen && (
+              <div className="pt-3 border-t border-border animate-in slide-in-from-bottom-4">
+                <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/30 mb-3 text-center">
+                  <p className="text-sm font-semibold text-green-600 dark:text-green-400 mb-1">Destination Reached!</p>
+                  <p className="text-xs text-muted-foreground">You are within 100m of {arrivedSite.name}</p>
+                </div>
+                <Button 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white shadow-lg text-lg h-12"
+                  onClick={() => {
+                    setActiveSite(arrivedSite);
+                    setOtpType("checkin");
+                    setOtpModalOpen(true);
+                  }}
+                >
+                  <MapPin className="w-5 h-5 mr-2" />
+                  I've Arrived (Check In)
+                </Button>
+              </div>
+            )}
 
             <div className="pt-3 border-t border-border">
               <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
@@ -452,7 +546,7 @@ export function LiveTrackingMap() {
               <Button 
                 className="flex-1 gradient-btn" 
                 onClick={handleSimulate}
-                disabled={currentPath.length >= FULL_ROUTE.length || !!activeSite || (userRole === "Admin" && !selectedEmployeeId)}
+                disabled={currentPathIndex >= detailedRoute.length - 1 || !!activeSite || isNearDestination || (userRole === "Admin" && !selectedEmployeeId)}
               >
                 {isPlaying ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
                 {isPlaying ? "Pause" : "Simulate"}
@@ -460,7 +554,7 @@ export function LiveTrackingMap() {
               <Button variant="outline" onClick={reset}>Reset</Button>
             </div>
             
-            {parseFloat(reimbursement) > 0 && currentPath.length >= FULL_ROUTE.length && (
+            {parseFloat(reimbursement) > 0 && currentPathIndex >= detailedRoute.length - 1 && (
               <Button className="w-full bg-green-600 hover:bg-green-700 text-white mt-2" onClick={handleDepositEarnings}>
                 <Banknote className="w-4 h-4 mr-2" /> Deposit Earnings
               </Button>
