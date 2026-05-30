@@ -21,6 +21,7 @@ import {
   UserPlus, // Added this icon for the new tab
   Navigation, // For Live Tracking
   LogOut,
+  FolderKanban,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ const allTabs = [
   { id: "live-tracking", label: "Live Tracking", icon: Navigation, roles: ["admin", "manager", "WH_MGR", "employee"] },
   { id: "reports", label: "Reports", icon: BarChart3, roles: ["admin", "manager", "employee"] },
   { id: "alerts", label: "Alerts", icon: AlertTriangle, roles: ["admin", "manager"] },
+  { id: "projects", label: "Projects & Tasks", icon: FolderKanban, roles: ["admin", "manager", "employee"] },
   { id: "documents", label: "Documents", icon: FileText, roles: ["admin", "manager", "employee"] },
   { id: "approvals", label: "Approvals", icon: UserPlus, roles: ["admin"] },
   { id: "profile", label: "My Profile", icon: UserCircle, roles: ["admin", "manager", "WH_MGR", "employee"] },

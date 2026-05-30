@@ -26,7 +26,6 @@ class Department(models.Model):
     parentDepartmentId = models.CharField(max_length=50, blank=True, null=True)
     departmentHeadId = models.CharField(max_length=50, blank=True, null=True)
     trackingEnabled = models.BooleanField(default=False)
-    # Storing array of strings as comma-separated or JSON could work; using JSONField for simplicity
     kpiCategory = models.JSONField(default=list, blank=True)
     activeStatus = models.BooleanField(default=True)
 
@@ -43,21 +42,6 @@ class StatusMaster(models.Model):
 
     def __str__(self):
         return self.statusName
-
-class Project(models.Model):
-    id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
-    name = models.CharField(max_length=200)
-    opsManager = models.CharField(max_length=50) # Assuming ID mapping
-    STATUS_CHOICES = (('active', 'active'), ('pending', 'pending'), ('completed', 'completed'), ('delayed', 'delayed'))
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES)
-    progress = models.IntegerField(default=0)
-    tasksCompleted = models.IntegerField(default=0)
-    totalTasks = models.IntegerField(default=0)
-    nextMilestone = models.CharField(max_length=200)
-    dueDate = models.DateField()
-
-    def __str__(self):
-        return self.name
 
 class Employee(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
@@ -100,12 +84,11 @@ class RolePermission(models.Model):
     def __str__(self):
         return f"{self.roleName} - {self.module}"
 
-
 class ReportingManager(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
-    employeeId = models.CharField(max_length=50) # Links to Employee ID string (employee being mapped)
+    employeeId = models.CharField(max_length=50)
     employeeName = models.CharField(max_length=200)
-    managerId = models.CharField(max_length=50) # Links to Employee ID string (manager)
+    managerId = models.CharField(max_length=50)
     managerName = models.CharField(max_length=200)
     REPORTING_TYPES = (('Direct', 'Direct'), ('Dotted', 'Dotted'))
     reportingType = models.CharField(max_length=50, choices=REPORTING_TYPES)
@@ -119,15 +102,53 @@ class ReportingManager(models.Model):
         return f"{self.employeeName} -> {self.managerName}"
 
 class RegistrationRequest(models.Model):
-    id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     fullName = models.CharField(max_length=200)
     email = models.EmailField(unique=True)
     mobileNumber = models.CharField(max_length=20)
     password = models.CharField(max_length=128)
-    STATUS_CHOICES = (('pending', 'pending'), ('approved', 'approved'), ('rejected', 'rejected'))
-    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
-    requestDate = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=50, default='pending') # pending, approved, rejected
+    createdAt = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.fullName} ({self.email})"
+
+class Project(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=50, default='Active') # Active, Completed, On Hold
+    startDate = models.DateField(blank=True, null=True)
+    endDate = models.DateField(blank=True, null=True)
+    assignedEmployee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='projects')
+    createdAt = models.DateTimeField(auto_now_add=True)
+    updatedAt = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.fullName
+        return self.name
 
+class Task(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=50, default='Pending') # Pending, In Progress, Done
+    dueDate = models.DateField(blank=True, null=True)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks', null=True, blank=True)
+    assignedEmployee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
+    createdAt = models.DateTimeField(auto_now_add=True)
+    updatedAt = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
+
+class Document(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=200)
+    fileUrl = models.TextField() # Can store base64 or a URL
+    uploadedBy = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='documents')
+    uploadDate = models.DateTimeField(auto_now_add=True)
+    fileType = models.CharField(max_length=50, blank=True, null=True) # e.g., pdf, image, doc
+    status = models.CharField(max_length=50, default='Valid') # Valid, Expiring Soon, Expired
+
+    def __str__(self):
+        return self.title

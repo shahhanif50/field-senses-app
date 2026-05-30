@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Role, Department, StatusMaster, Project, Employee, RolePermission
+from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, Task, Document
 
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
@@ -15,7 +15,15 @@ class StatusMasterAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status', 'progress', 'dueDate')
+    list_display = ('name', 'status', 'assignedEmployee', 'endDate')
+
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ('title', 'status', 'project', 'assignedEmployee', 'dueDate')
+
+@admin.register(Document)
+class DocumentAdmin(admin.ModelAdmin):
+    list_display = ('title', 'uploadedBy', 'uploadDate', 'status')
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):

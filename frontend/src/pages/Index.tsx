@@ -24,6 +24,8 @@ import { ProfileTab } from "@/components/tabs/ProfileTab";
 import { ReportsTab } from "@/components/tabs/ReportsTab";
 import { MasterDataProvider } from "@/contexts/MasterDataContext";
 import { LiveTrackingMap } from "@/components/tracking/LiveTrackingMap";
+import { ProjectsTab } from "@/components/tabs/ProjectsTab";
+import { DocumentsTab } from "@/components/tabs/DocumentsTab";
 
 const Index = () => {
   const userRole = sessionStorage.getItem("userRole");
@@ -74,13 +76,9 @@ const Index = () => {
       case "alerts":
         return <AlertsTab />;
       case "documents":
-        return (
-          <PlaceholderTab
-            title="Documents & Logs"
-            description="Manage all project documents, visit photos, task proofs, and activity logs."
-            icon={FileText}
-          />
-        );
+        return <DocumentsTab />;
+      case "projects":
+        return <ProjectsTab />;
       case "approvals":
         return <ApprovalsTab />;
       case "profile":

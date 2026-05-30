@@ -1,11 +1,11 @@
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager, RegistrationRequest
+from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager, RegistrationRequest, Task, Document
 from .serializers import (
     RoleSerializer, DepartmentSerializer, StatusMasterSerializer, 
     ProjectSerializer, EmployeeSerializer, RolePermissionSerializer,
-    ReportingManagerSerializer, RegistrationRequestSerializer
+    ReportingManagerSerializer, RegistrationRequestSerializer, TaskSerializer, DocumentSerializer
 )
 
 class RoleViewSet(viewsets.ModelViewSet):
@@ -76,3 +76,41 @@ class LoginView(APIView):
 class RegistrationRequestViewSet(viewsets.ModelViewSet):
     queryset = RegistrationRequest.objects.all()
     serializer_class = RegistrationRequestSerializer
+
+class ProjectViewSet(viewsets.ModelViewSet):
+    queryset = Project.objects.all()
+    serializer_class = ProjectSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        employeeId = self.request.query_params.get('employeeId')
+        if employeeId:
+            queryset = queryset.filter(assignedEmployee__id=employeeId)
+        return queryset
+
+class TaskViewSet(viewsets.ModelViewSet):
+    queryset = Task.objects.all()
+    serializer_class = TaskSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        employeeId = self.request.query_params.get('employeeId')
+        if employeeId:
+            queryset = queryset.filter(assignedEmployee__id=employeeId)
+        
+        projectId = self.request.query_params.get('projectId')
+        if projectId:
+            queryset = queryset.filter(project__id=projectId)
+        
+        return queryset
+
+class DocumentViewSet(viewsets.ModelViewSet):
+    queryset = Document.objects.all()
+    serializer_class = DocumentSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        employeeId = self.request.query_params.get('employeeId')
+        if employeeId:
+            queryset = queryset.filter(uploadedBy__id=employeeId)
+        return queryset

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager, RegistrationRequest
+from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager, RegistrationRequest, Task, Document
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -39,4 +39,26 @@ class ReportingManagerSerializer(serializers.ModelSerializer):
 class RegistrationRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegistrationRequest
+        fields = '__all__'
+
+class ProjectSerializer(serializers.ModelSerializer):
+    assignedEmployeeName = serializers.CharField(source='assignedEmployee.fullName', read_only=True)
+
+    class Meta:
+        model = Project
+        fields = '__all__'
+
+class TaskSerializer(serializers.ModelSerializer):
+    projectName = serializers.CharField(source='project.name', read_only=True)
+    assignedEmployeeName = serializers.CharField(source='assignedEmployee.fullName', read_only=True)
+
+    class Meta:
+        model = Task
+        fields = '__all__'
+
+class DocumentSerializer(serializers.ModelSerializer):
+    uploadedByName = serializers.CharField(source='uploadedBy.fullName', read_only=True)
+
+    class Meta:
+        model = Document
         fields = '__all__'
