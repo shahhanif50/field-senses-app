@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,10 +22,19 @@ import {
   Navigation, // For Live Tracking
   LogOut,
   FolderKanban,
+  CheckCircle2,
+  Contact,
+  Calendar,
+  MessageSquare,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { NotificationBell } from "./NotificationBell";
+import { toast } from "sonner";
+import { useMasterData } from "@/contexts/MasterDataContext";
+
+const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
 
 interface TopNavigationProps {
   activeTab: string;
@@ -37,16 +46,19 @@ interface TopNavigationProps {
 const allTabs = [
   { id: "master-setup", label: "Master Setup", icon: Settings, roles: ["admin"] },
   { id: "sales-executive", label: "Sales Executive", icon: Users, roles: ["admin", "manager"] },
-  { id: "employee-portal", label: "Employee Portal", icon: UserCircle, roles: ["admin", "manager", "employee", "WH_MGR"] },
+  { id: "employee-portal", label: "Employee Portal", icon: Contact, roles: ["admin", "manager", "employee", "WH_MGR"] },
   { id: "employees", label: "Employees", icon: UserPlus, roles: ["admin"] }, 
   { id: "inventory-management", label: "Inventory Management", icon: Package, roles: ["admin", "manager", "WH_MGR"] },
   { id: "daily-tracking", label: "Daily Tracking", icon: Activity, roles: ["admin", "manager", "employee"] },
   { id: "live-tracking", label: "Live Tracking", icon: Navigation, roles: ["admin", "manager", "WH_MGR", "employee"] },
   { id: "reports", label: "Reports", icon: BarChart3, roles: ["admin", "manager", "employee"] },
   { id: "alerts", label: "Alerts", icon: AlertTriangle, roles: ["admin", "manager"] },
+  { id: "attendance-leaves", label: "Attendance & Leaves", icon: Calendar, roles: ["admin", "manager", "employee"] },
   { id: "projects", label: "Projects & Tasks", icon: FolderKanban, roles: ["admin", "manager", "employee"] },
+  { id: "communication", label: "Communication & Meetings", icon: MessageSquare, roles: ["admin", "manager", "employee", "WH_MGR"] },
   { id: "documents", label: "Documents", icon: FileText, roles: ["admin", "manager", "employee"] },
-  { id: "approvals", label: "Approvals", icon: UserPlus, roles: ["admin"] },
+  { id: "permissions", label: "Permission Requests", icon: CheckCircle2, roles: ["admin", "manager", "employee"] },
+  { id: "approvals", label: "Registration Approvals", icon: UserPlus, roles: ["admin"] },
   { id: "profile", label: "My Profile", icon: UserCircle, roles: ["admin", "manager", "WH_MGR", "employee"] },
 ];
 
@@ -77,13 +89,174 @@ export function TopNavigation({
     navigate("/login");
   };
 
-  // Helper to handle navigation: if it's the new route, use navigate(), otherwise use tab state
+  const { getEmployeeNameById } = useMasterData();
+  const userId = sessionStorage.getItem("userId") || "";
+  const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  const [lastMeetingId, setLastMeetingId] = useState<string | null>(null);
+  const [lastAlertId, setLastAlertId] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(localStorage.getItem('notificationsMuted') === 'true');
+  
+  // Use ref so polling intervals always have the latest value without re-creating intervals
+  const isMutedRef = useRef(isMuted);
+  const lastMessageIdRef = useRef(lastMessageId);
+  const lastMeetingIdRef = useRef(lastMeetingId);
+  const lastAlertIdRef = useRef(lastAlertId);
+
+  const toggleMute = () => {
+    const val = !isMuted;
+    setIsMuted(val);
+    isMutedRef.current = val;
+    localStorage.setItem('notificationsMuted', String(val));
+  };
+
+  // Poll for new messages globally
+  useEffect(() => {
+    if (!userId) return;
+    
+    const checkNewMessages = async () => {
+      try {
+        const res = await fetch(`${API}/api/ops/messages/`, { headers: { 'X-User-Id': userId }});
+        if (res.ok) {
+          const json = await res.json();
+          const allMsgs = Array.isArray(json) ? json : (json.results || []);
+          // Filter to messages received by this user (not sent by this user)
+          const received = allMsgs.filter((m: any) => m.senderId !== userId);
+          if (received.length > 0) {
+            const latest = received[received.length - 1];
+            const currentLastId = lastMessageIdRef.current;
+            // If it's a new message we haven't seen in this session
+            if (currentLastId && latest.id !== currentLastId) {
+              const readByArray = Array.isArray(latest.readBy) ? latest.readBy : [];
+              const isUnread = !readByArray.some((r: any) => r.userId === userId);
+              if (isUnread && !isMutedRef.current) {
+                const senderName = getEmployeeNameById(latest.senderId) || 'Someone';
+                const messagePreview = (latest.content || '').substring(0, 60) + ((latest.content || '').length > 60 ? '...' : '');
+                
+                toast(`💬 New message from ${senderName}`, {
+                  description: messagePreview,
+                  duration: 6000,
+                  action: {
+                    label: 'View Chat',
+                    onClick: () => onTabChange('communication')
+                  }
+                });
+
+                if ("Notification" in window && Notification.permission === "granted") {
+                  new Notification(`New message from ${senderName}`, { body: messagePreview, icon: '/favicon.ico' });
+                } else if ("Notification" in window && Notification.permission !== "denied") {
+                  Notification.requestPermission().then(perm => {
+                    if (perm === "granted") {
+                      new Notification(`New message from ${senderName}`, { body: messagePreview, icon: '/favicon.ico' });
+                    }
+                  });
+                }
+              }
+            }
+            lastMessageIdRef.current = latest.id;
+            setLastMessageId(latest.id);
+          }
+        }
+      } catch {
+        // Ignore network errors during polling
+      }
+    };
+
+    checkNewMessages();
+    const int = setInterval(checkNewMessages, 5000);
+    return () => clearInterval(int);
+  }, [userId, getEmployeeNameById, onTabChange]);
+
+  // Poll for new meetings
+  useEffect(() => {
+    if (!userId) return;
+
+    const checkNewMeetings = async () => {
+      try {
+        const res = await fetch(`${API}/api/ops/meetings/`, { headers: { 'X-User-Id': userId }});
+        if (res.ok) {
+          const json = await res.json();
+          const allMeets = Array.isArray(json) ? json : (json.results || []);
+          const now = new Date();
+          const upcoming = allMeets.filter((m: any) => {
+            const dt = m.date && m.startTime ? new Date(`${m.date}T${m.startTime}`) : null;
+            const isAttendee = (m.attendees || []).some((a: any) => a.id === userId || a.id === String(userId));
+            return dt && dt > now && isAttendee;
+          });
+
+          if (upcoming.length > 0) {
+            const latest = upcoming[upcoming.length - 1];
+            const currentLastId = lastMeetingIdRef.current;
+            if (currentLastId && latest.id !== currentLastId && !isMutedRef.current) {
+              toast(`📅 New meeting scheduled: ${latest.title}`, {
+                description: `${latest.date} at ${latest.startTime ? latest.startTime.substring(0, 5) : ''}`,
+                duration: 6000,
+                action: {
+                  label: 'View',
+                  onClick: () => onTabChange('communication')
+                }
+              });
+            }
+            lastMeetingIdRef.current = latest.id;
+            setLastMeetingId(latest.id);
+          }
+        }
+      } catch {
+        // Ignore
+      }
+    };
+
+    checkNewMeetings();
+    const int = setInterval(checkNewMeetings, 10000);
+    return () => clearInterval(int);
+  }, [userId, onTabChange]);
+
+  // Poll for general alerts (new employee, money alert, etc.)
+  useEffect(() => {
+    if (!userId) return;
+
+    const checkNewAlerts = async () => {
+      try {
+        const res = await fetch(`${API}/api/ops/alerts/?resolved=False`);
+        if (res.ok) {
+          const data = await res.json();
+          const unhandledAlerts = Array.isArray(data) ? data.filter(a => !a.resolved) : [];
+
+          if (unhandledAlerts.length > 0) {
+            const latest = unhandledAlerts[unhandledAlerts.length - 1];
+            const currentLastId = lastAlertIdRef.current;
+            
+            if (currentLastId && latest.id !== currentLastId && !isMutedRef.current) {
+              // Determine icon based on alert type
+              const icon = latest.type === 'pending_approval' ? '⏳' 
+                         : latest.type === 'tracking_update' ? '📍' 
+                         : '🔔';
+                         
+              toast(`${icon} New Alert`, {
+                description: latest.message,
+                duration: 6000,
+              });
+
+              if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(`New Alert`, { body: latest.message, icon: '/favicon.ico' });
+              }
+            }
+            lastAlertIdRef.current = latest.id;
+            setLastAlertId(latest.id);
+          }
+        }
+      } catch {
+        // Ignore network errors
+      }
+    };
+
+    checkNewAlerts();
+    const int = setInterval(checkNewAlerts, 10000);
+    return () => clearInterval(int);
+  }, [userId]);
+
+  // Helper to handle navigation
   const handleTabClick = (tabId: string) => {
-    if (tabId === "employees") {
-      navigate("/employees");
-    } else {
-      onTabChange(tabId);
-    }
+    onTabChange(tabId);
     setMobileMenuOpen(false);
   };
 
@@ -106,11 +279,12 @@ export function TopNavigation({
           <nav className="hidden xl:flex items-center gap-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
-              const isActive = activeTab === tab.id || (tab.id === "employees" && window.location.pathname === "/employees");
+              const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
+                  title={tab.label}
                   className={`nav-link flex items-center gap-2 ${
                     isActive ? "active" : "text-muted-foreground hover:text-foreground"
                   }`}
@@ -132,6 +306,12 @@ export function TopNavigation({
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
+            {/* Notifications */}
+            <NotificationBell 
+              onNotificationClick={handleTabClick} 
+              isMuted={isMuted} 
+              onToggleMute={toggleMute} 
+            />
             <Button variant="ghost" size="icon" onClick={onThemeToggle} title="Toggle Theme">
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
@@ -153,11 +333,12 @@ export function TopNavigation({
             <nav className="flex flex-col gap-2">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
-                const isActive = activeTab === tab.id || (tab.id === "employees" && window.location.pathname === "/employees");
+                const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
+                    title={tab.label}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
                       isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
                     }`}

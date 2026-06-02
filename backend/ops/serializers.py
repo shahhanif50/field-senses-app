@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Meeting, TrackingEntry, EmployeeTask, Alert, AttendanceEntry, GeoFenceAlert, LeaveBalance, PerformanceMetric, EmployeeWallet, WithdrawalRequest
+from .models import Meeting, TrackingEntry, EmployeeTask, Alert, AttendanceEntry, GeoFenceAlert, LeaveBalance, PerformanceMetric, EmployeeWallet, WithdrawalRequest, LeaveRequest, Message
 
 class MeetingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,3 +50,21 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = WithdrawalRequest
         fields = '__all__'
+
+class LeaveRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LeaveRequest
+        fields = '__all__'
+
+class MessageSerializer(serializers.ModelSerializer):
+    readBy = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Message
+        fields = '__all__'
+
+    def get_readBy(self, obj):
+        val = obj.readBy
+        if isinstance(val, list):
+            return val
+        return []

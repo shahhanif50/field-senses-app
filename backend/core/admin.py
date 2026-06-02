@@ -15,11 +15,11 @@ class StatusMasterAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status', 'assignedEmployee', 'endDate')
+    list_display = ('name', 'status', 'endDate')
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('title', 'status', 'project', 'assignedEmployee', 'dueDate')
+    list_display = ('title', 'status', 'project', 'dueDate')
 
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):

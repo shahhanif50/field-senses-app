@@ -333,7 +333,7 @@ export const ReportsTab = () => {
       </div>
 
       {/* Module Selection */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         {reportModules.map((module) => {
           const colorClasses = getColorClasses(module.color);
           const isSelected = selectedModule === module.module;
@@ -380,7 +380,7 @@ export const ReportsTab = () => {
             {/* Date Range */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Date Range</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs text-muted-foreground">From</Label>
                   <Input
@@ -602,7 +602,7 @@ export const ReportsTab = () => {
                       <PieChart className="w-4 h-4 text-primary" />
                       Summary Metrics
                     </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-3">
                       {getSummaryMetrics().map((metric, index) => (
                         <motion.div
                           key={metric.label}
@@ -725,7 +725,7 @@ export const ReportsTab = () => {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Quick Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-4">
                     {getSummaryMetrics().map((metric, index) => (
                       <motion.div
                         key={metric.label}

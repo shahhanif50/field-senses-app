@@ -626,7 +626,7 @@ export function DailyTrackingDetailModal({
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                     Employee Information
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     <Card className="bg-card/50">
                       <CardContent className="p-3 flex items-center gap-3">
                         <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -1295,7 +1295,7 @@ export function DailyTrackingDetailModal({
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                     Travel & Performance
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-4">
                     <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-2">
@@ -1389,7 +1389,7 @@ export function DailyTrackingDetailModal({
                   </div>
 
                   {/* Additional KPIs */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                     <Card className="bg-card/50">
                       <CardContent className="p-4 flex items-center justify-between">
                         <div>
@@ -1440,7 +1440,7 @@ export function DailyTrackingDetailModal({
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                     Daily Expenses
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-5 gap-4">
                     <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20">
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-2">
@@ -1541,7 +1541,7 @@ export function DailyTrackingDetailModal({
                           </span>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {mockFuelReceipts.map((receipt) => (
                             <div key={receipt.id} className="relative group">
                               <div className="border border-warning/20 rounded-lg overflow-hidden bg-white">
@@ -1591,7 +1591,7 @@ export function DailyTrackingDetailModal({
                           </span>
                         </div>
                         
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                           {mockFoodReceipts.map((receipt) => (
                             <div key={receipt.id} className="relative group">
                               <div className="border border-accent/20 rounded-lg overflow-hidden bg-white">
@@ -1742,7 +1742,7 @@ export function DailyTrackingDetailModal({
                         <p className="font-semibold">{selectedTask.taskName}</p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-muted-foreground">Type</p>
                           <Badge variant="secondary">
@@ -1762,7 +1762,7 @@ export function DailyTrackingDetailModal({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-muted-foreground">
                             Start Time

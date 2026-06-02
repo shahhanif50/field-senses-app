@@ -180,3 +180,30 @@ class WithdrawalRequest(models.Model):
     
     def __str__(self):
         return f"Withdrawal {self.amount} for {self.employeeId} - {self.status}"
+
+class LeaveRequest(models.Model):
+    id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    employeeId = models.CharField(max_length=50)
+    leaveType = models.CharField(max_length=100) # 'Sick Leave', 'Paid Leave', 'Unpaid Leave'
+    startDate = models.DateField()
+    endDate = models.DateField()
+    reason = models.TextField()
+    STATUS_CHOICES = (('pending', 'pending'), ('approved', 'approved'), ('rejected', 'rejected'))
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
+    requestDate = models.DateTimeField(auto_now_add=True)
+    managerId = models.CharField(max_length=50, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.leaveType} for {self.employeeId} - {self.status}"
+
+class Message(models.Model):
+    id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    senderId = models.CharField(max_length=50)
+    receiverId = models.CharField(max_length=50, blank=True, null=True) # null if group message
+    groupName = models.CharField(max_length=100, blank=True, null=True) # e.g., 'all', 'managers'
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    readBy = models.JSONField(default=list, blank=True) # List of objects: [{userId: "...", readAt: "..."}]
+    
+    def __str__(self):
+        return f"From {self.senderId} at {self.timestamp}"

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useToast } from "@/components/ui/use-toast";
 
 const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
 
 interface AddEmployeeModalProps {
   onClose: () => void;
   onSuccess: () => void;
-  initialData?: any;
+  initialData?: Record<string, string>;
   requestId?: string;
 }
 
@@ -13,6 +14,7 @@ interface Role { id: string; roleName: string; roleCode: string; }
 interface Department { id: string; departmentName: string; }
 
 export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }: AddEmployeeModalProps) {
+  const { toast } = useToast();
   const [roles, setRoles] = useState<Role[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
@@ -20,7 +22,6 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
   const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
-    employeeId: initialData?.employeeId || '',
     fullName: initialData?.fullName || '',
     email: initialData?.email || '',
     mobileNumber: initialData?.mobileNumber || '',
@@ -53,9 +54,9 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
     setSaving(true);
     setError('');
 
-    const payload = { ...formData };
-    if (!payload.roleId) delete (payload as any).roleId;
-    if (!payload.departmentId) delete (payload as any).departmentId;
+    const payload: Partial<typeof formData> = { ...formData };
+    if (!payload.roleId) delete payload.roleId;
+    if (!payload.departmentId) delete payload.departmentId;
 
     try {
       const response = await fetch(`${API}/api/employees/`, {
@@ -65,6 +66,7 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
       });
 
       if (response.ok) {
+        const responseData = await response.json();
         if (requestId) {
           // Mark the request as approved
           try {
@@ -77,6 +79,30 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
             console.error("Failed to approve request", e);
           }
         }
+
+        // Post a New Employee Notification
+        try {
+          await fetch(`${API}/api/ops/alerts/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: "tracking_update",
+              message: `New Employee Registered: ${payload.fullName} (${responseData.employeeId || 'New'})`,
+              severity: "low",
+              resolved: false,
+              relatedEntityId: responseData.employeeId || 'unknown',
+              relatedEntityType: "employee"
+            })
+          });
+        } catch (e) {
+          console.error("Failed to create alert", e);
+        }
+
+        toast({
+          title: "Employee Registered",
+          description: `${payload.fullName} has been successfully added to the system.`,
+        });
+
         onSuccess();
       } else {
         const errorData = await response.json();
@@ -114,11 +140,7 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
           )}
 
           {/* Basic Info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>Employee ID *</label>
-              <input name="employeeId" value={formData.employeeId} onChange={handleChange} required placeholder="e.g. EMP-001" className={inputCls} />
-            </div>
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className={labelCls}>Full Name *</label>
               <input name="fullName" value={formData.fullName} onChange={handleChange} required placeholder="John Doe" className={inputCls} />
@@ -130,7 +152,7 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
             <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="employee@company.com" className={inputCls} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Mobile Number *</label>
               <input name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} required placeholder="9876543210" className={inputCls} />
@@ -147,7 +169,7 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
           </div>
 
           {/* Role & Department Dropdowns */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Role</label>
               {loadingMeta ? (
@@ -177,7 +199,7 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
           </div>
 
           {/* Work Details */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Work Mode</label>
               <select name="workMode" value={formData.workMode} onChange={handleChange} className={inputCls}>

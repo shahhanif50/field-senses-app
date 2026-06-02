@@ -28,6 +28,7 @@ import {
   Mail,
   User,
   Search,
+  Navigation,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useMasterData } from "@/contexts/MasterDataContext";
+import { useMasterData, MasterDataProvider } from "@/contexts/MasterDataContext";
 import { Lead, Customer } from "@/data/sharedTypes";
 import { LiveTrackingMap } from "@/components/tracking/LiveTrackingMap";
 

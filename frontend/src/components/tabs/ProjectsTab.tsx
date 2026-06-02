@@ -15,13 +15,16 @@ import {
 } from '@/components/ui/select';
 import { useMasterData } from '@/contexts/MasterDataContext';
 
+const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+
 interface Project {
   id: string;
   name: string;
   description: string;
   status: string;
-  assignedEmployee: string;
-  assignedEmployeeName?: string;
+  projectType: string;
+  assignedEmployees: string[];
+  assignedEmployeeNames?: string;
   startDate: string;
   endDate: string;
 }
@@ -33,8 +36,8 @@ interface Task {
   status: string;
   project: string;
   projectName?: string;
-  assignedEmployee: string;
-  assignedEmployeeName?: string;
+  assignedEmployees: string[];
+  assignedEmployeeNames?: string;
   dueDate: string;
 }
 
@@ -51,7 +54,10 @@ export function ProjectsTab() {
 
   const userRole = sessionStorage.getItem("userRole") || "employee";
   const employeeId = sessionStorage.getItem("employeeId") || "";
+  const userId = sessionStorage.getItem("userId") || "";
   const isAdmin = userRole.toLowerCase() === "admin";
+  const isManager = userRole.toLowerCase() === "manager";
+  const canManage = isAdmin || isManager;
 
   useEffect(() => {
     fetchProjects();
@@ -60,22 +66,30 @@ export function ProjectsTab() {
 
   const fetchProjects = async () => {
     try {
-      let url = 'http://127.0.0.1:8000/api/projects/';
-      if (!isAdmin) url += `?employeeId=${employeeId}`;
-      const response = await fetch(url);
+      let url = `${API}/api/projects/?_t=${Date.now()}`;
+      const response = await fetch(url, {
+        headers: {
+          'X-User-Id': userId,
+          'X-User-Role': userRole.toUpperCase()
+        }
+      });
       if (response.ok) {
         setProjects(await response.json());
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
     }
   };
 
   const fetchTasks = async () => {
     try {
-      let url = 'http://127.0.0.1:8000/api/tasks/';
-      if (!isAdmin) url += `?employeeId=${employeeId}`;
-      const response = await fetch(url);
+      let url = `${API}/api/tasks/?_t=${Date.now()}`;
+      const response = await fetch(url, {
+        headers: {
+          'X-User-Id': userId,
+          'X-User-Role': userRole.toUpperCase()
+        }
+      });
       if (response.ok) {
         setTasks(await response.json());
       }
@@ -86,8 +100,8 @@ export function ProjectsTab() {
 
   const handleSaveProject = async () => {
     const url = projectForm.id 
-      ? `http://127.0.0.1:8000/api/projects/${projectForm.id}/`
-      : 'http://127.0.0.1:8000/api/projects/';
+      ? `${API}/api/projects/${projectForm.id}/`
+      : `${API}/api/projects/`;
     const method = projectForm.id ? 'PUT' : 'POST';
 
     try {
@@ -108,8 +122,8 @@ export function ProjectsTab() {
 
   const handleSaveTask = async () => {
     const url = taskForm.id 
-      ? `http://127.0.0.1:8000/api/tasks/${taskForm.id}/`
-      : 'http://127.0.0.1:8000/api/tasks/';
+      ? `${API}/api/tasks/${taskForm.id}/`
+      : `${API}/api/tasks/`;
     const method = taskForm.id ? 'PUT' : 'POST';
 
     // If an employee updates a task status, they use PUT
@@ -131,7 +145,7 @@ export function ProjectsTab() {
 
   const handleUpdateTaskStatus = async (taskId: string, newStatus: string, currentTask: Task) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/tasks/${taskId}/`, {
+      const response = await fetch(`${API}/api/tasks/${taskId}/`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...currentTask, status: newStatus })
@@ -174,13 +188,18 @@ export function ProjectsTab() {
             <div key={proj.id} className="bg-card/40 border border-border/50 p-6 rounded-2xl hover:shadow-lg transition-all relative group">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="font-semibold text-lg">{proj.name}</h3>
-                <span className={`px-2 py-1 text-xs rounded-full border ${getStatusColor(proj.status)}`}>
-                  {proj.status}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`px-2 py-1 text-xs rounded-full border ${getStatusColor(proj.status)}`}>
+                    {proj.status}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border/50">
+                    {proj.projectType || 'Group'}
+                  </span>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{proj.description}</p>
               <div className="flex items-center justify-between text-sm text-muted-foreground border-t border-border/50 pt-4">
-                <span>Assignee: {proj.assignedEmployeeName || 'Unassigned'}</span>
+                <span>Assignees: {proj.assignedEmployeeNames || 'Unassigned'}</span>
                 <span>Due: {proj.endDate ? new Date(proj.endDate).toLocaleDateString() : 'N/A'}</span>
               </div>
               {isAdmin && (
@@ -206,7 +225,7 @@ export function ProjectsTab() {
             </h2>
             <p className="text-muted-foreground mt-1">Track and manage individual task assignments.</p>
           </div>
-          {isAdmin && (
+          {canManage && (
             <Button onClick={() => { setTaskForm({}); setIsTaskModalOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" /> New Task
             </Button>
@@ -224,7 +243,7 @@ export function ProjectsTab() {
                 <p className="text-sm text-muted-foreground">{task.description}</p>
                 <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}</span>
-                  <span>Assigned to: {task.assignedEmployeeName || 'Unassigned'}</span>
+                  <span>Assigned to: {task.assignedEmployeeNames || 'Unassigned'}</span>
                 </div>
               </div>
               
@@ -242,7 +261,7 @@ export function ProjectsTab() {
                     <SelectItem value="Done">Done</SelectItem>
                   </SelectContent>
                 </Select>
-                {isAdmin && (
+                {canManage && (
                   <Button variant="ghost" size="icon" onClick={() => { setTaskForm(task); setIsTaskModalOpen(true); }}>
                     <Edit2 className="w-4 h-4" />
                   </Button>
@@ -265,27 +284,54 @@ export function ProjectsTab() {
             <Label>Description</Label>
             <Input value={projectForm.description || ''} onChange={(e) => setProjectForm({...projectForm, description: e.target.value})} />
           </div>
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={projectForm.status || 'Active'} onValueChange={(v) => setProjectForm({...projectForm, status: v})}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Active">Active</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="On Hold">On Hold</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Assignee</Label>
-            <Select value={projectForm.assignedEmployee || ''} onValueChange={(v) => setProjectForm({...projectForm, assignedEmployee: v})}>
-              <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
-              <SelectContent>
-                {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.fullName}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
           <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={projectForm.status || 'Active'} onValueChange={(v) => setProjectForm({...projectForm, status: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="On Hold">On Hold</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Project Type</Label>
+              <Select value={projectForm.projectType || 'Group'} onValueChange={(v) => setProjectForm({...projectForm, projectType: v})}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Group">Group</SelectItem>
+                  <SelectItem value="Individual">Individual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Assignees</Label>
+            <div className="border border-input rounded-md max-h-32 overflow-y-auto p-2 space-y-1 bg-background">
+              {employees.map(e => (
+                <label key={e.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted p-1 rounded">
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-input"
+                    checked={(projectForm.assignedEmployees || []).includes(e.id)}
+                    onChange={(ev) => {
+                      const curr = projectForm.assignedEmployees || [];
+                      if (ev.target.checked) {
+                        setProjectForm({...projectForm, assignedEmployees: [...curr, e.id]});
+                      } else {
+                        setProjectForm({...projectForm, assignedEmployees: curr.filter(id => id !== e.id)});
+                      }
+                    }}
+                  />
+                  {e.fullName}
+                </label>
+              ))}
+              {employees.length === 0 && <span className="text-muted-foreground text-xs p-1">No employees found.</span>}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2"><Label>Start Date</Label><Input type="date" value={projectForm.startDate || ''} onChange={e => setProjectForm({...projectForm, startDate: e.target.value})} /></div>
             <div className="space-y-2"><Label>End Date</Label><Input type="date" value={projectForm.endDate || ''} onChange={e => setProjectForm({...projectForm, endDate: e.target.value})} /></div>
           </div>
@@ -328,13 +374,28 @@ export function ProjectsTab() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Assignee</Label>
-            <Select value={taskForm.assignedEmployee || ''} onValueChange={(v) => setTaskForm({...taskForm, assignedEmployee: v})}>
-              <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
-              <SelectContent>
-                {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.fullName}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Label>Assignees</Label>
+            <div className="border border-input rounded-md max-h-32 overflow-y-auto p-2 space-y-1 bg-background">
+              {employees.map(e => (
+                <label key={e.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted p-1 rounded">
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-input"
+                    checked={(taskForm.assignedEmployees || []).includes(e.id)}
+                    onChange={(ev) => {
+                      const curr = taskForm.assignedEmployees || [];
+                      if (ev.target.checked) {
+                        setTaskForm({...taskForm, assignedEmployees: [...curr, e.id]});
+                      } else {
+                        setTaskForm({...taskForm, assignedEmployees: curr.filter(id => id !== e.id)});
+                      }
+                    }}
+                  />
+                  {e.fullName}
+                </label>
+              ))}
+              {employees.length === 0 && <span className="text-muted-foreground text-xs p-1">No employees found.</span>}
+            </div>
           </div>
           <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={taskForm.dueDate || ''} onChange={e => setTaskForm({...taskForm, dueDate: e.target.value})} /></div>
           <div className="pt-4 flex justify-end gap-3 border-t border-border/50">

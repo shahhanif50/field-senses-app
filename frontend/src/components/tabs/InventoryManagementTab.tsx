@@ -1323,7 +1323,7 @@ export default function InventoryManagementTab() {
           <Package className="w-4 h-4 text-primary" />
           Basic Info
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Product ID</Label>
             <Input 
@@ -1403,7 +1403,7 @@ export default function InventoryManagementTab() {
           <Ruler className="w-4 h-4 text-primary" />
           Measurement
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Unit of Measure <span className="text-destructive">*</span></Label>
             <Select value={productForm.uom} onValueChange={(v) => setProductForm({ ...productForm, uom: v })} disabled={modalMode === "view"}>
@@ -1433,7 +1433,7 @@ export default function InventoryManagementTab() {
           <DollarSign className="w-4 h-4 text-primary" />
           Pricing & Tax
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Default Selling Price <span className="text-destructive">*</span></Label>
             <div className="relative">
@@ -1480,7 +1480,7 @@ export default function InventoryManagementTab() {
           <Settings className="w-4 h-4 text-primary" />
           Inventory Behavior Controls
         </h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center justify-between p-4 border rounded-xl">
             <div>
               <Label className="font-medium">Track Inventory</Label>
@@ -1556,7 +1556,7 @@ export default function InventoryManagementTab() {
           <Tag className="w-4 h-4 text-primary" />
           System Information
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Category ID</Label>
             <Input 
@@ -1596,7 +1596,7 @@ export default function InventoryManagementTab() {
           <FolderTree className="w-4 h-4 text-primary" />
           Category Details
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Category Name <span className="text-destructive">*</span></Label>
             <Input 
@@ -1725,7 +1725,7 @@ export default function InventoryManagementTab() {
           <Tag className="w-4 h-4 text-primary" />
           System Information
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>UOM ID</Label>
             <Input 
@@ -1765,7 +1765,7 @@ export default function InventoryManagementTab() {
           <Ruler className="w-4 h-4 text-primary" />
           Unit Details
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>UOM Name <span className="text-destructive">*</span></Label>
             <Input 
@@ -1816,7 +1816,7 @@ export default function InventoryManagementTab() {
           <Settings className="w-4 h-4 text-primary" />
           Conversion Settings
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Base Unit {!uomForm.isBaseUnit && <span className="text-destructive">*</span>}</Label>
             <Select 
@@ -1931,7 +1931,7 @@ export default function InventoryManagementTab() {
           <Tag className="w-4 h-4 text-primary" />
           System Information
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Location ID</Label>
             <Input 
@@ -1971,7 +1971,7 @@ export default function InventoryManagementTab() {
           <Warehouse className="w-4 h-4 text-primary" />
           Location Details
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Warehouse / Location Name <span className="text-destructive">*</span></Label>
             <Input 
@@ -2036,7 +2036,7 @@ export default function InventoryManagementTab() {
           <MapPin className="w-4 h-4 text-primary" />
           Address & Geo-Location
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2 col-span-2">
             <Label>Address</Label>
             <Textarea 
@@ -2094,7 +2094,7 @@ export default function InventoryManagementTab() {
           <Shield className="w-4 h-4 text-primary" />
           GPS & Security Controls
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center justify-between p-4 border rounded-xl">
             <div>
               <Label className="font-medium">GPS Enabled</Label>
@@ -2179,7 +2179,7 @@ export default function InventoryManagementTab() {
           <Tag className="w-4 h-4 text-primary" />
           System Information
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Vendor ID</Label>
             <Input 
@@ -2219,7 +2219,7 @@ export default function InventoryManagementTab() {
           <User className="w-4 h-4 text-primary" />
           Vendor Details
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Vendor Name <span className="text-destructive">*</span></Label>
             <Input 
@@ -2276,7 +2276,7 @@ export default function InventoryManagementTab() {
           <Phone className="w-4 h-4 text-primary" />
           Contact Information
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Phone Number <span className="text-destructive">*</span></Label>
             <Input 
@@ -2317,7 +2317,7 @@ export default function InventoryManagementTab() {
           <CreditCard className="w-4 h-4 text-primary" />
           Financial & Credit Terms
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>GST / Tax ID</Label>
             <Input 
@@ -2374,7 +2374,7 @@ export default function InventoryManagementTab() {
           <Building2 className="w-4 h-4 text-primary" />
           Warehouse Assignment
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Linked Warehouse</Label>
             <Select value={vendorForm.linkedWarehouse} onValueChange={(v) => setVendorForm({ ...vendorForm, linkedWarehouse: v })} disabled={modalMode === "view"}>
@@ -2450,7 +2450,7 @@ export default function InventoryManagementTab() {
           <Tag className="w-4 h-4 text-primary" />
           System Information
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Tax Code ID</Label>
             <Input 
@@ -2491,7 +2491,7 @@ export default function InventoryManagementTab() {
           <Receipt className="w-4 h-4 text-primary" />
           Tax Rate & Application
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Tax Rate (%) <span className="text-destructive">*</span></Label>
             <div className="relative">
@@ -2561,7 +2561,7 @@ export default function InventoryManagementTab() {
           <Calendar className="w-4 h-4 text-primary" />
           Rounding & Validity Period
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Rounding Rule</Label>
             <Select value={taxForm.roundingRule || "Round"} onValueChange={(v) => setTaxForm({ ...taxForm, roundingRule: v })} disabled={modalMode === "view"}>
@@ -2605,7 +2605,7 @@ export default function InventoryManagementTab() {
             <DollarSign className="w-4 h-4 text-muted-foreground" />
             Tax Calculation Preview
           </h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div className="p-3 bg-background rounded-lg">
               <span className="text-muted-foreground">If Base Price is ₹100:</span>
               <div className="mt-2 space-y-1">
@@ -2688,7 +2688,7 @@ export default function InventoryManagementTab() {
           <Tag className="w-4 h-4 text-primary" />
           System Information
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Opening Stock ID</Label>
             <Input 
@@ -2741,7 +2741,7 @@ export default function InventoryManagementTab() {
           <Package className="w-4 h-4 text-primary" />
           Product & Location Selection
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Product <span className="text-destructive">*</span></Label>
             <Select 
@@ -2812,7 +2812,7 @@ export default function InventoryManagementTab() {
           <DollarSign className="w-4 h-4 text-primary" />
           Quantity & Valuation
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Opening Quantity <span className="text-destructive">*</span></Label>
             <Input 
@@ -2913,7 +2913,7 @@ export default function InventoryManagementTab() {
           <Tag className="w-4 h-4 text-primary" />
           Rule Information
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Rule ID</Label>
             <Input 
@@ -2976,7 +2976,7 @@ export default function InventoryManagementTab() {
           <AlertTriangle className="w-4 h-4 text-primary" />
           Stock Thresholds
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Minimum Stock <span className="text-destructive">*</span></Label>
             <Input 
@@ -3043,7 +3043,7 @@ export default function InventoryManagementTab() {
           <Settings className="w-4 h-4 text-primary" />
           Alert & Notification Settings
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Notification Channel <span className="text-destructive">*</span></Label>
             <Select value={ruleForm.alertChannel} onValueChange={(v) => setRuleForm({ ...ruleForm, alertChannel: v as "App" | "Email" | "Both" })} disabled={modalMode === "view"}>
@@ -3120,7 +3120,7 @@ export default function InventoryManagementTab() {
           <Tag className="w-4 h-4 text-primary" />
           System Information
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Config ID</Label>
             <Input 
@@ -3156,7 +3156,7 @@ export default function InventoryManagementTab() {
           <Receipt className="w-4 h-4 text-primary" />
           Invoice Configuration
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Invoice Prefix <span className="text-destructive">*</span></Label>
             <Input 
@@ -3196,7 +3196,7 @@ export default function InventoryManagementTab() {
           <CreditCard className="w-4 h-4 text-primary" />
           Invoice Type & Payment
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Invoice Type (GST / Non-GST)</Label>
             <Select 
@@ -3253,7 +3253,7 @@ export default function InventoryManagementTab() {
           <Settings className="w-4 h-4 text-primary" />
           Control Settings
         </h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center justify-between p-4 border rounded-xl hover:bg-muted/30 transition-colors">
             <div>
               <Label className="font-medium">Auto Invoice Generation</Label>
@@ -3389,7 +3389,7 @@ export default function InventoryManagementTab() {
           <DollarSign className="w-4 h-4 text-primary" />
           Inventory Valuation Methods
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Valuation Method <span className="text-destructive">*</span></Label>
             <Select value={inventorySettings.valuationMethod} onValueChange={(v) => setInventorySettings({ ...inventorySettings, valuationMethod: v })}>
@@ -3466,7 +3466,7 @@ export default function InventoryManagementTab() {
           <Shield className="w-4 h-4 text-primary" />
           Control Toggles
         </h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center justify-between p-4 border rounded-xl hover:bg-muted/30 transition-colors">
             <div>
               <Label className="font-medium">Allow Negative Stock</Label>
@@ -3536,7 +3536,7 @@ export default function InventoryManagementTab() {
           <Receipt className="w-4 h-4 text-primary" />
           Invoice Configuration
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Invoice Sequence ID</Label>
             <Input 
@@ -3586,7 +3586,7 @@ export default function InventoryManagementTab() {
           <Settings className="w-4 h-4 text-primary" />
           Control Fields
         </h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center justify-between p-4 border rounded-xl">
             <div>
               <Label className="font-medium">Auto Invoice Generation</Label>
@@ -3648,7 +3648,7 @@ export default function InventoryManagementTab() {
           <Settings className="w-4 h-4 text-primary" />
           Analytics Configuration
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Analytics Configuration ID</Label>
             <Input 
@@ -3691,7 +3691,7 @@ export default function InventoryManagementTab() {
           <Tag className="w-4 h-4 text-primary" />
           KPI Threshold Values
         </h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Low Stock Threshold (%)</Label>
             <Input type="number" value={analyticsSettings.lowStockThreshold} onChange={(e) => setAnalyticsSettings({ ...analyticsSettings, lowStockThreshold: parseInt(e.target.value) })} placeholder="10" />
@@ -3721,7 +3721,7 @@ export default function InventoryManagementTab() {
           <Shield className="w-4 h-4 text-primary" />
           Control Fields
         </h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center justify-between p-4 border rounded-xl">
             <div>
               <Label className="font-medium">Inventory Analytics Enabled</Label>

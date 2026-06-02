@@ -20,12 +20,15 @@ import InventoryManagementTab from "@/components/tabs/InventoryManagementTab";
 import { DailyTrackingTab } from "@/components/tabs/DailyTrackingTab";
 import { AlertsTab } from "@/components/tabs/AlertsTab";
 import { ApprovalsTab } from "@/components/tabs/ApprovalsTab";
+import { AttendanceLeavesTab } from "@/components/tabs/AttendanceLeavesTab";
+import { CommunicationTab } from "@/components/tabs/CommunicationTab";
 import { ProfileTab } from "@/components/tabs/ProfileTab";
 import { ReportsTab } from "@/components/tabs/ReportsTab";
 import { MasterDataProvider } from "@/contexts/MasterDataContext";
 import { LiveTrackingMap } from "@/components/tracking/LiveTrackingMap";
 import { ProjectsTab } from "@/components/tabs/ProjectsTab";
 import { DocumentsTab } from "@/components/tabs/DocumentsTab";
+import { PermissionsTab } from "@/components/tabs/PermissionsTab";
 
 const Index = () => {
   const userRole = sessionStorage.getItem("userRole");
@@ -75,10 +78,16 @@ const Index = () => {
         return <ReportsTab />;
       case "alerts":
         return <AlertsTab />;
+      case "attendance-leaves":
+        return <AttendanceLeavesTab />;
       case "documents":
         return <DocumentsTab />;
+      case "communication":
+        return <CommunicationTab />;
       case "projects":
         return <ProjectsTab />;
+      case "permissions":
+        return <PermissionsTab />;
       case "approvals":
         return <ApprovalsTab />;
       case "profile":

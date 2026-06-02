@@ -6,6 +6,29 @@ import uuid
 def generate_uuid():
     return str(uuid.uuid4())
 
+def generate_employee_id():
+    """Generate a unique employee ID using a UUID-based approach."""
+    import re
+    # Find the maximum numeric suffix among EMP-XXXX style IDs
+    max_num = 1000
+    try:
+        for emp in Employee.objects.all():
+            eid = emp.employeeId or ''
+            # Match patterns like EMP-1001, EMP001, EMP-3, etc.
+            match = re.search(r'(\d+)$', eid)
+            if match:
+                num = int(match.group(1))
+                if num > max_num:
+                    max_num = num
+    except Exception:
+        pass
+    # Ensure uniqueness by checking the generated ID doesn't already exist
+    candidate = f'EMP-{max_num + 1}'
+    while Employee.objects.filter(employeeId=candidate).exists():
+        max_num += 1
+        candidate = f'EMP-{max_num + 1}'
+    return candidate
+
 class Role(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
     roleName = models.CharField(max_length=100)
@@ -45,7 +68,7 @@ class StatusMaster(models.Model):
 
 class Employee(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
-    employeeId = models.CharField(max_length=50, unique=True)
+    employeeId = models.CharField(max_length=50, unique=True, default=generate_employee_id)
     fullName = models.CharField(max_length=200)
     email = models.EmailField(unique=True)
     mobileNumber = models.CharField(max_length=20)
@@ -118,9 +141,11 @@ class Project(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=50, default='Active') # Active, Completed, On Hold
+    PROJECT_TYPES = (('Group', 'Group'), ('Individual', 'Individual'))
+    projectType = models.CharField(max_length=50, choices=PROJECT_TYPES, default='Group')
     startDate = models.DateField(blank=True, null=True)
     endDate = models.DateField(blank=True, null=True)
-    assignedEmployee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='projects')
+    assignedEmployees = models.ManyToManyField(Employee, related_name='projects', blank=True)
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
 
@@ -134,7 +159,7 @@ class Task(models.Model):
     status = models.CharField(max_length=50, default='Pending') # Pending, In Progress, Done
     dueDate = models.DateField(blank=True, null=True)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='tasks', null=True, blank=True)
-    assignedEmployee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
+    assignedEmployees = models.ManyToManyField(Employee, related_name='tasks', blank=True)
     createdAt = models.DateTimeField(auto_now_add=True)
     updatedAt = models.DateTimeField(auto_now=True)
 
@@ -152,3 +177,16 @@ class Document(models.Model):
 
     def __str__(self):
         return self.title
+
+class PermissionRequest(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    requester = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='requests_made')
+    approver = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name='requests_to_approve')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=50, default='Pending') # Pending, Approved, Rejected
+    createdAt = models.DateTimeField(auto_now_add=True)
+    updatedAt = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.title} - {self.requester.fullName}"

@@ -1150,7 +1150,7 @@ export function DistributorLinkageTab({
           {/* Infrastructure */}
           <div className="space-y-3 pt-4 border-t">
             <Label className="text-base font-semibold">Infrastructure Summary</Label>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-5 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-blue-500" />

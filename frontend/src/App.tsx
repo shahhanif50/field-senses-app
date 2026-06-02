@@ -53,15 +53,6 @@ const App = () => (
             />
 
             <Route
-              path="/employees"
-              element={
-                <ProtectedRoute>
-                  <EmployeePortalTab />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
               path="/sales-portal"
               element={
                 <SalesProtectedRoute>

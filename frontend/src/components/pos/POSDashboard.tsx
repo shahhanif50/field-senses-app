@@ -207,7 +207,7 @@ export default function POSDashboard({ locations }: POSDashboardProps) {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -373,7 +373,7 @@ export default function POSDashboard({ locations }: POSDashboardProps) {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Sales Chart */}
             <Card className="col-span-2">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -458,7 +458,7 @@ export default function POSDashboard({ locations }: POSDashboardProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {terminals.map((terminal, index) => {
                   const status = getStatusIndicator(terminal.status);
                   const TypeIcon = getTerminalTypeIcon(terminal.type);
@@ -495,7 +495,7 @@ export default function POSDashboard({ locations }: POSDashboardProps) {
                           </span>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                         <div>
                           <p className="text-muted-foreground">Sales</p>
                           <p className="font-semibold">{formatCurrency(terminal.todaySales)}</p>
@@ -712,7 +712,7 @@ export default function POSDashboard({ locations }: POSDashboardProps) {
 
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Terminal Performance */}
             <Card>
               <CardHeader className="pb-2">
@@ -775,7 +775,7 @@ export default function POSDashboard({ locations }: POSDashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
                       <div className="flex items-center gap-2 text-emerald-500">
                         <CheckCircle className="w-5 h-5" />
@@ -886,7 +886,7 @@ export default function POSDashboard({ locations }: POSDashboardProps) {
                 </Button>
               </div>
               <div className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground">Location</p>
                     <p className="font-medium flex items-center gap-2">
@@ -916,7 +916,7 @@ export default function POSDashboard({ locations }: POSDashboardProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 rounded-xl bg-muted/50 text-center">
                     <p className="text-2xl font-bold">{formatCurrency(selectedTerminal.todaySales)}</p>
                     <p className="text-sm text-muted-foreground">Today's Sales</p>

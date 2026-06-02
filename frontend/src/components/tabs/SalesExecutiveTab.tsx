@@ -301,17 +301,6 @@ export function SalesExecutiveTab() {
   };
 
 
-  // Filter data based on search and filters
-  const getFilteredData = <T extends Record<string, any>>(data: T[], searchFields: (keyof T)[]): T[] => {
-    return data.filter((item) => {
-      const matchesSearch = searchQuery === "" || 
-        searchFields.some((field) => 
-          String(item[field]).toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      return matchesSearch;
-    });
-  };
-
   // Modal handlers
   const resetFormData = () => setFormData({});
 
@@ -350,8 +339,37 @@ export function SalesExecutiveTab() {
 
   // Export handlers
   const handleExport = (format: "csv" | "excel" | "pdf") => {
-    console.log(`Exporting as ${format}...`);
-    // In real implementation, this would generate and download the file
+    const data = getCurrentData();
+    if (data.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+    
+    // Create CSV content
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(","),
+      ...data.map(row => 
+        headers.map(header => {
+          let val = row[header as keyof typeof row];
+          if (val === null || val === undefined) val = "";
+          // Handle arrays (e.g. linkedDistributorIds) and escape commas/quotes
+          if (Array.isArray(val)) val = val.join(" | ");
+          return `"${String(val).replace(/"/g, '""')}"`;
+        }).join(",")
+      )
+    ].join("\n");
+    
+    // Trigger download
+    const blob = new Blob([csvRows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${activeSubTab}_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
 
@@ -390,35 +408,6 @@ export function SalesExecutiveTab() {
         };
     }
   };
-
-  // ============= Search & Filter Bar =============
-
-  const renderSearchFilterBar = () => (
-    <div className="bg-card/50 border border-border/50 rounded-xl p-4">
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder={`Search ${getSectionInfo().title.toLowerCase()}...`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-background"
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <Filter className="w-4 h-4" />
-            Filters
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={() => handleExport("excel")}>
-            <Download className="w-4 h-4" />
-            Export
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
 
   // ============= Sales Executive Assignment =============
 
@@ -1553,16 +1542,108 @@ export function SalesExecutiveTab() {
   const getCurrentData = () => {
     switch (activeSubTab) {
       case "sales-assignment":
-        return getFilteredData(salesExecutives, ["fullName", "email", "role", "department"]);
+        return salesExecutives.filter((se) => {
+          const matchesStatus = filterStatus === "all" || se.status === filterStatus;
+          const matchesRole = filterCategory === "all" || se.role === filterCategory;
+          return matchesStatus && matchesRole;
+        });
       case "territory-setup":
-        return getFilteredData(territories, ["name", "region", "district"]);
+        return territories.filter((t) => {
+          const matchesStatus = filterStatus === "all" || t.status === filterStatus;
+          const matchesRegion = filterRegion === "all" || t.region === filterRegion;
+          return matchesStatus && matchesRegion;
+        });
       case "distributor-linkage":
-        return getFilteredData(distributorLinks, ["firmName", "distributorId"]);
+        return distributorLinks;
       case "targets-performance":
-        return getFilteredData(salesTargets, ["productCategory"]);
+        return salesTargets.filter((st) => {
+          const matchesStatus = filterStatus === "all" || st.status === filterStatus;
+          return matchesStatus;
+        });
       default:
         return [];
     }
+  };
+
+  const renderFilters = () => {
+    if (activeSubTab === "sales-assignment") {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+                <SelectItem value="On Leave">On Leave</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Role</Label>
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger><SelectValue placeholder="All Roles" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="Senior Sales Executive">Senior Sales Executive</SelectItem>
+                <SelectItem value="Sales Executive">Sales Executive</SelectItem>
+                <SelectItem value="Trainee">Trainee</SelectItem>
+                <SelectItem value="Area Manager">Area Manager</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      );
+    } else if (activeSubTab === "territory-setup") {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Region</Label>
+            <Select value={filterRegion} onValueChange={setFilterRegion}>
+              <SelectTrigger><SelectValue placeholder="All Regions" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Regions</SelectItem>
+                <SelectItem value="North">North</SelectItem>
+                <SelectItem value="South">South</SelectItem>
+                <SelectItem value="East">East</SelectItem>
+                <SelectItem value="West">West</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      );
+    } else if (activeSubTab === "targets-performance") {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="On Track">On Track</SelectItem>
+                <SelectItem value="Behind">Behind</SelectItem>
+                <SelectItem value="Achieved">Achieved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   const getCurrentColumns = (): Column<any>[] => {
@@ -1653,6 +1734,8 @@ export function SalesExecutiveTab() {
               onView={(row) => openModal("view", row)}
               onEdit={(row) => openModal("edit", row)}
               onDelete={handleDelete}
+              onExport={() => handleExport("csv")}
+              filterContent={renderFilters()}
             />
           )}
         </motion.div>

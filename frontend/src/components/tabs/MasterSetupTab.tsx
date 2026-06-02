@@ -452,15 +452,15 @@ export function MasterSetupTab() {
       render: (value) => getDepartmentName(String(value))
     },
     {
-      key: "statusId",
+      key: "accountStatus",
       header: "Status",
       render: (value) => {
-        const statusName = getStatusName(String(value));
+        const isActive = Boolean(value);
         return (
           <StatusBadge 
-            status={statusName === "Active" ? "active" : "inactive"}
-            label={statusName}
-            pulse={statusName === "Active"} 
+            status={isActive ? "active" : "inactive"}
+            label={isActive ? "Active" : "Disabled"}
+            pulse={isActive} 
           />
         );
       },
@@ -490,7 +490,6 @@ export function MasterSetupTab() {
     const defaultStatusId = activeStatuses.find(s => s.statusName === "Active")?.id || activeStatuses[0]?.id || "";
     
     setEmployeeForm({
-      employeeId: `EMP${String(employees.length + 1).padStart(3, "0")}`,
       fullName: "",
       email: "",
       mobileNumber: "",
@@ -1829,7 +1828,7 @@ export function MasterSetupTab() {
                   </div>
                   
                   {bulkToggleRole && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2 border-t border-border">
+                    <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2 border-t border-border">
                       {(["view", "create", "edit", "delete", "approve", "export"] as const).map((perm) => {
                         const allEnabled = rolePermissions
                           .filter(p => p.roleId === bulkToggleRole)
@@ -2127,10 +2126,6 @@ export function MasterSetupTab() {
                 Basic Info
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Employee ID</Label>
-                  <Input value={employeeForm.employeeId || ""} disabled className="bg-muted" />
-                </div>
                 <div className="space-y-2">
                   <Label>Full Name *</Label>
                   <Input
@@ -2577,7 +2572,7 @@ export function MasterSetupTab() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {(["view", "create", "edit", "delete", "approve", "export"] as const).map((perm) => (
                 <div key={perm} className="flex items-center space-x-2 p-3 bg-muted/50 rounded-xl">
                   <Checkbox
@@ -2595,7 +2590,7 @@ export function MasterSetupTab() {
         {/* PERMISSION VIEW */}
         {activeMaster === "role-permissions" && modalMode === "view" && selectedPermission && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-muted/50 rounded-xl">
                 <p className="text-xs text-muted-foreground">Role</p>
                 <p className="font-medium">{selectedPermission.roleName}</p>
@@ -2605,7 +2600,7 @@ export function MasterSetupTab() {
                 <p className="font-medium">{selectedPermission.module}</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 md:grid-cols-6 gap-4">
               {(["view", "create", "edit", "delete", "approve", "export"] as const).map((perm) => (
                 <div key={perm} className="p-3 bg-muted/50 rounded-xl text-center">
                   <p className="text-xs text-muted-foreground capitalize mb-2">{perm}</p>
@@ -2869,7 +2864,7 @@ export function MasterSetupTab() {
                               </Button>
                             </div>
                             
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-3">
                               <div className="space-y-1">
                                 <Label className="text-xs">Type</Label>
                                 <Select
@@ -3578,7 +3573,7 @@ export function MasterSetupTab() {
             {/* Infrastructure */}
             <div>
               <h4 className="text-sm font-semibold mb-3 text-primary">Infrastructure</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="p-3 bg-muted/50 rounded-xl text-center">
                   <p className="text-2xl font-bold text-primary">{selectedDistributor.godownSpace}</p>
                   <p className="text-xs text-muted-foreground">Godown (sq.ft)</p>
@@ -3596,7 +3591,7 @@ export function MasterSetupTab() {
                   <p className="text-xs text-muted-foreground">Salesmen</p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-xl">
                   <span className={`w-3 h-3 rounded-full ${selectedDistributor.housePropertyOwned ? 'bg-green-500' : 'bg-red-400'}`} />
                   <span className="text-sm">Property {selectedDistributor.housePropertyOwned ? 'Owned' : 'Rented'}</span>

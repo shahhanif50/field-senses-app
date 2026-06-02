@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Eye,
   Pencil,
@@ -41,6 +41,8 @@ interface DataTableProps<T> {
   onDelete?: (row: T) => void;
   searchPlaceholder?: string;
   showExport?: boolean;
+  onExport?: () => void;
+  filterContent?: React.ReactNode;
 }
 
 export function DataTable<T extends { id: string | number }>({
@@ -51,8 +53,11 @@ export function DataTable<T extends { id: string | number }>({
   onDelete,
   searchPlaceholder = "Search...",
   showExport = true,
+  onExport,
+  filterContent,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -124,18 +129,41 @@ export function DataTable<T extends { id: string | number }>({
           />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
-            <SlidersHorizontal className="w-4 h-4" />
-            <span className="hidden sm:inline">Filters</span>
-          </Button>
+          {filterContent && (
+            <Button 
+              variant={showFilters ? "default" : "outline"} 
+              size="sm" 
+              className="gap-2"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span className="hidden sm:inline">Filters</span>
+            </Button>
+          )}
           {showExport && (
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={onExport}>
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Export</span>
             </Button>
           )}
         </div>
       </div>
+
+      {/* Filter Content */}
+      <AnimatePresence>
+        {showFilters && filterContent && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden border-b border-border/50"
+          >
+            <div className="p-4 bg-muted/10">
+              {filterContent}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Table */}
       <div className="overflow-x-auto">

@@ -76,7 +76,7 @@ export function EmployeeWalletDashboard() {
       return;
     }
     if (!wallet || amount > wallet.balance) {
-      toast({ title: "Insufficient funds", description: "You cannot withdraw more than your current balance.", variant: "destructive" });
+      toast({ title: "Insufficient funds", description: "You cannot request more than your current balance.", variant: "destructive" });
       return;
     }
 
@@ -99,17 +99,31 @@ export function EmployeeWalletDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           balance: wallet.balance - amount,
-          totalWithdrawn: wallet.totalWithdrawn + amount
+          totalWithdrawn: (wallet.totalWithdrawn || 0) + amount
         })
       });
 
-      toast({ title: "Withdrawal Requested", description: `₹${amount} has been requested successfully.` });
+      // 3. Create an alert notification for Managers/Admins
+      await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/alerts/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: "pending_approval",
+          message: `New Payout Request of ₹${amount} from Employee ${employeeId}`,
+          severity: "medium",
+          resolved: false,
+          relatedEntityId: employeeId,
+          relatedEntityType: "employee"
+        })
+      });
+
+      toast({ title: "Payout Requested", description: `₹${amount} has been requested successfully.` });
       setWithdrawAmount('');
       fetchWallet();
       fetchWithdrawals();
     } catch (e) {
       console.error(e);
-      toast({ title: "Error", description: "Failed to process withdrawal.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to process payout.", variant: "destructive" });
     }
     setIsWithdrawing(false);
   };
@@ -131,7 +145,7 @@ export function EmployeeWalletDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">₹{wallet?.balance?.toFixed(2) || '0.00'}</div>
-            <p className="text-xs text-muted-foreground mt-1">Available to withdraw</p>
+            <p className="text-xs text-muted-foreground mt-1">Available to claim</p>
           </CardContent>
         </Card>
         
@@ -146,7 +160,7 @@ export function EmployeeWalletDashboard() {
 
         <Card className="glass-card shadow-lg">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Withdrawn</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Claimed</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">₹{wallet?.totalWithdrawn?.toFixed(2) || '0.00'}</div>
@@ -156,7 +170,7 @@ export function EmployeeWalletDashboard() {
 
       <Card className="glass-card shadow-lg border-primary/20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><ArrowDownCircle className="w-5 h-5" /> Withdraw Funds</CardTitle>
+          <CardTitle className="flex items-center gap-2"><ArrowDownCircle className="w-5 h-5" /> Request Payout</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 items-end">
@@ -175,7 +189,7 @@ export function EmployeeWalletDashboard() {
               onClick={handleWithdraw}
               disabled={isWithdrawing || !wallet || wallet.balance <= 0}
             >
-              {isWithdrawing ? "Processing..." : "Request Withdrawal"}
+              {isWithdrawing ? "Processing..." : "Request Payout"}
             </Button>
           </div>
         </CardContent>
@@ -183,7 +197,7 @@ export function EmployeeWalletDashboard() {
 
       <Card className="glass-card shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><History className="w-5 h-5" /> Withdrawal History</CardTitle>
+          <CardTitle className="flex items-center gap-2"><History className="w-5 h-5" /> Payout History</CardTitle>
         </CardHeader>
         <CardContent>
           {withdrawals.length > 0 ? (
@@ -208,7 +222,7 @@ export function EmployeeWalletDashboard() {
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No withdrawal history found.
+              No payout history found.
             </div>
           )}
         </CardContent>

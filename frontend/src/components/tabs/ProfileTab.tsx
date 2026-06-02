@@ -12,18 +12,25 @@ export function ProfileTab() {
   const [error, setError] = useState("");
 
   const fetchProfile = async () => {
-    // For demo purposes, we will try to fetch the employee record by email.
-    // In a real app, the login endpoint should return the employee ID in sessionStorage.
-    // However, if the user is the fallback Admin, they won't have a real DB record unless we created one.
     const userRole = sessionStorage.getItem("userRole");
+    const userId = sessionStorage.getItem("userId") || "";
     const isAdmin = sessionStorage.getItem("isAdminLoggedIn") === "true" && userRole === "admin";
     
     try {
-      const response = await fetch(`${API}/api/employees/`);
-      const employees = await response.json();
-      
-      // If we're the admin and there's no admin employee record, show a hardcoded one.
-      if (isAdmin) {
+      if (userId && userId !== "admin") {
+        // Fetch the specific employee by their ID
+        const response = await fetch(`${API}/api/employees/${userId}/`);
+        if (response.ok) {
+          const emp = await response.json();
+          setProfile(emp);
+          return;
+        }
+      }
+
+      if (isAdmin || userId === "admin") {
+        // Try to find admin employee record
+        const response = await fetch(`${API}/api/employees/`);
+        const employees = await response.json();
         const adminRecord = employees.find((e: any) => e.email === "admin@example.com");
         if (adminRecord) {
           setProfile(adminRecord);
@@ -36,16 +43,8 @@ export function ProfileTab() {
             designation: "Administrator",
             departmentName: "Management",
             profilePhoto: null,
-            isVirtual: true // Mark as virtual so we don't try to upload photos to a non-existent record
+            isVirtual: true
           });
-        }
-      } else {
-        // Since we don't store the exact ID in session for employees right now, let's just grab the first one or we need an ID.
-        // Actually, we can get the email from the login if we stored it, but we didn't. 
-        // Let's fetch the most recently added employee for demo if role is employee.
-        // This is a placeholder logic since session doesn't have the user ID.
-        if (employees.length > 0) {
-          setProfile(employees[employees.length - 1]);
         }
       }
     } catch (e) {

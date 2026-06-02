@@ -4,7 +4,7 @@ from .views import (
     RoleViewSet, DepartmentViewSet, StatusMasterViewSet,
     ProjectViewSet, EmployeeViewSet, RolePermissionViewSet,
     ReportingManagerViewSet, LoginView, RegistrationRequestViewSet,
-    TaskViewSet, DocumentViewSet
+    TaskViewSet, DocumentViewSet, PermissionRequestViewSet
 )
 
 router = DefaultRouter()
@@ -18,6 +18,7 @@ router.register(r'reporting-managers', ReportingManagerViewSet)
 router.register(r'registration-requests', RegistrationRequestViewSet)
 router.register(r'tasks', TaskViewSet)
 router.register(r'documents', DocumentViewSet)
+router.register(r'permission-requests', PermissionRequestViewSet)
 urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='api-login'),
     path('', include(router.urls)),

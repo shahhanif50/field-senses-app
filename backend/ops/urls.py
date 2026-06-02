@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     MeetingViewSet, TrackingEntryViewSet, EmployeeTaskViewSet, AlertViewSet,
     AttendanceEntryViewSet, GeoFenceAlertViewSet, LeaveBalanceViewSet, PerformanceMetricViewSet,
-    EmployeeWalletViewSet, WithdrawalRequestViewSet
+    EmployeeWalletViewSet, WithdrawalRequestViewSet, LeaveRequestViewSet, MessageViewSet
 )
 
 router = DefaultRouter()
@@ -17,6 +17,8 @@ router.register(r'leave-balances', LeaveBalanceViewSet)
 router.register(r'performance-metrics', PerformanceMetricViewSet)
 router.register(r'wallets', EmployeeWalletViewSet)
 router.register(r'withdrawals', WithdrawalRequestViewSet)
+router.register(r'leave-requests', LeaveRequestViewSet)
+router.register(r'messages', MessageViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

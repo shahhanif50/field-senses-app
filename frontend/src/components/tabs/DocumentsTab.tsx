@@ -7,6 +7,8 @@ import { GlassModal } from '@/components/ui/GlassModal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Label } from '@/components/ui/label';
 
+const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+
 interface Document {
   id: string;
   title: string;
@@ -36,11 +38,12 @@ export function DocumentsTab() {
 
   const fetchDocuments = async () => {
     try {
-      let url = 'http://127.0.0.1:8000/api/documents/';
-      if (!isAdmin) {
-        url += `?employeeId=${employeeId}`;
-      }
-      const response = await fetch(url);
+      const response = await fetch(`${API}/api/documents/`, {
+        headers: {
+          'X-User-Id': userId,
+          'X-User-Role': userRole.toUpperCase()
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setDocuments(data);
@@ -66,15 +69,17 @@ export function DocumentsTab() {
       const fileType = uploadFile.name.split('.').pop() || 'unknown';
 
       try {
-        const response = await fetch('http://127.0.0.1:8000/api/documents/', {
+        const response = await fetch(`${API}/api/documents/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-User-Id': userId,
+            'X-User-Role': userRole.toUpperCase()
           },
           body: JSON.stringify({
             title: uploadTitle,
             fileUrl: base64String,
-            uploadedBy: employeeId,
+            uploadedBy: userId,
             fileType: fileType,
             status: 'Valid'
           }),
@@ -96,8 +101,12 @@ export function DocumentsTab() {
   const handleDelete = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this document?")) {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/documents/${id}/`, {
+        const response = await fetch(`${API}/api/documents/${id}/`, {
           method: 'DELETE',
+          headers: {
+            'X-User-Id': userId,
+            'X-User-Role': userRole.toUpperCase()
+          }
         });
         if (response.ok) {
           fetchDocuments();

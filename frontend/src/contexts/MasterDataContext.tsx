@@ -628,7 +628,10 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
   const getDepartmentNameById = useCallback((departmentId: string) => getDepartmentName(departmentId, departments), [departments]);
   const getStatusNameById = useCallback((statusId: string) => getStatusName(statusId, statusMaster), [statusMaster]);
   const getEmployeeById = useCallback((id: string) => employees.find(e => e.id === id), [employees]);
-  const getEmployeeNameById = useCallback((id: string) => employees.find(e => e.id === id)?.fullName || "Unknown", [employees]);
+  const getEmployeeNameById = useCallback((id: string) => {
+    if (id === 'admin' || id === 'SYSTEM') return 'System Admin';
+    return employees.find(e => e.id === id)?.fullName || "Unknown";
+  }, [employees]);
 
   // Extended helper functions
   const getDistributorById = useCallback((id: string) => distributors.find(d => d.id === id), [distributors]);

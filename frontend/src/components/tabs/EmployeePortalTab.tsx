@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AddEmployeeModal } from '../modals/AddEmployeeModal'; 
-import { User } from 'lucide-react';
+import { User, Phone } from 'lucide-react';
 import { EmployeeWalletDashboard } from './EmployeeWalletDashboard';
 import { AdminEarningsDashboard } from './AdminEarningsDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +16,7 @@ interface Employee {
 
 export function EmployeePortalTab() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [activeLeaves, setActiveLeaves] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetches fresh data from your Django Backend
@@ -36,10 +37,30 @@ export function EmployeePortalTab() {
       .catch((error) => console.error('Error fetching employees from Django:', error));
   };
 
+  const fetchActiveLeaves = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/leave-requests/?status=approved`);
+      const data = await res.json();
+      setActiveLeaves(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // Run the fetch once when the tab mounts
   useEffect(() => {
     fetchEmployees();
+    fetchActiveLeaves();
   }, []);
+
+  const isEmployeeOnLeave = (empId: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    return activeLeaves.some(leave => 
+      leave.employeeId === empId && 
+      leave.startDate <= today && 
+      leave.endDate >= today
+    );
+  };
 
   const userRole = sessionStorage.getItem("userRole") || "Employee";
 
@@ -69,7 +90,7 @@ export function EmployeePortalTab() {
               employees.map((emp) => (
                 <div key={emp.id} className="border p-4 rounded-xl shadow-sm bg-card flex justify-between items-center gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full border overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                    <div className="relative w-12 h-12 rounded-full border overflow-hidden bg-muted flex items-center justify-center shrink-0">
                       {emp.profilePhoto ? (
                         <img src={emp.profilePhoto} alt={emp.fullName} className="w-full h-full object-cover" />
                       ) : (
@@ -77,12 +98,19 @@ export function EmployeePortalTab() {
                       )}
                     </div>
                     <div>
-                      <p className="font-bold text-lg">{emp.fullName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-lg">{emp.fullName}</p>
+                        <div 
+                          className={`w-2.5 h-2.5 rounded-full ${isEmployeeOnLeave(emp.employeeId) ? 'bg-red-500' : 'bg-green-500'}`} 
+                          title={isEmployeeOnLeave(emp.employeeId) ? "On Holiday Today" : "Working Today"} 
+                        />
+                      </div>
                       <p className="text-sm text-muted-foreground">ID: {emp.employeeId} | Email: {emp.email}</p>
                     </div>
                   </div>
-                  <div className="text-sm font-medium">
-                    {emp.mobileNumber}
+                  <div className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
+                    <Phone className="w-4 h-4 text-slate-400" />
+                    {emp.mobileNumber || "No number"}
                   </div>
                 </div>
               ))

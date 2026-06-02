@@ -71,12 +71,20 @@ export function KPICards() {
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
+    const userRole = sessionStorage.getItem("userRole") || "";
+    const userId = sessionStorage.getItem("userId") || "";
+
+    const headers = {
+      "Content-Type": "application/json",
+      "X-User-Id": userId,
+      "X-User-Role": userRole,
+    };
 
     Promise.all([
-      fetch(`${API}/api/employees/`).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(`${API}/api/ops/tracking-entries/?date=${today}`).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(`${API}/api/ops/alerts/`).then(r => r.ok ? r.json() : []).catch(() => []),
-      fetch(`${API}/api/projects/`).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch(`${API}/api/employees/`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch(`${API}/api/ops/tracking-entries/?date=${today}`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch(`${API}/api/ops/alerts/`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch(`${API}/api/projects/`, { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
     ]).then(([employees, tracking, alerts, projects]) => {
       setEmployeeCount(Array.isArray(employees) ? employees.length : 0);
       const trackingArr = Array.isArray(tracking) ? tracking : [];
@@ -86,7 +94,7 @@ export function KPICards() {
       setAlertCount(alertArr.filter((a: any) => !a.resolved).length);
       setHighPriorityAlerts(alertArr.filter((a: any) => !a.resolved && a.severity === "high").length);
       const projArr = Array.isArray(projects) ? projects : [];
-      setActiveProjects(projArr.filter((p: any) => p.status === "active" || p.status === "in-progress").length);
+      setActiveProjects(projArr.filter((p: any) => p.status?.toLowerCase() === "active" || p.status?.toLowerCase() === "in-progress").length);
       setLoading(false);
     });
   }, []);
@@ -122,9 +130,12 @@ export function KPICards() {
     },
   ];
 
+  const userRole = sessionStorage.getItem("userRole") || "";
+  const filteredKpis = userRole === "EMPLOYEE" || userRole === "SALES_EXEC" || userRole === "WH_MGR" ? kpis.slice(1) : kpis;
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {kpis.map((kpi, index) => (
+      {filteredKpis.map((kpi, index) => (
         <KPICard key={kpi.title} {...kpi} delay={index * 0.1} isLoading={loading} />
       ))}
     </div>
