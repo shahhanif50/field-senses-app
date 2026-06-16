@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Lock, Mail, Shield, ChevronRight, Info } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Shield, ChevronRight, Info, User, Phone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, Variants } from "framer-motion";
@@ -26,6 +26,10 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignupMode, setIsSignupMode] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -34,7 +38,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const BASE = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+      const BASE = "";
 
       const response = await fetch(`${BASE}/api/auth/login/`, {
         method: "POST",
@@ -54,9 +58,51 @@ const Login = () => {
       sessionStorage.setItem("userName", data.fullName || "User");
       sessionStorage.setItem("employeeId", data.employeeId || "admin");
       sessionStorage.setItem("userId", data.id || "admin");
+      sessionStorage.setItem("organizationId", data.organizationId || "null");
+      sessionStorage.setItem("isGlobalAdmin", data.isGlobalAdmin ? "true" : "false");
+      sessionStorage.setItem("modulesEnabled", JSON.stringify(data.modulesEnabled || []));
+      sessionStorage.setItem("trackingEnabled", data.trackingEnabled ? "true" : "false");
+      sessionStorage.setItem("defaultDashboard", data.defaultDashboard || "");
       sessionStorage.setItem("isAdminLoggedIn", "true");
-      navigate("/");
+      window.location.href = "/";
 
+    } catch (err) {
+      setError("Network error. Could not connect to the server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccessMessage("");
+    setIsLoading(true);
+
+    try {
+      const BASE = "";
+
+      const response = await fetch(`${BASE}/api/registration-requests/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email, mobileNumber, password, status: "pending" }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        const errorMessage = data.error || data.detail || (data.email && data.email[0]) || "Failed to submit sign up request";
+        setError(errorMessage);
+        setIsLoading(false);
+        return;
+      }
+
+      setSuccessMessage("Sign up request submitted successfully! Pending admin approval.");
+      // Reset form
+      setFullName("");
+      setEmail("");
+      setMobileNumber("");
+      setPassword("");
+      setIsSignupMode(false);
     } catch (err) {
       setError("Network error. Could not connect to the server.");
     } finally {
@@ -95,11 +141,59 @@ const Login = () => {
               <Shield className="w-8 h-8 text-white drop-shadow-md" />
             </div>
             <p className="text-xs font-bold text-indigo-500 uppercase tracking-[0.2em] mb-3">Field Senses</p>
-            <h1 className="text-3xl font-extrabold text-slate-900 mb-2 tracking-tight">Welcome Back</h1>
-            <p className="text-sm text-slate-500 font-medium">Enter your credentials to access your portal</p>
+            <h1 className="text-3xl font-extrabold text-slate-900 mb-2 tracking-tight">
+              {isSignupMode ? "Create Account" : "Welcome Back"}
+            </h1>
+            <p className="text-sm text-slate-500 font-medium">
+              {isSignupMode ? "Submit a request to access your portal" : "Enter your credentials to access your portal"}
+            </p>
           </motion.div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={isSignupMode ? handleSignup : handleLogin} className="space-y-6">
+            <AnimatePresence>
+              {isSignupMode && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-6 overflow-hidden"
+                >
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 ml-1">Full Name</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <User className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                      </div>
+                      <Input
+                        type="text"
+                        placeholder="John Doe"
+                        value={fullName}
+                        onChange={(e) => { setFullName(e.target.value); setError(""); }}
+                        className="pl-12 h-14 bg-slate-50/50 hover:bg-slate-50 border-slate-200 rounded-2xl text-base text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
+                        required={isSignupMode}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 ml-1">Mobile Number</label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Phone className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                      </div>
+                      <Input
+                        type="tel"
+                        placeholder="+1 234 567 890"
+                        value={mobileNumber}
+                        onChange={(e) => { setMobileNumber(e.target.value); setError(""); }}
+                        className="pl-12 h-14 bg-slate-50/50 hover:bg-slate-50 border-slate-200 rounded-2xl text-base text-slate-900 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
+                        required={isSignupMode}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <motion.div variants={itemVariants} className="space-y-2">
               <label className="text-sm font-bold text-slate-700 ml-1">Email Address</label>
               <div className="relative group">
@@ -147,6 +241,19 @@ const Login = () => {
             </motion.div>
 
             <AnimatePresence>
+              {successMessage && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-4 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                    <p className="text-sm text-green-700 font-medium">{successMessage}</p>
+                  </div>
+                </motion.div>
+              )}
               {error && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
@@ -175,11 +282,25 @@ const Login = () => {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-2">
-                    Sign In
+                    {isSignupMode ? "Submit Request" : "Sign In"}
                     <ChevronRight className="w-5 h-5 opacity-70 group-hover:translate-x-1 transition-transform" />
                   </div>
                 )}
               </Button>
+            </motion.div>
+            
+            <motion.div variants={itemVariants} className="text-center pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignupMode(!isSignupMode);
+                  setError("");
+                  setSuccessMessage("");
+                }}
+                className="text-sm font-bold text-slate-500 hover:text-blue-600 transition-colors"
+              >
+                {isSignupMode ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+              </button>
             </motion.div>
           </form>
         </div>
@@ -207,7 +328,7 @@ const Login = () => {
                     <span className="font-semibold text-slate-700 w-20">{cred.role}</span>
                   </div>
                   <span className="text-slate-500 font-mono text-xs bg-white/60 px-2 py-1 rounded-md border border-slate-100">
-                    {cred.email} / password123
+                    {cred.email} / {cred.role === 'Admin' ? 'Admin@123' : 'password123'}
                   </span>
                 </div>
               ))}

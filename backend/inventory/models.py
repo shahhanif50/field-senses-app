@@ -3,6 +3,7 @@ from core.models import generate_uuid
 
 class Category(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    organization = models.ForeignKey('core.Organization', on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200)
     parentCategory = models.CharField(max_length=50, blank=True, null=True)
     TYPE_CHOICES = (('Physical', 'Physical'), ('Service', 'Service'))
@@ -19,6 +20,7 @@ class Category(models.Model):
 
 class UOM(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    organization = models.ForeignKey('core.Organization', on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=100)
     shortCode = models.CharField(max_length=20)
     conversionFactor = models.FloatField(default=1.0)
@@ -35,6 +37,7 @@ class UOM(models.Model):
 
 class Product(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    organization = models.ForeignKey('core.Organization', on_delete=models.CASCADE, null=True, blank=True)
     productId = models.CharField(max_length=50, unique=True)
     sku = models.CharField(max_length=100)
     barcode = models.CharField(max_length=100, blank=True, null=True)
@@ -48,6 +51,7 @@ class Product(models.Model):
     allowDiscount = models.BooleanField(default=False)
     serialBatchTracking = models.BooleanField(default=False)
     expiryTracking = models.BooleanField(default=False)
+    productImage = models.TextField(blank=True, null=True)
     STATUS_CHOICES = (('Active', 'Active'), ('Inactive', 'Inactive'))
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Active')
     createdAt = models.DateTimeField(auto_now_add=True)
@@ -58,6 +62,7 @@ class Product(models.Model):
 
 class Location(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    organization = models.ForeignKey('core.Organization', on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200)
     TYPE_CHOICES = (('Warehouse', 'Warehouse'), ('Branch', 'Branch'), ('Van', 'Van'), ('Store', 'Store'))
     type = models.CharField(max_length=50, choices=TYPE_CHOICES)
@@ -78,6 +83,7 @@ class Location(models.Model):
 
 class Vendor(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    organization = models.ForeignKey('core.Organization', on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200)
     TYPE_CHOICES = (('Distributor', 'Distributor'), ('Dealer', 'Dealer'), ('Reseller', 'Reseller'))
     type = models.CharField(max_length=50, choices=TYPE_CHOICES)
@@ -99,6 +105,7 @@ class Vendor(models.Model):
 
 class POSTerminal(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    organization = models.ForeignKey('core.Organization', on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200)
     location = models.CharField(max_length=200)
     TYPE_CHOICES = (('Web', 'Web'), ('Mobile', 'Mobile'), ('Hardware', 'Hardware'))
@@ -118,6 +125,7 @@ class POSTerminal(models.Model):
 
 class POSAlert(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    organization = models.ForeignKey('core.Organization', on_delete=models.CASCADE, null=True, blank=True)
     terminalId = models.CharField(max_length=50)
     terminalName = models.CharField(max_length=200)
     TYPE_CHOICES = (('error', 'error'), ('warning', 'warning'), ('info', 'info'))
@@ -128,3 +136,18 @@ class POSAlert(models.Model):
 
     def __str__(self):
         return f"{self.type} - {self.terminalName}"
+
+class ProductOrder(models.Model):
+    id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    organization = models.ForeignKey('core.Organization', on_delete=models.CASCADE, null=True, blank=True)
+    employeeId = models.CharField(max_length=50)
+    productId = models.CharField(max_length=50)
+    quantity = models.IntegerField(default=1)
+    totalPrice = models.FloatField()
+    STATUS_CHOICES = (('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected'))
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    requestDate = models.DateTimeField(auto_now_add=True)
+    updatedAt = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'Order {self.id} by {self.employeeId}'

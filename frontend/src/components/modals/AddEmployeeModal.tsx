@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 interface AddEmployeeModalProps {
   onClose: () => void;
@@ -17,6 +17,7 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
   const { toast } = useToast();
   const [roles, setRoles] = useState<Role[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [sites, setSites] = useState<{id: string, name: string}[]>([]);
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -30,17 +31,22 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
     workMode: 'Office',
     roleId: '',
     departmentId: '',
+    siteId: '',
     employmentType: 'Full-time',
-    joiningDate: new Date().toISOString().split('T')[0]
+    joiningDate: new Date().toISOString().split('T')[0],
+    trackingEnabled: false,
+    accessibleSites: [] as string[]
   });
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/api/roles/`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/api/departments/`).then(r => r.json()).catch(() => []),
-    ]).then(([rolesData, deptsData]) => {
+      fetch(`${API}/api/roles/`, { headers: { 'X-Organization-Id': sessionStorage.getItem('organizationId') || '' } }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/api/departments/`, { headers: { 'X-Organization-Id': sessionStorage.getItem('organizationId') || '' } }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/api/sites/`, { headers: { 'X-Organization-Id': sessionStorage.getItem('organizationId') || '' } }).then(r => r.json()).catch(() => []),
+    ]).then(([rolesData, deptsData, sitesData]) => {
       setRoles(Array.isArray(rolesData) ? rolesData : []);
       setDepartments(Array.isArray(deptsData) ? deptsData : []);
+      setSites(Array.isArray(sitesData) ? sitesData : sitesData.results || []);
       setLoadingMeta(false);
     });
   }, []);
@@ -57,6 +63,8 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
     const payload: Partial<typeof formData> = { ...formData };
     if (!payload.roleId) delete payload.roleId;
     if (!payload.departmentId) delete payload.departmentId;
+    if (!payload.siteId) delete payload.siteId;
+    if (payload.accessibleSites?.length === 0) delete payload.accessibleSites;
 
     try {
       const response = await fetch(`${API}/api/employees/`, {
@@ -198,6 +206,48 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
             </div>
           </div>
 
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className={labelCls}>Assigned Site (Primary)</label>
+              {loadingMeta ? (
+                <div className={`${inputCls} text-muted-foreground`}>Loading sites...</div>
+              ) : (
+                <select name="siteId" value={formData.siteId} onChange={handleChange} className={inputCls}>
+                  <option value="">— No Specific Site —</option>
+                  {sites.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div>
+              <label className={labelCls}>Accessible Sites (For Admins)</label>
+              {loadingMeta ? (
+                <div className={`${inputCls} text-muted-foreground`}>Loading sites...</div>
+              ) : (
+                <div className="flex flex-col gap-2 max-h-32 overflow-y-auto border border-input rounded-md p-2 bg-background">
+                  {sites.map(s => (
+                    <label key={s.id} className="flex items-center gap-2 text-sm">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.accessibleSites.includes(s.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData(prev => ({ ...prev, accessibleSites: [...prev.accessibleSites, s.id] }));
+                          } else {
+                            setFormData(prev => ({ ...prev, accessibleSites: prev.accessibleSites.filter(id => id !== s.id) }));
+                          }
+                        }}
+                      />
+                      {s.name}
+                    </label>
+                  ))}
+                  {sites.length === 0 && <span className="text-xs text-muted-foreground">No sites available</span>}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Work Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -218,9 +268,24 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
             </div>
           </div>
 
-          <div>
-            <label className={labelCls}>Joining Date *</label>
-            <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleChange} required className={inputCls} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Joining Date *</label>
+              <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleChange} required className={inputCls} />
+            </div>
+            <div className="flex items-center gap-3 mt-8">
+              <input 
+                type="checkbox" 
+                id="trackingEnabled" 
+                name="trackingEnabled" 
+                checked={formData.trackingEnabled} 
+                onChange={(e) => setFormData({...formData, trackingEnabled: e.target.checked})} 
+                className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary"
+              />
+              <label htmlFor="trackingEnabled" className="text-sm font-medium text-foreground cursor-pointer">
+                Enable GPS Tracking
+              </label>
+            </div>
           </div>
 
           {/* Actions */}

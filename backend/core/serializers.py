@@ -1,5 +1,32 @@
 from rest_framework import serializers
-from .models import Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager, RegistrationRequest, Task, Document, PermissionRequest
+from .models import Organization, Site, Role, Department, StatusMaster, Project, Employee, RolePermission, ReportingManager, RegistrationRequest, Task, Document, PermissionRequest, RouteAnalytics, Territory
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    admins = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Organization
+        fields = '__all__'
+
+    def get_admins(self, obj):
+        # Find all employees with role ADMIN for this organization
+        admins = Employee.objects.filter(organization=obj, roleId__roleCode='ADMIN')
+        return [{"name": admin.fullName, "email": admin.email} for admin in admins]
+
+class SiteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Site
+        fields = '__all__'
+
+class TerritorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Territory
+        fields = '__all__'
+
+class RouteAnalyticsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RouteAnalytics
+        fields = '__all__'
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,6 +64,8 @@ class ReportingManagerSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class RegistrationRequestSerializer(serializers.ModelSerializer):
+    requestDate = serializers.DateTimeField(source='createdAt', read_only=True)
+
     class Meta:
         model = RegistrationRequest
         fields = '__all__'

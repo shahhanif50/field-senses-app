@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 export function PermissionsTab() {
   const [requests, setRequests] = useState<any[]>([]);

@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 interface Alert {
   id: string;
@@ -39,14 +39,28 @@ export function NotificationBell({ onNotificationClick, isMuted, onToggleMute }:
   // Re-fetch when opened, and on interval
   const fetchAlerts = async () => {
     try {
+      const userRole = sessionStorage.getItem("userRole") || "employee";
+      const isAdminOrManager = ["admin", "manager", "sr_mgr", "head"].includes(userRole.toLowerCase());
+      const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+      const canSeeApprovals = isAdminOrManager || isGlobalAdmin;
+
       let combinedAlerts: Alert[] = [];
 
       // 1. Fetch backend global alerts
-      const res = await fetch(`${API}/api/ops/alerts/?resolved=False`);
+      const res = await fetch(`${API}/api/ops/alerts/?resolved=False`, {
+        headers: {
+          'X-User-Id': userId,
+          'X-Organization-Id': sessionStorage.getItem("organizationId") || ""
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          combinedAlerts = [...data.filter(a => !a.resolved)];
+          let systemAlerts = [...data.filter(a => !a.resolved)];
+          if (!canSeeApprovals) {
+             systemAlerts = systemAlerts.filter(a => a.type !== "pending_approval");
+          }
+          combinedAlerts = [...systemAlerts];
         }
       }
 
@@ -180,7 +194,7 @@ export function NotificationBell({ onNotificationClick, isMuted, onToggleMute }:
       const msg = alert.message.toLowerCase();
       if (msg.includes("leave")) {
         onNotificationClick("attendance-leaves");
-      } else if (msg.includes("payout")) {
+      } else if (msg.includes("payout") || msg.includes("order")) {
         onNotificationClick("approvals");
       } else if (msg.includes("employee") || msg.includes("leaver")) {
         onNotificationClick("employees");
@@ -189,6 +203,15 @@ export function NotificationBell({ onNotificationClick, isMuted, onToggleMute }:
       }
     }
     setIsOpen(false);
+  };
+
+  const handleClearAll = async () => {
+    if (alerts.length === 0) return;
+    try {
+      await Promise.all(alerts.map(alert => handleMarkResolved(alert)));
+    } catch (e) {
+      console.error("Failed to clear all notifications", e);
+    }
   };
 
   const pendingCount = alerts.length;
@@ -220,7 +243,14 @@ export function NotificationBell({ onNotificationClick, isMuted, onToggleMute }:
                {isMuted ? <BellOff className="w-3 h-3 text-muted-foreground" /> : <Bell className="w-3 h-3 text-muted-foreground" />}
             </Button>
           </div>
-          {pendingCount > 0 && <Badge variant="secondary" className="text-xs">{pendingCount} New</Badge>}
+          <div className="flex items-center gap-2">
+            {pendingCount > 0 && (
+              <>
+                <Badge variant="secondary" className="text-xs">{pendingCount} New</Badge>
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={handleClearAll}>Clear All</Button>
+              </>
+            )}
+          </div>
         </div>
         <div className="max-h-[400px] overflow-y-auto">
           {pendingCount === 0 ? (

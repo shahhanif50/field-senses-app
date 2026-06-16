@@ -45,10 +45,14 @@ class TrackingEntry(models.Model):
     travelDistance = models.FloatField(default=0)
     idleTime = models.FloatField(default=0)
     planVsActual = models.FloatField(default=0)
+    purpose = models.TextField(blank=True)
+    clientVisits = models.JSONField(default=list, blank=True)
+    plannedRouteSummary = models.JSONField(default=list, blank=True)
     routePath = models.JSONField(default=list, blank=True)
+    vehicleType = models.CharField(max_length=50, blank=True, null=True)
     reimbursementAmount = models.FloatField(default=0)
     timeSpentOnSite = models.FloatField(default=0)
-    STATUS_CHOICES = (('online', 'online'), ('offline', 'offline'), ('idle', 'idle'))
+    STATUS_CHOICES = (('online', 'online'), ('offline', 'offline'), ('idle', 'idle'), ('completed', 'completed'))
     status = models.CharField(max_length=50, choices=STATUS_CHOICES)
     date = models.DateField()
 
@@ -66,8 +70,22 @@ class EmployeeTask(models.Model):
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
     completionPercent = models.IntegerField(default=0)
     proofUploaded = models.BooleanField(default=False)
+    proofUrl = models.TextField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
     assignedBy = models.CharField(max_length=50) # Link to Employee ID
+    
+    # New Fields for tracking
+    distance = models.FloatField(default=0)
+    fuelExpense = models.FloatField(default=0)
+    foodExpense = models.FloatField(default=0)
+    EXPENSE_STATUS_CHOICES = (('pending', 'pending'), ('approved', 'approved'), ('rejected', 'rejected'))
+    expenseStatus = models.CharField(max_length=50, choices=EXPENSE_STATUS_CHOICES, default='pending')
+    location = models.CharField(max_length=200, blank=True, null=True)
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
+    startTime = models.TimeField(blank=True, null=True)
+    endTime = models.TimeField(blank=True, null=True)
+    taskType = models.CharField(max_length=50, default='Visit')
 
     def __str__(self):
         return self.taskTitle
@@ -207,3 +225,17 @@ class Message(models.Model):
     
     def __str__(self):
         return f"From {self.senderId} at {self.timestamp}"
+
+class TravelExpense(models.Model):
+    id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    employeeId = models.CharField(max_length=50)
+    employeeName = models.CharField(max_length=200)
+    type = models.CharField(max_length=100)
+    amount = models.FloatField(default=0)
+    photo = models.TextField(blank=True, null=True) # Will hold base64 string
+    STATUS_CHOICES = (('pending', 'pending'), ('approved', 'approved'), ('rejected', 'rejected'))
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Expense: {self.employeeName} - {self.amount}"

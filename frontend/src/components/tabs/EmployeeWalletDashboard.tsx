@@ -30,13 +30,13 @@ export function EmployeeWalletDashboard() {
 
   const fetchWallet = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/wallets/?employeeId=${employeeId}`);
+      const res = await fetch(`/api/ops/wallets/?employeeId=${employeeId}`);
       const data = await res.json();
       if (data && data.length > 0) {
         setWallet(data[0]);
       } else if (employeeId && employeeId !== 'EMP-UNKNOWN') {
         // Create wallet if it doesn't exist
-        const createRes = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/wallets/`, {
+        const createRes = await fetch(`/api/ops/wallets/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -56,7 +56,7 @@ export function EmployeeWalletDashboard() {
 
   const fetchWithdrawals = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/withdrawals/?employeeId=${employeeId}`);
+      const res = await fetch(`/api/ops/withdrawals/?employeeId=${employeeId}`);
       const data = await res.json();
       setWithdrawals(data);
     } catch (e) {
@@ -83,7 +83,7 @@ export function EmployeeWalletDashboard() {
     setIsWithdrawing(true);
     try {
       // 1. Create Withdrawal Request
-      await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/withdrawals/`, {
+      await fetch(`/api/ops/withdrawals/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,7 +94,7 @@ export function EmployeeWalletDashboard() {
       });
 
       // 2. Update Wallet Balance
-      await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/wallets/${wallet.id}/`, {
+      await fetch(`/api/ops/wallets/${wallet.id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -104,7 +104,7 @@ export function EmployeeWalletDashboard() {
       });
 
       // 3. Create an alert notification for Managers/Admins
-      await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/alerts/`, {
+      await fetch(`/api/ops/alerts/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -57,7 +57,7 @@ interface POSDashboardProps {
 }
 
 export default function POSDashboard({ locations }: POSDashboardProps) {
-  const { posTerminals: terminals, posAlerts: alerts } = useMasterData();
+  const { posTerminals: terminals, posAlerts: alerts, setPosTerminals: setTerminals, setPosAlerts: setAlerts } = useMasterData();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedTerminal, setSelectedTerminal] = useState<POSTerminal | null>(null);

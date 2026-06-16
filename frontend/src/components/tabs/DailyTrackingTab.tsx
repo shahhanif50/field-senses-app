@@ -6,9 +6,9 @@ import {
   UserCheck, UserX, AlarmClock, LogOut, Hourglass, Eye, Edit, Download
 } from "lucide-react";
 import { DataTable, Column } from "@/components/ui/DataTable";
+import { format } from "date-fns";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { DailyTrackingDetailModal } from "@/components/modals/DailyTrackingDetailModal";
-import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,21 +36,40 @@ interface TrackingSettings {
 // Sub tabs for Daily Tracking - Combined modules
 const allSubTabs = [
   { id: "live-tracking", label: "Live Tracking / Route History", icon: MapPin },
-  { id: "attendance", label: "Attendance Log", icon: Clock },
   { id: "geo-fence", label: "Geo-Fence Alerts", icon: Map, adminOnly: true },
   { id: "analytics-settings", label: "Tracking Analytics & Settings", icon: BarChart3, adminOnly: true },
 ];
 
-export function DailyTrackingTab() {
-  const { trackingEntries, attendanceEntries, geoFenceAlerts } = useMasterData();
-  const userRole = sessionStorage.getItem("userRole") || "employee";
+export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "team" }) {
+  const { trackingEntries, attendanceEntries, geoFenceAlerts, roles, rolePermissions } = useMasterData();
+  const rawRole = sessionStorage.getItem("userRole") || "EMPLOYEE";
+  
+  // --- PERMISSION CHECKS ---
+  const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const trackingPerm = rolePermissions?.find(p => p.roleId === currentRole?.id && p.module === "Daily Tracking");
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const canCreate = isAdmin || trackingPerm?.create;
+  const canEdit = isAdmin || trackingPerm?.edit;
+  const canDelete = isAdmin || trackingPerm?.delete;
+  const canExport = !!(isAdmin || trackingPerm?.export);
+  // -----------------------
+
+  const userRole = rawRole;
   const userName = sessionStorage.getItem("userName") || "";
-  const isAdmin = userRole.toLowerCase() === "admin";
+  const employeeId = sessionStorage.getItem("employeeId") || "";
+  const isManager = viewMode === "team";
 
-  const subTabs = allSubTabs.filter(tab => !tab.adminOnly || isAdmin);
+  const subTabs = allSubTabs.filter(tab => !tab.adminOnly || isManager);
 
-  const trackingData = isAdmin ? trackingEntries : trackingEntries.filter((t: any) => t.employeeName === userName);
-  const attendanceData = isAdmin ? attendanceEntries : attendanceEntries.filter((a: any) => a.employeeName === userName);
+  const trackingData = [...trackingEntries]
+    .filter(entry => viewMode === "team" || entry.employeeId === employeeId)
+    .sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime());
+    
+  const attendanceData = [...attendanceEntries]
+    .filter(entry => viewMode === "team" || entry.employeeCode === employeeId || entry.employeeName === userName)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const [selectedEmployee, setSelectedEmployee] = useState<TrackingEntry | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -67,8 +86,8 @@ export function DailyTrackingTab() {
   });
 
   const handleViewDetails = (entry: TrackingEntry) => {
-    setSelectedEmployee(entry);
-    setIsDetailModalOpen(true);
+    sessionStorage.setItem("preSelectedAdminEmployeeId", entry.employeeId);
+    window.dispatchEvent(new CustomEvent("changeTab", { detail: "live-tracking" }));
   };
 
   // ============= LIVE TRACKING COLUMNS =============
@@ -94,39 +113,68 @@ export function DailyTrackingTab() {
           </div>
           <div>
             <p className="font-medium">{row.employeeName}</p>
-            <p className="text-xs text-muted-foreground">{row.employeeCode} • {row.role}</p>
+            <p className="text-xs text-muted-foreground">{row.employeeId} • {row.role}</p>
           </div>
         </div>
       ),
     },
     {
       key: "currentLocation",
-      header: "Current Location",
-      render: (value, row) => (
-        <div className="flex items-center gap-2">
-          <MapPin className={`w-4 h-4 ${row.status === "online" ? "text-success" : "text-muted-foreground"}`} />
-          <span className="text-sm max-w-[200px] truncate">{String(value)}</span>
-        </div>
-      ),
+      header: "Route / Location",
+      render: (value, row) => {
+        // Mock reverse geocoding for coordinates
+        let displayLocation = String(value);
+        if (displayLocation === "19.1136,72.8697" || displayLocation === "19.1136, 72.8697") {
+          displayLocation = "Mumbai, Maharashtra";
+        } else if (displayLocation === "28.7041,77.1025" || displayLocation === "28.7041, 77.1025") {
+          displayLocation = "New Delhi, Delhi";
+        } else if (displayLocation.match(/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/)) {
+          displayLocation = "Current Location Area";
+        }
+
+        return (
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <MapPin className={`w-4 h-4 ${row.status === "online" ? "text-success" : "text-muted-foreground"}`} />
+              <span className="text-sm max-w-[200px] truncate">{displayLocation}</span>
+            </div>
+            {displayLocation !== String(value) && (
+              <span className="text-[10px] text-muted-foreground ml-6">({String(value)})</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "checkInTime",
       header: "Check In",
-      render: (value) => (
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-primary" />
-          <span>{String(value)}</span>
-        </div>
-      ),
+      render: (value) => {
+        let formattedTime = String(value);
+        try {
+          if (value) formattedTime = format(new Date(String(value)), "dd MMM yy, hh:mm a");
+        } catch (e) {}
+        return (
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-primary" />
+            <span className="text-sm">{formattedTime}</span>
+          </div>
+        );
+      }
     },
     {
       key: "checkOutTime",
       header: "Check Out",
-      render: (value) => (
-        <span className={value ? "" : "text-muted-foreground italic"}>
-          {value ? String(value) : "Active"}
-        </span>
-      ),
+      render: (value) => {
+        let formattedTime = String(value);
+        try {
+          if (value) formattedTime = format(new Date(String(value)), "dd MMM yy, hh:mm a");
+        } catch (e) {}
+        return (
+          <span className={value ? "text-sm" : "text-muted-foreground italic text-sm"}>
+            {value ? formattedTime : "Active"}
+          </span>
+        );
+      }
     },
     {
       key: "travelDistance",
@@ -136,6 +184,20 @@ export function DailyTrackingTab() {
           <Navigation className="w-4 h-4 text-primary" />
           <span className="font-medium">{String(value)} km</span>
         </div>
+      ),
+    },
+    {
+      key: "vehicleType",
+      header: "Vehicle",
+      render: (_, row) => (
+        <span className="text-sm">{row.vehicleType || "Bike"}</span>
+      ),
+    },
+    {
+      key: "reimbursementAmount",
+      header: "Reimbursement",
+      render: (_, row) => (
+        <span className="text-sm font-medium text-green-600">₹{row.reimbursementAmount?.toFixed(2) || "0.00"}</span>
       ),
     },
     {
@@ -176,7 +238,7 @@ export function DailyTrackingTab() {
     {
       key: "status",
       header: "Status",
-      render: (value) => <StatusBadge status={value as "online" | "offline"} pulse={value === "online"} />,
+      render: (value) => <StatusBadge status={value as "online" | "offline" | "completed"} pulse={value === "online"} />,
     },
   ];
 
@@ -676,10 +738,12 @@ export function DailyTrackingTab() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4 border-t">
-                  <Button variant="outline">Reset to Defaults</Button>
-                  <Button>Save Settings</Button>
-                </div>
+                {canEdit && (
+                  <div className="flex justify-end gap-2 pt-4 border-t">
+                    <Button variant="outline">Reset to Defaults</Button>
+                    <Button>Save Settings</Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -759,8 +823,10 @@ export function DailyTrackingTab() {
         <DataTable
           data={trackingData}
           columns={liveTrackingColumns}
-          onView={(entry) => handleViewDetails(entry)}
+          onView={isAdmin ? (entry) => handleViewDetails(entry) : undefined}
           searchPlaceholder="Search employees..."
+          showExport={canExport}
+          onExport={canExport ? () => alert("Exporting data...") : undefined}
         />
       );
     }
@@ -771,6 +837,8 @@ export function DailyTrackingTab() {
           data={attendanceData}
           columns={attendanceColumns}
           searchPlaceholder="Search attendance records..."
+          showExport={canExport}
+          onExport={canExport ? () => alert("Exporting data...") : undefined}
         />
       );
     }
@@ -781,6 +849,8 @@ export function DailyTrackingTab() {
           data={geoFenceAlerts}
           columns={geoFenceColumns}
           searchPlaceholder="Search alerts..."
+          showExport={canExport}
+          onExport={canExport ? () => alert("Exporting data...") : undefined}
         />
       );
     }
@@ -817,7 +887,7 @@ export function DailyTrackingTab() {
       </div>
 
       {/* Section Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-display font-bold">{sectionInfo.title}</h2>
           <p className="text-muted-foreground">{sectionInfo.description}</p>
@@ -844,8 +914,8 @@ export function DailyTrackingTab() {
           setIsDetailModalOpen(false);
           setSelectedEmployee(null);
         }}
-        employeeId={selectedEmployee?.id || ""}
-        date={format(new Date(), "MMMM d, yyyy")}
+        employeeId={selectedEmployee?.employeeId || ""}
+        date={new Date().toISOString().split('T')[0]}
       />
     </div>
   );

@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   Users, Shield, Building, GitBranch, FileText, Plus, User, Mail, Phone, Calendar,
-  Briefcase, MapPin, Trash2, Check, X, ChevronRight, UserPlus, AlertTriangle, Lock,
+  Briefcase, MapPin, Trash2, Check, X, ChevronRight, ChevronDown, UserPlus, AlertTriangle, Lock,
   Store, BadgeCheck, Pen, Upload, Eye, Download, File
 } from "lucide-react";
 import { SignaturePad } from "@/components/ui/SignaturePad";
@@ -21,19 +22,32 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  useMasterData, 
-  Employee, 
-  Role, 
-  Department, 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  useMasterData,
+  Employee,
+  Role,
+  Department,
   StatusMaster,
   Distributor,
   RolePermission,
   ReportingManager,
 } from "@/contexts/MasterDataContext";
-import type { GovernmentDocument, CompanyAssociation, ApprovalSignature, WitnessDetails } from "@/data/sharedTypes";
+import type { GovernmentDocument, CompanyAssociation, ApprovalSignature, WitnessDetails, Site } from "@/data/sharedTypes";
 
-type MasterType = "employees" | "roles" | "role-permissions" | "reporting-manager" | "departments" | "status" | "distributors";
+const AVAILABLE_MODULES = [
+  "Master Setup", "Employee Portal", "Daily Tracking", "Team Tracking", 
+  "Live Tracking", "Reports", "Alerts", 
+  "Attendance & Leaves", "Projects & Tasks", "Communication & Meetings", 
+  "Documents", "Inventory Management", "Sales Executive"
+];
+
+type MasterType = "employees" | "roles" | "role-permissions" | "reporting-manager" | "departments" | "status" | "distributors" | "sites";
 
 // ============= LOCAL INTERFACES (not shared) =============
 
@@ -59,233 +73,112 @@ const masterTabs = [
   { id: "departments", label: "Departments", icon: Building },
   { id: "status", label: "Status Master", icon: FileText },
   { id: "distributors", label: "Distributor Master", icon: Store },
+  { id: "sites", label: "Sites", icon: MapPin },
 ];
 
-// ============= MOCK DATA =============
+type PermissionModuleConfig = {
+  id: string;
+  label: string;
+  subModules?: { id: string; label: string; }[];
+};
 
-const mockEmployees: Employee[] = [];
-
-const mockRoles: Role[] = [];
-
-const mockRolePermissions: RolePermission[] = [
-  // Admin - Full access to all modules
-  { id: "1", roleId: "1", roleName: "Admin", module: "Master Setup", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "2", roleId: "1", roleName: "Admin", module: "Employee Portal", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "3", roleId: "1", roleName: "Admin", module: "Sales Executive", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "4", roleId: "1", roleName: "Admin", module: "Territory Setup", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "5", roleId: "1", roleName: "Admin", module: "Distributor Master", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "6", roleId: "1", roleName: "Admin", module: "Inventory Management", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "7", roleId: "1", roleName: "Admin", module: "Daily Tracking", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "8", roleId: "1", roleName: "Admin", module: "Meeting Setup", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "9", roleId: "1", roleName: "Admin", module: "Reports", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "10", roleId: "1", roleName: "Admin", module: "Alerts", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "11", roleId: "1", roleName: "Admin", module: "Documents", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  
-  // Sales Manager - Access to sales-related modules
-  { id: "12", roleId: "2", roleName: "Sales Manager", module: "Employee Portal", view: true, create: false, edit: false, delete: false, approve: false, export: true },
-  { id: "13", roleId: "2", roleName: "Sales Manager", module: "Sales Executive", view: true, create: true, edit: true, delete: false, approve: true, export: true },
-  { id: "14", roleId: "2", roleName: "Sales Manager", module: "Territory Setup", view: true, create: true, edit: true, delete: false, approve: true, export: true },
-  { id: "15", roleId: "2", roleName: "Sales Manager", module: "Distributor Master", view: true, create: true, edit: true, delete: false, approve: true, export: true },
-  { id: "16", roleId: "2", roleName: "Sales Manager", module: "Inventory Management", view: true, create: false, edit: false, delete: false, approve: false, export: true },
-  { id: "17", roleId: "2", roleName: "Sales Manager", module: "Daily Tracking", view: true, create: true, edit: true, delete: false, approve: true, export: true },
-  { id: "18", roleId: "2", roleName: "Sales Manager", module: "Meeting Setup", view: true, create: true, edit: true, delete: false, approve: true, export: true },
-  { id: "19", roleId: "2", roleName: "Sales Manager", module: "Reports", view: true, create: true, edit: false, delete: false, approve: false, export: true },
-  { id: "20", roleId: "2", roleName: "Sales Manager", module: "Alerts", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "21", roleId: "2", roleName: "Sales Manager", module: "Documents", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  
-  // Territory Manager - Access to territory and field operations
-  { id: "22", roleId: "3", roleName: "Territory Manager", module: "Employee Portal", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "23", roleId: "3", roleName: "Territory Manager", module: "Sales Executive", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "24", roleId: "3", roleName: "Territory Manager", module: "Territory Setup", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "25", roleId: "3", roleName: "Territory Manager", module: "Distributor Master", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "26", roleId: "3", roleName: "Territory Manager", module: "Inventory Management", view: true, create: false, edit: false, delete: false, approve: false, export: true },
-  { id: "27", roleId: "3", roleName: "Territory Manager", module: "Daily Tracking", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "28", roleId: "3", roleName: "Territory Manager", module: "Meeting Setup", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "29", roleId: "3", roleName: "Territory Manager", module: "Reports", view: true, create: false, edit: false, delete: false, approve: false, export: true },
-  { id: "30", roleId: "3", roleName: "Territory Manager", module: "Alerts", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "31", roleId: "3", roleName: "Territory Manager", module: "Documents", view: true, create: true, edit: false, delete: false, approve: false, export: true },
-  
-  // Sales Executive - View and create for field activities
-  { id: "32", roleId: "4", roleName: "Sales Executive", module: "Employee Portal", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "33", roleId: "4", roleName: "Sales Executive", module: "Sales Executive", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "34", roleId: "4", roleName: "Sales Executive", module: "Territory Setup", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "35", roleId: "4", roleName: "Sales Executive", module: "Distributor Master", view: true, create: true, edit: false, delete: false, approve: false, export: false },
-  { id: "36", roleId: "4", roleName: "Sales Executive", module: "Inventory Management", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "37", roleId: "4", roleName: "Sales Executive", module: "Daily Tracking", view: true, create: true, edit: true, delete: false, approve: false, export: false },
-  { id: "38", roleId: "4", roleName: "Sales Executive", module: "Meeting Setup", view: true, create: true, edit: false, delete: false, approve: false, export: false },
-  { id: "39", roleId: "4", roleName: "Sales Executive", module: "Reports", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "40", roleId: "4", roleName: "Sales Executive", module: "Alerts", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "41", roleId: "4", roleName: "Sales Executive", module: "Documents", view: true, create: true, edit: false, delete: false, approve: false, export: false },
-  
-  // Warehouse Manager - Focus on inventory
-  { id: "42", roleId: "5", roleName: "Warehouse Manager", module: "Employee Portal", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "43", roleId: "5", roleName: "Warehouse Manager", module: "Inventory Management", view: true, create: true, edit: true, delete: true, approve: true, export: true },
-  { id: "44", roleId: "5", roleName: "Warehouse Manager", module: "Daily Tracking", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "45", roleId: "5", roleName: "Warehouse Manager", module: "Reports", view: true, create: true, edit: false, delete: false, approve: false, export: true },
-  { id: "46", roleId: "5", roleName: "Warehouse Manager", module: "Alerts", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "47", roleId: "5", roleName: "Warehouse Manager", module: "Documents", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  
-  // Delivery Executive - Limited access
-  { id: "48", roleId: "6", roleName: "Delivery Executive", module: "Inventory Management", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "49", roleId: "6", roleName: "Delivery Executive", module: "Daily Tracking", view: true, create: true, edit: false, delete: false, approve: false, export: false },
-  { id: "50", roleId: "6", roleName: "Delivery Executive", module: "Alerts", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  
-  // Agronomist - Field support and advisory
-  { id: "51", roleId: "7", roleName: "Agronomist", module: "Employee Portal", view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  { id: "52", roleId: "7", roleName: "Agronomist", module: "Daily Tracking", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "53", roleId: "7", roleName: "Agronomist", module: "Meeting Setup", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-  { id: "54", roleId: "7", roleName: "Agronomist", module: "Reports", view: true, create: true, edit: false, delete: false, approve: false, export: true },
-  { id: "55", roleId: "7", roleName: "Agronomist", module: "Documents", view: true, create: true, edit: true, delete: false, approve: false, export: true },
-];
-
-const mockReportingManagers: ReportingManager[] = [
-  { id: "1", employeeId: "2", employeeName: "Priya Sharma", managerId: "1", managerName: "Rajesh Kumar", reportingType: "Direct", effectiveFrom: "2021-03-10", effectiveTo: "", visibilityScope: "Department", overrideAccess: false },
-  { id: "2", employeeId: "3", employeeName: "Amit Patel", managerId: "2", managerName: "Priya Sharma", reportingType: "Direct", effectiveFrom: "2021-06-20", effectiveTo: "", visibilityScope: "Team", overrideAccess: false },
-  { id: "3", employeeId: "4", employeeName: "Sunita Devi", managerId: "3", managerName: "Amit Patel", reportingType: "Direct", effectiveFrom: "2022-01-05", effectiveTo: "", visibilityScope: "Team", overrideAccess: false },
-  { id: "4", employeeId: "5", employeeName: "Vikram Singh", managerId: "1", managerName: "Rajesh Kumar", reportingType: "Direct", effectiveFrom: "2020-08-15", effectiveTo: "", visibilityScope: "Department", overrideAccess: true },
-  { id: "5", employeeId: "6", employeeName: "Ravi Verma", managerId: "5", managerName: "Vikram Singh", reportingType: "Direct", effectiveFrom: "2022-04-12", effectiveTo: "", visibilityScope: "Team", overrideAccess: false },
-  { id: "6", employeeId: "7", employeeName: "Dr. Meena Agarwal", managerId: "1", managerName: "Rajesh Kumar", reportingType: "Direct", effectiveFrom: "2021-02-28", effectiveTo: "", visibilityScope: "Department", overrideAccess: false },
-  { id: "7", employeeId: "8", employeeName: "Karan Mehta", managerId: "3", managerName: "Amit Patel", reportingType: "Direct", effectiveFrom: "2023-02-15", effectiveTo: "", visibilityScope: "Team", overrideAccess: false },
-  { id: "8", employeeId: "4", employeeName: "Sunita Devi", managerId: "2", managerName: "Priya Sharma", reportingType: "Dotted", effectiveFrom: "2022-01-05", effectiveTo: "", visibilityScope: "Department", overrideAccess: false },
-];
-
-const mockDepartments: Department[] = [];
-
-const mockStatusMaster: StatusMaster[] = [];
-
-const mockDistributors: Distributor[] = [
+const permissionModulesHierarchy: PermissionModuleConfig[] = [
   {
-    id: "1",
-    distributorId: "DIST001",
-    firmName: "Krishi Udyog Distributors",
-    proprietorName: "Ramesh Agarwal",
-    mobileNumber: "+91 98765 43210",
-    emailAddress: "ramesh@krishiudyog.com",
-    panProprietor: "ABCDE1234F",
-    panFirm: "FGHIJ5678K",
-    gstNumber: "23ABCDE1234F1Z5",
-    dateOfBirth: "1975-05-15",
-    marriageAnniversary: "2000-11-20",
-    officeAddress: "123 Industrial Area, Sector 5",
-    currentAddress: "456 Green Park Colony",
-    permanentAddress: "456 Green Park Colony",
-    district: "Indore",
-    state: "Madhya Pradesh",
-    pincode: "452001",
-    typeOfFirm: "Pvt Ltd",
-    distributorProfile: { wholesalerPercent: 70, retailerPercent: 30 },
-    yearsOfEstablishment: 15,
-    yearsOfExperience: 20,
-    topCompaniesAssociated: [
-      { companyName: "Bayer CropScience", businessType: "Pesticides", turnoverYear1: 15000000, turnoverYear2: 18000000, turnoverYear3: 21000000 },
-      { companyName: "Syngenta", businessType: "Seeds", turnoverYear1: 10000000, turnoverYear2: 12000000, turnoverYear3: 15000000 },
-    ],
-    pesticideLicenseNo: "PL-2020-1234",
-    seedLicenseNo: "SL-2019-5678",
-    fertiliserLicenseNo: "FL-2021-9012",
-    pesticideLicenseExpiry: "2025-12-31",
-    seedLicenseExpiry: "2025-06-30",
-    fertiliserLicenseExpiry: "2026-03-31",
-    godownSpace: 5000,
-    shopSpace: 1500,
-    housePropertyOwned: true,
-    computerAvailable: true,
-    internetAvailable: true,
-    deliveryVehicles: 8,
-    salesmenAvailable: 12,
-    bankName: "State Bank of India",
-    accountNumber: "12345678901234",
-    accountType: "Current",
-    bankLimitCC: 5000000,
-    otherLoans: "Vehicle Loan - ₹8,00,000",
-    totalFundsEmployed: 15000000,
-    ownInvestment: 8000000,
-    preferredTransporters: ["VRL Logistics", "Gati Express", "DTDC"],
-    depotLocation: "Indore Main",
-    attachedRetailersList: "Sharma Seeds, Patel Agro, Gupta Fertilizers, Kisan Seva Kendra",
-    numberOfRetailers: 45,
-    declarationAccepted: true,
-    proprietorSignature: "",
-    witnessDetails: { name: "Suresh Kumar", address: "789 Market Road, Indore", mobile: "+91 98765 11111" },
-    submittedBy: { name: "Amit Sharma (SO)", signature: "" },
-    forwardedBy: { name: "Priya Verma (RSM)", signature: "" },
-    approvedBy: { name: "Rajesh Singh (HOD)", signature: "" },
-    governmentDocuments: [
-      { id: "1", documentType: "PAN", documentNumber: "ABCDE1234F", expiryDate: "", fileName: "pan_card.pdf", fileData: "", remarks: "", uploadedBy: "Admin", timestamp: "2024-01-15T10:30:00" },
-      { id: "2", documentType: "GST Certificate", documentNumber: "23ABCDE1234F1Z5", expiryDate: "", fileName: "gst_cert.pdf", fileData: "", remarks: "", uploadedBy: "Admin", timestamp: "2024-01-15T10:35:00" },
-    ],
-    activeStatus: true,
+    id: "Master Setup",
+    label: "Master Setup",
+    subModules: [
+      { id: "Employees", label: "Employees" },
+      { id: "Roles", label: "Roles" },
+      { id: "Role Permissions", label: "Role Permissions" },
+      { id: "Reporting Manager", label: "Reporting Manager" },
+      { id: "Departments", label: "Departments" },
+      { id: "Status Master", label: "Status Master" },
+      { id: "Distributor Master", label: "Distributor Master" },
+      { id: "Sites", label: "Sites" }
+    ]
   },
   {
-    id: "2",
-    distributorId: "DIST002",
-    firmName: "Agri Mart Distribution",
-    proprietorName: "Vikram Singh",
-    mobileNumber: "+91 87654 32109",
-    emailAddress: "vikram@agrimart.in",
-    panProprietor: "LMNOP6789Q",
-    panFirm: "",
-    gstNumber: "23LMNOP6789Q1Z5",
-    dateOfBirth: "1980-08-22",
-    marriageAnniversary: "2005-02-14",
-    officeAddress: "45 Agro Market, Rau",
-    currentAddress: "12 Lake View Apartments",
-    permanentAddress: "Village Mhow, Dist Indore",
-    district: "Indore",
-    state: "Madhya Pradesh",
-    pincode: "453331",
-    typeOfFirm: "Sole Proprietor",
-    distributorProfile: { wholesalerPercent: 40, retailerPercent: 60 },
-    yearsOfEstablishment: 8,
-    yearsOfExperience: 12,
-    topCompaniesAssociated: [
-      { companyName: "UPL Limited", businessType: "Pesticides", turnoverYear1: 8000000, turnoverYear2: 10000000, turnoverYear3: 12000000 },
-    ],
-    pesticideLicenseNo: "PL-2021-4567",
-    seedLicenseNo: "SL-2020-8901",
-    fertiliserLicenseNo: "",
-    pesticideLicenseExpiry: "2026-06-30",
-    seedLicenseExpiry: "2025-12-31",
-    fertiliserLicenseExpiry: "",
-    godownSpace: 3500,
-    shopSpace: 800,
-    housePropertyOwned: false,
-    computerAvailable: true,
-    internetAvailable: true,
-    deliveryVehicles: 5,
-    salesmenAvailable: 6,
-    bankName: "HDFC Bank",
-    accountNumber: "50100123456789",
-    accountType: "Current",
-    bankLimitCC: 2000000,
-    otherLoans: "",
-    totalFundsEmployed: 8000000,
-    ownInvestment: 5000000,
-    preferredTransporters: ["Blue Dart", "Delhivery"],
-    depotLocation: "Rau Depot",
-    attachedRetailersList: "Kisan Centre, Rural Agro, Green Farm Store",
-    numberOfRetailers: 28,
-    declarationAccepted: true,
-    proprietorSignature: "",
-    witnessDetails: { name: "Mahesh Patel", address: "23 Main Road, Rau", mobile: "+91 99887 76655" },
-    submittedBy: { name: "Karan Mehta (ASM)", signature: "" },
-    forwardedBy: { name: "Sunita Devi (RSM)", signature: "" },
-    approvedBy: { name: "Vikram Kumar (HOD)", signature: "" },
-    governmentDocuments: [],
-    activeStatus: true,
+    id: "Inventory Management",
+    label: "Inventory Management",
+    subModules: [
+      { id: "Product Setup", label: "Product Setup" },
+      { id: "Stock Management", label: "Stock Management" },
+      { id: "Sales & Billing", label: "Sales & Billing" }
+    ]
   },
+  {
+    id: "Field Operations & Tracking",
+    label: "Field Operations & Tracking",
+    subModules: [
+      { id: "Daily Tracking", label: "Daily Tracking" },
+      { id: "Team Tracking", label: "Team Tracking" },
+      { id: "Live Tracking", label: "Live Tracking" }
+    ]
+  },
+  {
+    id: "Employee Portal",
+    label: "Employee Portal",
+    subModules: []
+  },
+  {
+    id: "Approvals & Requests",
+    label: "Approvals & Requests",
+    subModules: [
+      { id: "Permission Requests", label: "Permission Requests" },
+      { id: "Registration Approvals", label: "Registration Approvals" }
+    ]
+  },
+  {
+    id: "Reports",
+    label: "Reports",
+    subModules: []
+  },
+  {
+    id: "Alerts",
+    label: "Alerts",
+    subModules: []
+  },
+  {
+    id: "Documents",
+    label: "Documents",
+    subModules: []
+  },
+  {
+    id: "My Profile",
+    label: "My Profile",
+    subModules: []
+  }
 ];
 
+const allPermissionModuleIds: string[] = [];
+permissionModulesHierarchy.forEach(parent => {
+  allPermissionModuleIds.push(parent.id);
+  if (parent.subModules) {
+    parent.subModules.forEach(sub => allPermissionModuleIds.push(sub.id));
+  }
+});
 
 // ============= MAIN COMPONENT =============
 
-export function MasterSetupTab() {
-  const [activeMaster, setActiveMaster] = useState<MasterType>("employees");
+interface MasterSetupTabProps {
+  defaultMaster?: MasterType;
+  isTeamManagementView?: boolean;
+}
+
+export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementView = false }: MasterSetupTabProps) {
+  const [activeMaster, setActiveMaster] = useState<MasterType>(defaultMaster);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
 
+  const visibleMasters = useMemo(() => {
+    if (isTeamManagementView) {
+      return masterTabs.filter(m => ["employees", "reporting-manager"].includes(m.id));
+    }
+    return masterTabs;
+  }, [isTeamManagementView]);
+
   // Shared data from context (synced across all tabs)
-  const { 
+  const {
     employees, setEmployees,
     roles, setRoles,
     departments, setDepartments,
@@ -293,15 +186,59 @@ export function MasterSetupTab() {
     distributors, setDistributors,
     rolePermissions, setRolePermissions,
     reportingManagers, setReportingManagers,
+    sites, setSites,
     activeRoles, activeDepartments, activeStatuses, activeDistributors,
     getRoleNameById, getDepartmentNameById, getStatusNameById,
     getEmployeeNameById,
   } = useMasterData();
-  
+
   // Bulk permission toggle state
   const [bulkToggleRole, setBulkToggleRole] = useState<string>("");
   const [isBulkToggleOpen, setIsBulkToggleOpen] = useState(false);
 
+  // --- PERMISSION CHECKS ---
+  const rawRole = sessionStorage.getItem("userRole") || "employee";
+  const currentRole = activeRoles.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const masterSetupPerm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === "Master Setup");
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const canCreate = isAdmin || masterSetupPerm?.create;
+  const canEdit = isAdmin || masterSetupPerm?.edit;
+  const canDelete = isAdmin || masterSetupPerm?.delete;
+  const canExport = isAdmin || masterSetupPerm?.export;
+  const canApprove = isAdmin || masterSetupPerm?.approve;
+  // -----------------------
+
+  // --- MODULE FILTERING FOR PERMISSIONS ---
+  const availableDropdownModules = useMemo(() => {
+    let modulesEnabled: string[] = [];
+    try {
+      modulesEnabled = JSON.parse(sessionStorage.getItem("modulesEnabled") || "[]");
+    } catch (e) { }
+
+    const orgId = sessionStorage.getItem("organizationId");
+    const isImpersonating = isGlobalAdmin && orgId && orgId !== "null";
+
+    const allDropdownModules = [
+      "Organizations", "Master Setup", "Sales Executive", "Employee Portal",
+      "Inventory Management", "Daily Tracking", "Team Tracking",
+      "Live Tracking", "Reports", "Alerts",
+      "Attendance & Leaves", "Projects & Tasks", "Communication & Meetings",
+      "Documents", "Permission Requests", "Registration Approvals", "My Profile"
+    ];
+
+    return allDropdownModules.filter(mod => {
+      if (isGlobalAdmin && !isImpersonating) return true; // Superadmin sees everything
+      if (mod === "Organizations") return false; // Tenant never sees organizations
+      if (mod === "Permission Requests" || mod === "Registration Approvals" || mod === "My Profile") return true;
+
+      let effectiveMod = mod;
+
+      return modulesEnabled.includes("All") || modulesEnabled.includes(effectiveMod);
+    });
+  }, [isGlobalAdmin]);
+  // -----------------------
   // Get unique roles from permissions for bulk toggle
   const uniqueRolesInPermissions = useMemo(() => {
     const rolesMap = new Map<string, { roleId: string; roleName: string }>();
@@ -314,30 +251,140 @@ export function MasterSetupTab() {
   }, [rolePermissions]);
 
   // Bulk toggle handlers
-  const handleBulkEnableAll = (roleId: string) => {
-    setRolePermissions(prev => prev.map(p => 
-      p.roleId === roleId 
+  const handleBulkEnableAll = async (roleId: string) => {
+    const toUpdate = rolePermissions.filter(p => p.roleId === roleId);
+
+    // Optimistic UI update
+    setRolePermissions(prev => prev.map(p =>
+      p.roleId === roleId
         ? { ...p, view: true, create: true, edit: true, delete: true, approve: true, export: true }
         : p
     ));
+
+    // Backend update
+    for (const p of toUpdate) {
+      await fetch(`/api/role-permissions/${p.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ view: true, create: true, edit: true, delete: true, approve: true, export: true })
+      });
+    }
   };
 
-  const handleBulkDisableAll = (roleId: string) => {
-    setRolePermissions(prev => prev.map(p => 
-      p.roleId === roleId 
+  const handleBulkDisableAll = async (roleId: string) => {
+    const toUpdate = rolePermissions.filter(p => p.roleId === roleId);
+
+    setRolePermissions(prev => prev.map(p =>
+      p.roleId === roleId
         ? { ...p, view: false, create: false, edit: false, delete: false, approve: false, export: false }
         : p
     ));
+
+    for (const p of toUpdate) {
+      await fetch(`/api/role-permissions/${p.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ view: false, create: false, edit: false, delete: false, approve: false, export: false })
+      });
+    }
   };
 
-  const handleBulkTogglePermission = (roleId: string, permission: "view" | "create" | "edit" | "delete" | "approve" | "export", enabled: boolean) => {
-    setRolePermissions(prev => prev.map(p => 
-      p.roleId === roleId 
+  const handleGridBulkAction = (actionType: 'enableAll' | 'disableAll') => {
+    const newVal = actionType === 'enableAll';
+    const newGrid: Record<string, any> = {};
+    allPermissionModuleIds.forEach(mod => {
+      newGrid[mod] = { view: newVal, create: newVal, edit: newVal, delete: newVal, approve: newVal, export: newVal };
+    });
+    setGridPermissions(newGrid);
+  };
+
+  const handlePermissionChange = (moduleId: string, action: string, checked: boolean, parentId?: string) => {
+    setGridPermissions(prev => {
+      const next = { ...prev };
+      
+      const currentMod = next[moduleId] || { view: false, create: false, edit: false, delete: false, approve: false, export: false };
+      next[moduleId] = { ...currentMod, [action]: checked };
+      
+      // If it's a parent, update all children
+      const parentConfig = permissionModulesHierarchy.find(p => p.id === moduleId);
+      if (parentConfig && parentConfig.subModules) {
+        parentConfig.subModules.forEach(sub => {
+          const currentSub = next[sub.id] || { view: false, create: false, edit: false, delete: false, approve: false, export: false };
+          next[sub.id] = { ...currentSub, [action]: checked };
+        });
+      }
+      
+      return next;
+    });
+  };
+  
+  const toggleExpand = (moduleId: string) => {
+    setExpandedModules(prev => ({ ...prev, [moduleId]: !prev[moduleId] }));
+  };
+
+
+  const handleSaveGridPermissions = async () => {
+    if (!selectedRoleForGrid) return;
+    setIsSavingGrid(true);
+    try {
+      const roleName = roles.find(r => r.id === selectedRoleForGrid)?.roleName || "";
+      const permissionsArray = Object.entries(gridPermissions).map(([moduleName, perms]) => ({
+        module: moduleName,
+        ...perms
+      }));
+
+      const res = await fetch('/api/role-permissions/bulk_update/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Organization-Id': sessionStorage.getItem('organizationId') || ''
+        },
+        body: JSON.stringify({
+          roleId: selectedRoleForGrid,
+          roleName,
+          permissions: permissionsArray
+        })
+      });
+
+      if (res.ok) {
+        toast.success("Permissions updated successfully");
+        setShowSuccessAnimation(true);
+        setTimeout(() => setShowSuccessAnimation(false), 2000);
+        fetch('/api/role-permissions/', {
+          headers: {
+            'X-Organization-Id': sessionStorage.getItem('organizationId') || ''
+          }
+        }).then(r => r.json()).then(data => {
+          if (Array.isArray(data)) setRolePermissions(data);
+        }).catch(() => { });
+      } else {
+        toast.error("Failed to update permissions");
+      }
+    } catch (e) {
+      toast.error("Network error");
+    } finally {
+      setIsSavingGrid(false);
+    }
+  };
+
+  const handleBulkTogglePermission = async (roleId: string, permission: "view" | "create" | "edit" | "delete" | "approve" | "export", enabled: boolean) => {
+    const toUpdate = rolePermissions.filter(p => p.roleId === roleId);
+
+    setRolePermissions(prev => prev.map(p =>
+      p.roleId === roleId
         ? { ...p, [permission]: enabled }
         : p
     ));
+
+    for (const p of toUpdate) {
+      await fetch(`/api/role-permissions/${p.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [permission]: enabled })
+      });
+    }
   };
-  
+
 
   // Selected items
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -347,7 +394,8 @@ export function MasterSetupTab() {
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<StatusMaster | null>(null);
   const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null);
-  
+  const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+
 
   // Form states
   const [employeeForm, setEmployeeForm] = useState<Partial<Employee>>({});
@@ -357,7 +405,55 @@ export function MasterSetupTab() {
   const [departmentForm, setDepartmentForm] = useState<Partial<Department>>({});
   const [statusForm, setStatusForm] = useState<Partial<StatusMaster>>({});
   const [distributorForm, setDistributorForm] = useState<Partial<Distributor>>({});
-  
+  const [siteForm, setSiteForm] = useState<Partial<Site>>({});
+
+
+  // Permissions Grid State
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
+
+  const [selectedRoleForGrid, setSelectedRoleForGrid] = useState<string>("");
+  const [gridPermissions, setGridPermissions] = useState<Record<string, { view: boolean; create: boolean; edit: boolean; delete: boolean; approve: boolean; export: boolean; }>>({});
+  const [isSavingGrid, setIsSavingGrid] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+
+  // Effect to populate grid when role is selected
+  useEffect(() => {
+    if (activeMaster === "role-permissions" && selectedRoleForGrid) {
+      const perms = rolePermissions.filter(p => p.roleId === selectedRoleForGrid);
+      const initialGrid: Record<string, any> = {};
+
+      allPermissionModuleIds.forEach(mod => {
+        initialGrid[mod] = { view: false, create: false, edit: false, delete: false, approve: false, export: false };
+      });
+
+      perms.forEach(p => {
+        if (initialGrid[p.module] !== undefined) {
+          initialGrid[p.module] = {
+            view: p.view,
+            create: p.create,
+            edit: p.edit,
+            delete: p.delete,
+            approve: p.approve,
+            export: p.export
+          };
+        }
+      });
+
+      setGridPermissions(initialGrid);
+      
+      // Expand all by default
+      const initialExpanded: Record<string, boolean> = {};
+      permissionModulesHierarchy.forEach(p => {
+        if (p.subModules && p.subModules.length > 0) {
+          initialExpanded[p.id] = true;
+        }
+      });
+      setExpandedModules(initialExpanded);
+    }
+  }, [selectedRoleForGrid, rolePermissions, activeMaster]);
+
+
   // Government Document form state
   const [documentForm, setDocumentForm] = useState<Partial<GovernmentDocument>>({
     documentType: "PAN",
@@ -367,7 +463,7 @@ export function MasterSetupTab() {
     fileData: "",
     remarks: "",
   });
-  
+
 
   // ============= REPORTING MANAGER WIZARD STATE =============
   const [reportingWizardStep, setReportingWizardStep] = useState<1 | 2>(1);
@@ -381,13 +477,13 @@ export function MasterSetupTab() {
   const [createdDepartmentId, setCreatedDepartmentId] = useState<string>("");
 
   // Get management roles only (active)
-  const managementRoles = useMemo(() => 
+  const managementRoles = useMemo(() =>
     roles.filter(r => r.activeStatus && r.roleType === "Management"),
     [roles]
   );
 
   // Get employees who can be managers (active, with management roles)
-  const existingManagers = useMemo(() => 
+  const existingManagers = useMemo(() =>
     employees.filter(emp => {
       const role = roles.find(r => r.id === emp.roleId);
       const status = statusMaster.find(s => s.id === emp.statusId);
@@ -401,14 +497,14 @@ export function MasterSetupTab() {
     const managerId = createdManagerId || newManagerForm.id;
     const activeStatusId = statusMaster.find(s => s.statusName === "Active")?.id;
     if (!managerId) return employees.filter(e => e.statusId === activeStatusId);
-    
+
     const alreadyMappedIds = reportingManagers
       .filter(rm => rm.managerId === managerId)
       .map(rm => rm.employeeId);
-    
-    return employees.filter(e => 
-      e.statusId === activeStatusId && 
-      e.id !== managerId && 
+
+    return employees.filter(e =>
+      e.statusId === activeStatusId &&
+      e.id !== managerId &&
       !alreadyMappedIds.includes(e.id)
     );
   }, [employees, createdManagerId, newManagerForm.id, reportingManagers, statusMaster]);
@@ -446,8 +542,8 @@ export function MasterSetupTab() {
         </span>
       ),
     },
-    { 
-      key: "departmentId", 
+    {
+      key: "departmentId",
       header: "Department",
       render: (value) => getDepartmentName(String(value))
     },
@@ -457,10 +553,10 @@ export function MasterSetupTab() {
       render: (value) => {
         const isActive = Boolean(value);
         return (
-          <StatusBadge 
+          <StatusBadge
             status={isActive ? "active" : "inactive"}
             label={isActive ? "Active" : "Disabled"}
-            pulse={isActive} 
+            pulse={isActive}
           />
         );
       },
@@ -488,7 +584,7 @@ export function MasterSetupTab() {
   const handleEmployeeCreate = () => {
     // Get the first active status (usually "Active") as default
     const defaultStatusId = activeStatuses.find(s => s.statusName === "Active")?.id || activeStatuses[0]?.id || "";
-    
+
     setEmployeeForm({
       fullName: "",
       email: "",
@@ -528,7 +624,7 @@ export function MasterSetupTab() {
   const handleEmployeeDelete = async (employee: Employee) => {
     if (confirm(`Are you sure you want to delete ${employee.fullName}?`)) {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/employees/${employee.id}/`, {
+        const response = await fetch(`/api/employees/${employee.id}/`, {
           method: 'DELETE'
         });
         if (response.ok) {
@@ -545,6 +641,7 @@ export function MasterSetupTab() {
   };
 
   const handleEmployeeSave = async () => {
+    setIsSaving(true);
     const payload: any = { ...employeeForm };
     if (!payload.roleId) delete payload.roleId;
     if (!payload.departmentId) delete payload.departmentId;
@@ -555,7 +652,7 @@ export function MasterSetupTab() {
 
     if (modalMode === "create") {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/employees/`, {
+        const response = await fetch(`/api/employees/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -573,10 +670,12 @@ export function MasterSetupTab() {
       } catch (error) {
         console.error("Network Error:", error);
         alert("Network Error: Ensure Django server is running.");
+      } finally {
+        setIsSaving(false);
       }
     } else if (modalMode === "edit" && selectedEmployee) {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/employees/${selectedEmployee.id}/`, {
+        const response = await fetch(`/api/employees/${selectedEmployee.id}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -596,6 +695,8 @@ export function MasterSetupTab() {
       } catch (error) {
         console.error("Network Error:", error);
         alert("Network Error: Ensure Django server is running.");
+      } finally {
+        setIsSaving(false);
       }
     }
   };
@@ -609,9 +710,8 @@ export function MasterSetupTab() {
       key: "roleType",
       header: "Type",
       render: (value) => (
-        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-          value === "Management" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-        }`}>
+        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${value === "Management" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+          }`}>
           {String(value)}
         </span>
       ),
@@ -665,15 +765,15 @@ export function MasterSetupTab() {
   const handleRoleDelete = async (role: Role) => {
     // Check if role is assigned to any employee
     const assignedEmployees = employees.filter(emp => emp.roleId === role.id);
-    
+
     if (assignedEmployees.length > 0) {
       alert(`Cannot delete "${role.roleName}" role. It is currently assigned to ${assignedEmployees.length} employee(s): ${assignedEmployees.map(e => e.fullName).join(", ")}`);
       return;
     }
-    
+
     if (confirm(`Are you sure you want to delete ${role.roleName}?`)) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/roles/${role.id}/`, { method: 'DELETE' });
+        const res = await fetch(`/api/roles/${role.id}/`, { method: 'DELETE' });
         if (res.ok) setRoles((prev) => prev.filter((r) => r.id !== role.id));
         else alert("Failed to delete role.");
       } catch { alert("Network error."); }
@@ -686,7 +786,7 @@ export function MasterSetupTab() {
 
     if (modalMode === "create") {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/roles/`, {
+        const res = await fetch(`/api/roles/`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         });
         if (res.ok) { const saved = await res.json(); setRoles((prev) => [...prev, saved]); setIsModalOpen(false); }
@@ -694,7 +794,7 @@ export function MasterSetupTab() {
       } catch { alert("Network error."); }
     } else if (modalMode === "edit" && selectedRole) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/roles/${selectedRole.id}/`, {
+        const res = await fetch(`/api/roles/${selectedRole.id}/`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         });
         if (res.ok) { const updated = await res.json(); setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? updated : r)); setIsModalOpen(false); }
@@ -773,7 +873,7 @@ export function MasterSetupTab() {
   const handlePermissionDelete = async (permission: RolePermission) => {
     if (confirm(`Are you sure you want to delete this permission?`)) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/role-permissions/${permission.id}/`, { method: 'DELETE' });
+        const res = await fetch(`/api/role-permissions/${permission.id}/`, { method: 'DELETE' });
         if (res.ok) {
           setRolePermissions((prev) => prev.filter((p) => p.id !== permission.id));
         } else {
@@ -793,7 +893,7 @@ export function MasterSetupTab() {
         roleName: selectedRole?.roleName || "",
       };
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/role-permissions/`, {
+        const res = await fetch(`/api/role-permissions/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -811,7 +911,7 @@ export function MasterSetupTab() {
       }
     } else if (modalMode === "edit" && selectedPermission) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/role-permissions/${selectedPermission.id}/`, {
+        const res = await fetch(`/api/role-permissions/${selectedPermission.id}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(permissionForm),
@@ -841,9 +941,8 @@ export function MasterSetupTab() {
       key: "reportingType",
       header: "Type",
       render: (value) => (
-        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-          value === "Direct" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-        }`}>
+        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${value === "Direct" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+          }`}>
           {String(value)}
         </span>
       ),
@@ -863,7 +962,7 @@ export function MasterSetupTab() {
     setReportingWizardStep(1);
     setCreatedManagerId("");
     const defaultStatusId = activeStatuses.find(s => s.statusName === "Active")?.id || activeStatuses[0]?.id || "";
-    
+
     setNewManagerForm({
       employeeId: `EMP${String(employees.length + 1).padStart(3, "0")}`,
       fullName: "",
@@ -904,9 +1003,22 @@ export function MasterSetupTab() {
   const handleReportingDelete = async (reporting: ReportingManager) => {
     if (confirm(`Are you sure you want to delete this mapping?`)) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/reporting-managers/${reporting.id}/`, { method: 'DELETE' });
+        const res = await fetch(`/api/reporting-managers/${reporting.id}/`, { method: 'DELETE' });
         if (res.ok) {
           setReportingManagers((prev) => prev.filter((r) => r.id !== reporting.id));
+
+          // Clear employee's reportingManager field on both frontend and backend
+          setEmployees(prev => prev.map(emp => {
+            if (emp.id === reporting.employeeId) {
+              fetch(`/api/employees/${emp.id}/`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reportingManager: null })
+              });
+              return { ...emp, reportingManager: "" };
+            }
+            return emp;
+          }));
         } else {
           alert("Failed to delete mapping.");
         }
@@ -917,22 +1029,44 @@ export function MasterSetupTab() {
   };
 
   // Step 1: Create or select manager
-  const handleCreateManager = () => {
+  const handleCreateManager = async () => {
     if (!newManagerForm.fullName || !newManagerForm.email || !newManagerForm.roleId) {
       alert("Please fill in required fields: Full Name, Email, and Role");
       return;
     }
 
-    // Create new employee as manager
-    const newManager: Employee = {
-      ...newManagerForm as Employee,
-      id: String(employees.length + 1),
-    };
-    setEmployees((prev) => [...prev, newManager]);
-    setCreatedManagerId(newManager.id);
-    
-    // Move to step 2
-    setReportingWizardStep(2);
+    const payload: any = { ...newManagerForm };
+    if (!payload.roleId) delete payload.roleId;
+    if (!payload.departmentId) delete payload.departmentId;
+    if (!payload.statusId) delete payload.statusId;
+
+    if (!payload.designation) payload.designation = "Manager";
+    if (!payload.password) payload.password = "lovableops123";
+
+    try {
+      const response = await fetch(`/api/employees/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const savedEmployee = await response.json();
+        setEmployees((prev) => [...prev, savedEmployee]);
+        setCreatedManagerId(savedEmployee.id);
+        setNewManagerForm(savedEmployee);
+
+        // Move to step 2
+        setReportingWizardStep(2);
+      } else {
+        const errorData = await response.json();
+        console.error("Backend Error:", errorData);
+        alert("Error creating manager: " + JSON.stringify(errorData));
+      }
+    } catch (error) {
+      console.error("Network Error:", error);
+      alert("Network Error: Ensure Django server is running.");
+    }
   };
 
   const handleSelectExistingManager = (managerId: string) => {
@@ -948,7 +1082,7 @@ export function MasterSetupTab() {
   const handleAddEmployeeMapping = (employeeId: string) => {
     const employee = employees.find(e => e.id === employeeId);
     if (!employee) return;
-    
+
     // Check if already added
     if (employeeMappings.some(m => m.employeeId === employeeId)) {
       alert("This employee is already added to the mapping list");
@@ -973,7 +1107,7 @@ export function MasterSetupTab() {
 
   // Update mapping settings
   const handleUpdateMapping = (employeeId: string, field: keyof EmployeeMapping, value: unknown) => {
-    setEmployeeMappings(prev => prev.map(m => 
+    setEmployeeMappings(prev => prev.map(m =>
       m.employeeId === employeeId ? { ...m, [field]: value } : m
     ));
   };
@@ -1006,7 +1140,7 @@ export function MasterSetupTab() {
           visibilityScope: mapping.visibilityScope,
           overrideAccess: mapping.overrideAccess,
         };
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/reporting-managers/`, {
+        const res = await fetch(`/api/reporting-managers/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -1018,23 +1152,23 @@ export function MasterSetupTab() {
       }
 
       setReportingManagers(prev => [...prev, ...savedMappings]);
-      
+
       // Update employee reportingManager field on both frontend and backend
       setEmployees(prev => prev.map(emp => {
         const mapping = employeeMappings.find(m => m.employeeId === emp.id);
         if (mapping) {
-          fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/employees/${emp.id}/`, {
+          fetch(`/api/employees/${emp.id}/`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reportingManager: manager.fullName })
+            body: JSON.stringify({ reportingManager: manager.id })
           });
-          return { ...emp, reportingManager: manager.fullName };
+          return { ...emp, reportingManager: manager.id };
         }
         return emp;
       }));
 
       setIsModalOpen(false);
-      
+
       // Reset wizard
       setReportingWizardStep(1);
       setCreatedManagerId("");
@@ -1049,7 +1183,7 @@ export function MasterSetupTab() {
   const handleReportingSave = async () => {
     if (modalMode === "edit" && selectedReporting) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/reporting-managers/${selectedReporting.id}/`, {
+        const res = await fetch(`/api/reporting-managers/${selectedReporting.id}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(reportingForm),
@@ -1134,7 +1268,7 @@ export function MasterSetupTab() {
       activeStatus: true,
     });
     const defaultStatusId = activeStatuses.find(s => s.statusName === "Active")?.id || activeStatuses[0]?.id || "";
-    
+
     setNewDeptHeadForm({
       employeeId: `EMP${String(employees.length + 1).padStart(3, "0")}`,
       fullName: "",
@@ -1180,7 +1314,7 @@ export function MasterSetupTab() {
     }
     if (confirm(`Are you sure you want to delete ${dept.departmentName}?`)) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/departments/${dept.id}/`, { method: 'DELETE' });
+        const res = await fetch(`/api/departments/${dept.id}/`, { method: 'DELETE' });
         if (res.ok) setDepartments((prev) => prev.filter((d) => d.id !== dept.id));
         else alert("Failed to delete department.");
       } catch { alert("Network error."); }
@@ -1188,13 +1322,12 @@ export function MasterSetupTab() {
   };
 
   // Step 1: Save department basics and move to step 2
-  // Step 1: Save department basics and move to step 2
   const handleDepartmentStep1Complete = async () => {
     if (!departmentForm.departmentName?.trim()) {
       alert("Please enter a department name");
       return;
     }
-    
+
     const payload = {
       departmentName: departmentForm.departmentName,
       departmentCode: departmentForm.departmentName?.toUpperCase().replace(/\s+/g, "_").slice(0, 10) || "",
@@ -1205,7 +1338,7 @@ export function MasterSetupTab() {
     };
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/departments/`, {
+      const res = await fetch(`/api/departments/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1228,13 +1361,13 @@ export function MasterSetupTab() {
   // Select existing manager as department head
   const handleSelectDeptHead = (managerId: string) => {
     if (!createdDepartmentId) return;
-    
-    setDepartments(prev => prev.map(d => 
-      d.id === createdDepartmentId 
+
+    setDepartments(prev => prev.map(d =>
+      d.id === createdDepartmentId
         ? { ...d, departmentHeadId: managerId }
         : d
     ));
-    
+
     // Update form state
     setDepartmentForm(prev => ({ ...prev, departmentHeadId: managerId }));
   };
@@ -1245,7 +1378,7 @@ export function MasterSetupTab() {
       alert("Please fill in all required fields for the department head");
       return;
     }
-    
+
     const defaultEmpId = `EMP${String(employees.length + 1).padStart(3, "0")}`;
     const payload = {
       ...newDeptHeadForm,
@@ -1254,7 +1387,7 @@ export function MasterSetupTab() {
     };
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/employees/`, {
+      const res = await fetch(`/api/employees/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1263,8 +1396,8 @@ export function MasterSetupTab() {
         const saved = await res.json();
         setEmployees(prev => [...prev, saved]);
         if (createdDepartmentId) {
-          setDepartments(prev => prev.map(d => 
-            d.id === createdDepartmentId 
+          setDepartments(prev => prev.map(d =>
+            d.id === createdDepartmentId
               ? { ...d, departmentHeadId: saved.id }
               : d
           ));
@@ -1283,12 +1416,12 @@ export function MasterSetupTab() {
   const handleDepartmentWizardComplete = async () => {
     if (createdDepartmentId && departmentForm.departmentHeadId) {
       try {
-        await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/departments/${createdDepartmentId}/`, {
+        await fetch(`/api/departments/${createdDepartmentId}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ departmentHeadId: departmentForm.departmentHeadId }),
         });
-      } catch {}
+      } catch { }
     }
     setIsModalOpen(false);
     setDepartmentWizardStep(1);
@@ -1298,7 +1431,7 @@ export function MasterSetupTab() {
   const handleDepartmentSave = async () => {
     if (modalMode === "edit" && selectedDepartment) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/departments/${selectedDepartment.id}/`, {
+        const res = await fetch(`/api/departments/${selectedDepartment.id}/`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(departmentForm),
         });
         if (res.ok) { const updated = await res.json(); setDepartments((prev) => prev.map((d) => d.id === selectedDepartment.id ? updated : d)); setIsModalOpen(false); }
@@ -1321,9 +1454,8 @@ export function MasterSetupTab() {
       key: "tracking",
       header: "Tracking",
       render: (value) => (
-        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-          value ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-        }`}>
+        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${value ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+          }`}>
           {value ? "ON" : "OFF"}
         </span>
       ),
@@ -1332,10 +1464,9 @@ export function MasterSetupTab() {
       key: "visibility",
       header: "Visibility",
       render: (value) => (
-        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-          value === "All" ? "bg-blue-100 text-blue-700" : 
+        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${value === "All" ? "bg-blue-100 text-blue-700" :
           value === "Manager Only" ? "bg-purple-100 text-purple-700" : "bg-red-100 text-red-700"
-        }`}>
+          }`}>
           {String(value)}
         </span>
       ),
@@ -1393,7 +1524,7 @@ export function MasterSetupTab() {
 
     if (modalMode === "create") {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/status-masters/`, {
+        const res = await fetch(`/api/status-masters/`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(statusForm),
         });
         if (res.ok) { const saved = await res.json(); setStatusMaster((prev) => [...prev, saved]); setIsModalOpen(false); }
@@ -1401,7 +1532,7 @@ export function MasterSetupTab() {
       } catch { alert("Network error."); }
     } else if (modalMode === "edit" && selectedStatus) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/status-masters/${selectedStatus.id}/`, {
+        const res = await fetch(`/api/status-masters/${selectedStatus.id}/`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(statusForm),
         });
         if (res.ok) { const updated = await res.json(); setStatusMaster((prev) => prev.map((s) => s.id === selectedStatus.id ? updated : s)); setIsModalOpen(false); }
@@ -1554,7 +1685,7 @@ export function MasterSetupTab() {
   const handleDistributorDelete = async (distributor: Distributor) => {
     if (confirm(`Are you sure you want to delete ${distributor.firmName}?`)) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/crm/distributors/${distributor.id}/`, { method: 'DELETE' });
+        const res = await fetch(`/api/crm/distributors/${distributor.id}/`, { method: 'DELETE' });
         if (res.ok) {
           setDistributors((prev) => prev.filter((d) => d.id !== distributor.id));
         } else {
@@ -1569,7 +1700,7 @@ export function MasterSetupTab() {
   const handleDistributorSave = async () => {
     if (modalMode === "create") {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/crm/distributors/`, {
+        const res = await fetch(`/api/crm/distributors/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(distributorForm),
@@ -1587,7 +1718,7 @@ export function MasterSetupTab() {
       }
     } else if (modalMode === "edit" && selectedDistributor) {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/crm/distributors/${selectedDistributor.id}/`, {
+        const res = await fetch(`/api/crm/distributors/${selectedDistributor.id}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(distributorForm),
@@ -1608,6 +1739,57 @@ export function MasterSetupTab() {
     }
   };
 
+  // ============= SITE HANDLERS =============
+
+  const siteColumns: Column<Site>[] = [
+    { key: "id", header: "Site ID", render: (val) => String(val).substring(0, 8) },
+    { key: "organization", header: "Organization ID", render: (val) => String(val || "-") },
+    { key: "name", header: "Site / Project" },
+    { key: "address", header: "Address", render: (val) => String(val || "-") },
+    { key: "productType", header: "Product Type", render: (val) => val ? <span className="px-2 py-1 bg-muted/60 rounded-full text-xs">{String(val)}</span> : "-" },
+    { key: "contactName", header: "Contact", render: (val) => String(val || "-") },
+    { key: "id", header: "Total Users", render: (val, row) => employees.filter(e => e.siteId === row.id).length },
+    { key: "status", header: "Status", render: (val) => <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">{String(val)}</span> },
+    { key: "createdAt", header: "Created Date & Time", render: (val) => val ? new Date(String(val)).toLocaleString() : "-" },
+  ];
+
+  const handleSiteCreate = () => {
+    setSiteForm({ name: "", address: "" });
+    setSelectedSite(null);
+    setModalMode("create");
+    setIsModalOpen(true);
+  };
+
+  const handleSiteEdit = (site: Site) => {
+    setSelectedSite(site);
+    setSiteForm(site);
+    setModalMode("edit");
+    setIsModalOpen(true);
+  };
+
+  const handleSiteDelete = async (site: Site) => {
+    if (confirm(`Delete site ${site.name}?`)) {
+      try {
+        const res = await fetch(`/api/sites/${site.id}/`, { method: 'DELETE' });
+        if (res.ok) setSites(prev => prev.filter(s => s.id !== site.id));
+      } catch { alert("Network error"); }
+    }
+  };
+
+  const handleSiteSave = async () => {
+    if (modalMode === "create") {
+      const res = await fetch(`/api/sites/`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(siteForm),
+      });
+      if (res.ok) { const s = await res.json(); setSites(prev => [...prev, s]); setIsModalOpen(false); }
+    } else if (modalMode === "edit" && selectedSite) {
+      const res = await fetch(`/api/sites/${selectedSite.id}/`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(siteForm),
+      });
+      if (res.ok) { const s = await res.json(); setSites(prev => prev.map(old => old.id === s.id ? s : old)); setIsModalOpen(false); }
+    }
+  };
+
 
   // ============= GET MODAL CONTENT =============
 
@@ -1624,14 +1806,15 @@ export function MasterSetupTab() {
       case "departments": return `${prefix} Department`;
       case "status": return `${prefix} Status`;
       case "distributors": return `${prefix} Distributor`;
+      case "sites": return `${prefix} Site`;
       default: return "";
     }
   };
 
   const getModalSubtitle = () => {
     if (activeMaster === "reporting-manager" && modalMode === "create") {
-      return reportingWizardStep === 1 
-        ? "Create a new manager or select an existing one" 
+      return reportingWizardStep === 1
+        ? "Create a new manager or select an existing one"
         : "Map employees to this manager";
     }
     return modalMode === "view" ? "View details" : "Fill in the information";
@@ -1646,6 +1829,7 @@ export function MasterSetupTab() {
       case "departments": handleDepartmentSave(); break;
       case "status": handleStatusSave(); break;
       case "distributors": handleDistributorSave(); break;
+      case "sites": handleSiteSave(); break;
     }
   };
 
@@ -1658,6 +1842,7 @@ export function MasterSetupTab() {
       case "departments": handleDepartmentCreate(); break;
       case "status": handleStatusCreate(); break;
       case "distributors": handleDistributorCreate(); break;
+      case "sites": handleSiteCreate(); break;
     }
   };
 
@@ -1667,18 +1852,17 @@ export function MasterSetupTab() {
     <div className="space-y-6">
       {/* Master Type Tabs */}
       <div className="glass-card p-2 flex flex-wrap gap-2">
-        {masterTabs.map((tab) => {
+        {visibleMasters.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeMaster === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveMaster(tab.id as MasterType)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-lg"
-                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${isActive
+                ? "bg-primary text-primary-foreground shadow-lg"
+                : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
             >
               <Icon className="w-4 h-4" />
               {tab.label}
@@ -1706,18 +1890,21 @@ export function MasterSetupTab() {
                   Manage all employees, their roles, and GPS tracking settings
                 </p>
               </div>
-              <Button onClick={handleEmployeeCreate} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Employee
-              </Button>
+              {canCreate && (
+                <Button onClick={handleEmployeeCreate} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Employee
+                </Button>
+              )}
             </div>
-            
+
             <DataTable
               data={employees}
               columns={employeeColumns}
               onView={handleEmployeeView}
-              onEdit={handleEmployeeEdit}
-              onDelete={handleEmployeeDeleteWithCheck}
+              onEdit={canEdit ? handleEmployeeEdit : undefined}
+              onDelete={canDelete ? handleEmployeeDeleteWithCheck : undefined}
+              showExport={canExport}
               searchPlaceholder="Search employees..."
             />
           </>
@@ -1734,18 +1921,21 @@ export function MasterSetupTab() {
                   Manage roles, their priorities, and default dashboards
                 </p>
               </div>
-              <Button onClick={handleRoleCreate} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Role
-              </Button>
+              {canCreate && (
+                <Button onClick={handleRoleCreate} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Role
+                </Button>
+              )}
             </div>
-            
+
             <DataTable
               data={roles}
               columns={roleColumns}
               onView={handleRoleView}
-              onEdit={handleRoleEdit}
-              onDelete={handleRoleDelete}
+              onEdit={canEdit ? handleRoleEdit : undefined}
+              onDelete={canDelete ? handleRoleDelete : undefined}
+              showExport={canExport}
               searchPlaceholder="Search roles..."
             />
           </>
@@ -1753,127 +1943,172 @@ export function MasterSetupTab() {
 
         {/* ROLE PERMISSIONS */}
         {activeMaster === "role-permissions" && (
-          <>
-            {/* Section Header */}
+          <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-display font-bold">Role Permissions</h2>
                 <p className="text-muted-foreground">
-                  Manage module-wise permissions for each role
+                  Manage all module permissions for a specific role
                 </p>
               </div>
-              <Button onClick={handlePermissionCreate} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Permission
-              </Button>
             </div>
 
-            {/* Bulk Permission Toggle Card */}
-            <div className="bg-card border border-border rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-primary" />
-                  <h3 className="font-semibold">Bulk Permission Toggle</h3>
+            <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row gap-4 items-end mb-6 pb-6 border-b border-border/50">
+                <div className="flex-1 w-full md:max-w-md">
+                  <Label className="mb-2 block font-medium">Select Role to Manage</Label>
+                  <Select value={selectedRoleForGrid} onValueChange={setSelectedRoleForGrid}>
+                    <SelectTrigger className="bg-background h-10">
+                      <SelectValue placeholder="Choose a role..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map(role => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.roleName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setIsBulkToggleOpen(!isBulkToggleOpen)}
-                >
-                  {isBulkToggleOpen ? "Hide" : "Show"}
-                </Button>
-              </div>
-              
-              {isBulkToggleOpen && (
-                <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
-                    <div className="flex-1 max-w-xs">
-                      <Label className="mb-2 block">Select Role</Label>
-                      <Select value={bulkToggleRole} onValueChange={setBulkToggleRole}>
-                        <SelectTrigger className="bg-background">
-                          <SelectValue placeholder="Choose a role..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {uniqueRolesInPermissions.map(role => (
-                            <SelectItem key={role.roleId} value={role.roleId}>
-                              {role.roleName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {bulkToggleRole && (
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="gap-2 text-success border-success/50 hover:bg-success/10"
-                          onClick={() => handleBulkEnableAll(bulkToggleRole)}
-                        >
-                          <Check className="w-4 h-4" />
-                          Enable All
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="gap-2 text-destructive border-destructive/50 hover:bg-destructive/10"
-                          onClick={() => handleBulkDisableAll(bulkToggleRole)}
-                        >
-                          <X className="w-4 h-4" />
-                          Disable All
-                        </Button>
-                      </div>
-                    )}
+
+                {selectedRoleForGrid && (
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleGridBulkAction('enableAll')}
+                      className="text-success border-success/30 hover:bg-success/10"
+                    >
+                      <Check className="w-4 h-4 mr-2" /> Select All
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleGridBulkAction('disableAll')}
+                      className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                    >
+                      <X className="w-4 h-4 mr-2" /> Clear All
+                    </Button>
+                    <Button
+                      onClick={handleSaveGridPermissions}
+                      disabled={isSavingGrid}
+                      className="bg-primary"
+                    >
+                      {isSavingGrid ? "Saving..." : "Save Mapping"}
+                    </Button>
                   </div>
-                  
-                  {bulkToggleRole && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2 border-t border-border">
-                      {(["view", "create", "edit", "delete", "approve", "export"] as const).map((perm) => {
-                        const allEnabled = rolePermissions
-                          .filter(p => p.roleId === bulkToggleRole)
-                          .every(p => p[perm]);
-                        const someEnabled = rolePermissions
-                          .filter(p => p.roleId === bulkToggleRole)
-                          .some(p => p[perm]);
-                        
-                        return (
-                          <div 
-                            key={perm} 
-                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                )}
+              </div>
+
+              {selectedRoleForGrid ? (
+                <div className="relative overflow-auto max-h-[60vh] rounded-lg border border-border/50">
+                  <AnimatePresence>
+                    {showSuccessAnimation && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-background/60 backdrop-blur-sm"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.8, opacity: 0 }}
+                          transition={{ type: "spring", damping: 15 }}
+                          className="bg-green-500/10 text-green-600 dark:text-green-400 flex flex-col items-center justify-center p-8 rounded-2xl border border-green-500/20 shadow-xl"
+                        >
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                            className="bg-green-500 text-white p-3 rounded-full mb-4 shadow-lg"
                           >
-                            <Label className="capitalize text-sm">{perm}</Label>
-                            <Switch
-                              checked={allEnabled}
-                              onCheckedChange={(checked) => handleBulkTogglePermission(bulkToggleRole, perm, checked)}
-                              className={someEnabled && !allEnabled ? "data-[state=unchecked]:bg-warning/50" : ""}
-                            />
-                          </div>
+                            <Check className="w-8 h-8" />
+                          </motion.div>
+                          <h3 className="text-xl font-bold mb-1">Permissions Saved!</h3>
+                          <p className="text-sm opacity-80">The mappings have been successfully updated.</p>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-muted/95 backdrop-blur-sm text-muted-foreground uppercase text-xs sticky top-0 z-10 shadow-sm">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Module Group</th>
+                        <th className="px-4 py-3 font-semibold text-center">View</th>
+                        <th className="px-4 py-3 font-semibold text-center">Create</th>
+                        <th className="px-4 py-3 font-semibold text-center">Edit</th>
+                        <th className="px-4 py-3 font-semibold text-center">Delete</th>
+                        <th className="px-4 py-3 font-semibold text-center">Approve</th>
+                        <th className="px-4 py-3 font-semibold text-center">Export</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {permissionModulesHierarchy.map(parent => {
+                        const parentPerms = gridPermissions[parent.id] || { view: false, create: false, edit: false, delete: false, approve: false, export: false };
+                        const hasSubModules = parent.subModules && parent.subModules.length > 0;
+                        const isExpanded = expandedModules[parent.id];
+
+                        return (
+                          <React.Fragment key={parent.id}>
+                            <tr className={`hover:bg-muted/30 transition-colors ${hasSubModules ? 'bg-muted/10' : ''}`}>
+                              <td className="px-4 py-3 font-semibold text-[15px] flex items-center gap-2">
+                                {hasSubModules ? (
+                                  <button onClick={() => toggleExpand(parent.id)} className="p-1 hover:bg-muted rounded-md transition-colors">
+                                    {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                                  </button>
+                                ) : (
+                                  <div className="w-6" /> // spacer
+                                )}
+                                {parent.label}
+                              </td>
+                              {(['view', 'create', 'edit', 'delete', 'approve', 'export'] as const).map(action => (
+                                <td key={action} className="px-4 py-3 text-center">
+                                  <div className="flex justify-center">
+                                    <Checkbox
+                                      checked={parentPerms[action]}
+                                      onCheckedChange={(checked) => handlePermissionChange(parent.id, action, !!checked)}
+                                    />
+                                  </div>
+                                </td>
+                              ))}
+                            </tr>
+                            
+                            {/* Render Sub Modules if expanded */}
+                            {hasSubModules && isExpanded && parent.subModules!.map(sub => {
+                              const subPerms = gridPermissions[sub.id] || { view: false, create: false, edit: false, delete: false, approve: false, export: false };
+                              return (
+                                <tr key={sub.id} className="hover:bg-muted/20 transition-colors">
+                                  <td className="px-4 py-2 pl-12 text-sm text-muted-foreground border-l-2 border-transparent relative">
+                                    <div className="absolute left-6 top-0 bottom-0 w-px bg-border/50"></div>
+                                    <div className="absolute left-6 top-1/2 w-4 h-px bg-border/50"></div>
+                                    {sub.label}
+                                  </td>
+                                  {(['view', 'create', 'edit', 'delete', 'approve', 'export'] as const).map(action => (
+                                    <td key={action} className="px-4 py-2 text-center">
+                                      <div className="flex justify-center">
+                                        <Checkbox
+                                          checked={subPerms[action]}
+                                          onCheckedChange={(checked) => handlePermissionChange(sub.id, action, !!checked, parent.id)}
+                                        />
+                                      </div>
+                                    </td>
+                                  ))}
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
                         );
                       })}
-                    </div>
-                  )}
-                  
-                  {bulkToggleRole && (
-                    <p className="text-xs text-muted-foreground">
-                      Changes apply immediately to all modules for the selected role.
-                    </p>
-                  )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border/50 rounded-lg">
+                  <Shield className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p>Please select a role to view and manage its permissions</p>
                 </div>
               )}
             </div>
-
-
-            
-            <DataTable
-              data={rolePermissions}
-              columns={permissionColumns}
-              onView={handlePermissionView}
-              onEdit={handlePermissionEdit}
-              onDelete={handlePermissionDelete}
-              searchPlaceholder="Search permissions..."
-            />
-          </>
+          </div>
         )}
 
         {/* REPORTING MANAGER */}
@@ -1887,18 +2122,21 @@ export function MasterSetupTab() {
                   Manage employee-manager hierarchy and reporting structure
                 </p>
               </div>
-              <Button onClick={handleReportingCreate} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Mapping
-              </Button>
+              {canCreate && (
+                <Button onClick={handleReportingCreate} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Mapping
+                </Button>
+              )}
             </div>
-            
+
             <DataTable
               data={reportingManagers}
               columns={reportingColumns}
               onView={handleReportingView}
-              onEdit={handleReportingEdit}
-              onDelete={handleReportingDelete}
+              onEdit={canEdit ? handleReportingEdit : undefined}
+              onDelete={canDelete ? handleReportingDelete : undefined}
+              showExport={canExport}
               searchPlaceholder="Search mappings..."
             />
           </>
@@ -1915,18 +2153,21 @@ export function MasterSetupTab() {
                   Manage departments, heads, and KPI categories
                 </p>
               </div>
-              <Button onClick={handleDepartmentCreate} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Department
-              </Button>
+              {canCreate && (
+                <Button onClick={handleDepartmentCreate} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Department
+                </Button>
+              )}
             </div>
-            
+
             <DataTable
               data={departments}
               columns={departmentColumns}
               onView={handleDepartmentView}
-              onEdit={handleDepartmentEdit}
-              onDelete={handleDepartmentDelete}
+              onEdit={canEdit ? handleDepartmentEdit : undefined}
+              onDelete={canDelete ? handleDepartmentDelete : undefined}
+              showExport={canExport}
               searchPlaceholder="Search departments..."
             />
           </>
@@ -1943,17 +2184,20 @@ export function MasterSetupTab() {
                   Employee lifecycle statuses and their tracking behavior
                 </p>
               </div>
-              <Button onClick={handleStatusCreate} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Status
-              </Button>
+              {canCreate && (
+                <Button onClick={handleStatusCreate} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Status
+                </Button>
+              )}
             </div>
-            
+
             <DataTable
               data={statusMaster}
               columns={statusColumns}
               onView={handleStatusView}
-              onEdit={handleStatusEdit}
+              onEdit={canEdit ? handleStatusEdit : undefined}
+              showExport={canExport}
               searchPlaceholder="Search statuses..."
             />
           </>
@@ -1970,28 +2214,158 @@ export function MasterSetupTab() {
                   Manage distributors, their licenses, infrastructure, and retailer network
                 </p>
               </div>
-              <Button onClick={handleDistributorCreate} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Distributor
-              </Button>
+              {canCreate && (
+                <Button onClick={handleDistributorCreate} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Distributor
+                </Button>
+              )}
             </div>
-            
+
             <DataTable
               data={distributors}
               columns={distributorColumns}
               onView={handleDistributorView}
-              onEdit={handleDistributorEdit}
-              onDelete={handleDistributorDelete}
+              onEdit={canEdit ? handleDistributorEdit : undefined}
+              onDelete={canDelete ? handleDistributorDelete : undefined}
+              showExport={canExport}
               searchPlaceholder="Search distributors..."
             />
           </>
+        )}
+
+        {/* SITES */}
+        {activeMaster === "sites" && !isModalOpen && (
+          <>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-display font-bold">Site Master</h2>
+                <p className="text-muted-foreground">Manage locations and site addresses</p>
+              </div>
+              {canCreate && <Button onClick={handleSiteCreate}><Plus className="w-4 h-4" /> Add Site</Button>}
+            </div>
+            <DataTable
+              data={sites}
+              columns={siteColumns}
+              onEdit={canEdit ? handleSiteEdit : undefined}
+              onDelete={canDelete ? handleSiteDelete : undefined}
+            />
+          </>
+        )}
+
+        {/* SITE CREATE/EDIT FORM */}
+        {activeMaster === "sites" && isModalOpen && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b">
+              <h2 className="text-2xl font-bold text-foreground">{modalMode === "create" ? "Add Site / Project" : "Edit Site / Project"}</h2>
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                <Button onClick={handleSave} className="gradient-btn" disabled={isSaving}>
+                  {isSaving ? "Saving..." : (modalMode === "create" ? "Create" : "Save Changes")}
+                </Button>
+              </div>
+            </div>
+            <div className="bg-muted/50 p-6 rounded-xl overflow-y-auto space-y-6 shadow-inner border border-border">
+              {/* Site Details Section */}
+              <div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-6">
+                <h3 className="text-base font-bold text-foreground">Site Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">Site Name *</Label>
+                    <Input className="border-border" value={siteForm.name || ""} onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })} placeholder="e.g., Corporate HQ" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">Site Code *</Label>
+                    <Input className="border-border" value={siteForm.siteCode || ""} onChange={(e) => setSiteForm({ ...siteForm, siteCode: e.target.value })} placeholder="e.g., CHQ-001" />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">Select Product</Label>
+                    <Select value={siteForm.productType || ""} onValueChange={(value) => setSiteForm({ ...siteForm, productType: value })}>
+                      <SelectTrigger className="border-border"><SelectValue placeholder="Select a product" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Vibecopilot">Vibecopilot</SelectItem>
+                        <SelectItem value="OpsHub">OpsHub</SelectItem>
+                        <SelectItem value="FieldSense">FieldSense</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">Country</Label>
+                    <Input className="border-border" value={siteForm.country || ""} onChange={(e) => setSiteForm({ ...siteForm, country: e.target.value })} placeholder="Select or type country" />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">Location Address</Label>
+                    <textarea className="w-full min-h-[100px] p-3 text-sm rounded-md border border-border bg-transparent placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" value={siteForm.address || ""} onChange={(e) => setSiteForm({ ...siteForm, address: e.target.value })} placeholder="Enter full address..." />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">Activate Date</Label>
+                    <Input type="date" className="border-border" value={siteForm.activateDate || ""} onChange={(e) => setSiteForm({ ...siteForm, activateDate: e.target.value })} />
+                  </div>
+                  <div className="flex items-center justify-between space-y-0 h-full pt-6">
+                    <Label className="text-xs font-semibold text-muted-foreground">Status</Label>
+                    <Switch checked={siteForm.status === "Active" || !siteForm.status} onCheckedChange={(checked) => setSiteForm({ ...siteForm, status: checked ? "Active" : "Inactive" })} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Person Section */}
+              <div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-6">
+                <h3 className="text-base font-bold text-foreground">Contact Person</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">Full Name *</Label>
+                    <Input className="border-border" value={siteForm.contactName || ""} onChange={(e) => setSiteForm({ ...siteForm, contactName: e.target.value })} placeholder="John Doe" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">Phone Number</Label>
+                    <Input className="border-border" value={siteForm.contactPhone || ""} onChange={(e) => setSiteForm({ ...siteForm, contactPhone: e.target.value })} placeholder="+1 (555) 123-4567" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">Email Address</Label>
+                    <Input type="email" className="border-border" value={siteForm.contactEmail || ""} onChange={(e) => setSiteForm({ ...siteForm, contactEmail: e.target.value })} placeholder="john.doe@example.com" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Module Access Section */}
+              <div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-4">
+                <h3 className="text-base font-bold text-foreground">Module Access</h3>
+                <div className="space-y-6 p-4 rounded-xl border border-border/50 bg-muted/30">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-foreground/90 bg-card px-2 py-1 rounded shadow-sm inline-block">Application Modules</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2 mt-2">
+                      {AVAILABLE_MODULES.map(mod => {
+                        const isOrgEnabled = (() => {
+                          try {
+                            const orgMods = JSON.parse(sessionStorage.getItem("modulesEnabled") || "[]");
+                            return orgMods.includes("All") || orgMods.includes(mod);
+                          } catch { return true; }
+                        })();
+                        if (!isOrgEnabled) return null;
+                        
+                        return (
+                          <label key={mod} className={`flex items-center gap-2 text-sm cursor-pointer`}>
+                            <input type="checkbox" className="rounded border-input" checked={(siteForm.modulesEnabled || []).includes(mod)} onChange={(e) => {
+                              const current = siteForm.modulesEnabled || [];
+                              if (e.target.checked) setSiteForm({ ...siteForm, modulesEnabled: [...current, mod] });
+                              else setSiteForm({ ...siteForm, modulesEnabled: current.filter(m => m !== mod) });
+                            }} /> {mod}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
       </motion.div>
 
       {/* MODAL */}
       <GlassModal
-        isOpen={isModalOpen}
+        isOpen={isModalOpen && activeMaster !== "sites"}
         onClose={() => {
           setIsModalOpen(false);
           // Reset wizard on close
@@ -2020,8 +2394,8 @@ export function MasterSetupTab() {
                     // Go back - remove the created department
                     if (createdDepartmentId) {
                       try {
-                        await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/departments/${createdDepartmentId}/`, { method: 'DELETE' });
-                      } catch {}
+                        await fetch(`/api/departments/${createdDepartmentId}/`, { method: 'DELETE' });
+                      } catch { }
                       setDepartments(prev => prev.filter(d => d.id !== createdDepartmentId));
                       setCreatedDepartmentId("");
                     }
@@ -2036,8 +2410,8 @@ export function MasterSetupTab() {
                   // Cancel - clean up if department was created
                   if (createdDepartmentId) {
                     try {
-                      await fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/departments/${createdDepartmentId}/`, { method: 'DELETE' });
-                    } catch {}
+                      await fetch(`/api/departments/${createdDepartmentId}/`, { method: 'DELETE' });
+                    } catch { }
                     setDepartments(prev => prev.filter(d => d.id !== createdDepartmentId));
                   }
                   setIsModalOpen(false);
@@ -2047,8 +2421,8 @@ export function MasterSetupTab() {
                   Cancel
                 </Button>
                 {departmentWizardStep === 1 ? (
-                  <Button 
-                    onClick={handleDepartmentStep1Complete} 
+                  <Button
+                    onClick={handleDepartmentStep1Complete}
                     className="gradient-btn"
                     disabled={!departmentForm.departmentName?.trim()}
                   >
@@ -2056,8 +2430,8 @@ export function MasterSetupTab() {
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 ) : (
-                  <Button 
-                    onClick={handleDepartmentWizardComplete} 
+                  <Button
+                    onClick={handleDepartmentWizardComplete}
                     className="gradient-btn"
                   >
                     {departmentForm.departmentHeadId ? "Complete Setup" : "Skip & Finish"}
@@ -2079,8 +2453,8 @@ export function MasterSetupTab() {
                   Cancel
                 </Button>
                 {reportingWizardStep === 1 ? (
-                  <Button 
-                    onClick={handleCreateManager} 
+                  <Button
+                    onClick={handleCreateManager}
                     className="gradient-btn"
                     disabled={!newManagerForm.fullName || !newManagerForm.email || !newManagerForm.roleId}
                   >
@@ -2088,8 +2462,8 @@ export function MasterSetupTab() {
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 ) : (
-                  <Button 
-                    onClick={handleSaveReportingMappings} 
+                  <Button
+                    onClick={handleSaveReportingMappings}
                     className="gradient-btn"
                     disabled={employeeMappings.length === 0}
                   >
@@ -2103,8 +2477,8 @@ export function MasterSetupTab() {
               <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} className="gradient-btn">
-                {modalMode === "create" ? "Create" : "Save Changes"}
+              <Button onClick={handleSave} className="gradient-btn" disabled={isSaving}>
+                {isSaving ? "Saving..." : (modalMode === "create" ? "Create" : "Save Changes")}
               </Button>
             </div>
           ) : (
@@ -2246,7 +2620,7 @@ export function MasterSetupTab() {
                     </SelectTrigger>
                     <SelectContent>
                       {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.fullName}>{emp.fullName}</SelectItem>
+                        <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -2362,17 +2736,74 @@ export function MasterSetupTab() {
                     <SelectContent>
                       {activeStatuses.length > 0 ? (
                         activeStatuses.map((status) => (
-                          <SelectItem key={status.id} value={status.id}>
-                            {status.statusName}
-                          </SelectItem>
+                          <SelectItem key={status.id} value={status.id}>{status.statusName}</SelectItem>
                         ))
                       ) : (
-                        <SelectItem value="__disabled__" disabled>
-                          No active statuses available
-                        </SelectItem>
+                        <SelectItem value="none" disabled>No statuses available</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Region</Label>
+                  <Select
+                    value={employeeForm.region || "none"}
+                    onValueChange={(value) => setEmployeeForm({ ...employeeForm, region: value === "none" ? undefined : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No specific region</SelectItem>
+                      <SelectItem value="North">North</SelectItem>
+                      <SelectItem value="South">South</SelectItem>
+                      <SelectItem value="East">East</SelectItem>
+                      <SelectItem value="West">West</SelectItem>
+                      <SelectItem value="Central">Central</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Assigned Site (Optional)</Label>
+                  <Select
+                    value={employeeForm.siteId || "none"}
+                    onValueChange={(value) => setEmployeeForm({ ...employeeForm, siteId: value === "none" ? undefined : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select site" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No specific site</SelectItem>
+                      {sites.map((site) => (
+                        <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Accessible Sites (For Admins)</Label>
+                  <div className="flex flex-col gap-2 max-h-32 overflow-y-auto border border-input rounded-md p-2 bg-background">
+                    {sites.map(s => {
+                      const accessibleSites = employeeForm.accessibleSites || [];
+                      return (
+                        <label key={s.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={accessibleSites.includes(s.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEmployeeForm(prev => ({ ...prev, accessibleSites: [...(prev.accessibleSites || []), s.id] }));
+                              } else {
+                                setEmployeeForm(prev => ({ ...prev, accessibleSites: (prev.accessibleSites || []).filter(id => id !== s.id) }));
+                              }
+                            }}
+                          />
+                          {s.name}
+                        </label>
+                      );
+                    })}
+                    {sites.length === 0 && <span className="text-xs text-muted-foreground">No sites available</span>}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
                   <div>
@@ -2401,7 +2832,11 @@ export function MasterSetupTab() {
                 { icon: Shield, label: "Role", value: getRoleName(selectedEmployee.roleId) },
                 { icon: Building, label: "Department", value: getDepartmentName(selectedEmployee.departmentId) },
                 { icon: Briefcase, label: "Designation", value: selectedEmployee.designation },
-                { icon: GitBranch, label: "Reporting Manager", value: selectedEmployee.reportingManager },
+                {
+                  icon: GitBranch,
+                  label: "Reporting Manager",
+                  value: employees.find(e => e.id === selectedEmployee.reportingManager)?.fullName || "None"
+                },
                 { icon: Calendar, label: "Joining Date", value: selectedEmployee.joiningDate },
                 { icon: MapPin, label: "Work Mode", value: selectedEmployee.workMode },
               ].map((item, i) => (
@@ -2417,8 +2852,8 @@ export function MasterSetupTab() {
             <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl">
               <div>
                 <p className="text-sm font-medium">Status</p>
-                <StatusBadge 
-                  status={getStatusName(selectedEmployee.statusId) === "Active" ? "active" : "inactive"} 
+                <StatusBadge
+                  status={getStatusName(selectedEmployee.statusId) === "Active" ? "active" : "inactive"}
                   label={getStatusName(selectedEmployee.statusId)}
                 />
               </div>
@@ -2452,9 +2887,9 @@ export function MasterSetupTab() {
             <div className="space-y-2">
               <Label>Role Code</Label>
               <Input
-                value={roleForm.roleCode || roleForm.roleName?.toUpperCase().replace(/\s+/g, "_").slice(0, 10) || ""}
-                disabled
-                className="bg-muted"
+                value={roleForm.roleCode || (roleForm.roleName ? roleForm.roleName.toUpperCase().replace(/\s+/g, "_").slice(0, 20) : "")}
+                onChange={(e) => setRoleForm({ ...roleForm, roleCode: e.target.value.toUpperCase().replace(/\s+/g, "_") })}
+                placeholder="e.g. MGR_01"
               />
             </div>
             <div className="space-y-2">
@@ -2482,10 +2917,19 @@ export function MasterSetupTab() {
                   <SelectValue placeholder="Select dashboard" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Admin Dashboard">Admin Dashboard</SelectItem>
-                  <SelectItem value="Manager Dashboard">Manager Dashboard</SelectItem>
-                  <SelectItem value="Sales Dashboard">Sales Dashboard</SelectItem>
-                  <SelectItem value="Ops Dashboard">Ops Dashboard</SelectItem>
+                  {availableDropdownModules.includes("Employee Portal") && <SelectItem value="employee-portal">Employee Portal</SelectItem>}
+                  {availableDropdownModules.includes("Master Setup") && <SelectItem value="master-setup">Master Setup</SelectItem>}
+                  {availableDropdownModules.includes("Inventory Management") && <SelectItem value="inventory-management">Inventory Management</SelectItem>}
+                  {availableDropdownModules.includes("Sales Executive") && <SelectItem value="sales-executive">Sales Executive</SelectItem>}
+                  {availableDropdownModules.includes("Daily Tracking") && <SelectItem value="my-daily-tracking">Daily Tracking</SelectItem>}
+                  {availableDropdownModules.includes("Live Tracking") && <SelectItem value="my-live-tracking">Live Tracking</SelectItem>}
+                  {availableDropdownModules.includes("Team Tracking") && <SelectItem value="team-tracking">Team Tracking</SelectItem>}
+                  {availableDropdownModules.includes("Reports") && <SelectItem value="reports">Reports</SelectItem>}
+                  {availableDropdownModules.includes("Alerts") && <SelectItem value="alerts">Alerts</SelectItem>}
+                  {availableDropdownModules.includes("Attendance & Leaves") && <SelectItem value="attendance-leaves">Attendance & Leaves</SelectItem>}
+                  {availableDropdownModules.includes("Projects & Tasks") && <SelectItem value="projects">Projects & Tasks</SelectItem>}
+                  {availableDropdownModules.includes("Communication & Meetings") && <SelectItem value="communication">Communication & Meetings</SelectItem>}
+                  {availableDropdownModules.includes("Documents") && <SelectItem value="documents">Documents</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -2509,6 +2953,42 @@ export function MasterSetupTab() {
                 onCheckedChange={(checked) => setRoleForm({ ...roleForm, activeStatus: checked })}
               />
             </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label>Visible Dashboard KPI Cards</Label>
+              <p className="text-xs text-muted-foreground mb-2">Select which top-level KPI cards this role is allowed to see.</p>
+              <div className="flex flex-wrap gap-4">
+                {[
+                  "Employees Online",
+                  "Active Projects",
+                  "Today's Site Visits",
+                  "Pending Alerts",
+                  "Total Distance Today",
+                  "Delayed Projects",
+                  "Pending Reimbursements",
+                  "Pending Leave Requests"
+                ].map((kpi) => (
+                  <div key={kpi} className="flex items-center space-x-2 bg-muted/50 p-2 rounded-md border">
+                    <Checkbox
+                      id={`kpi-${kpi}`}
+                      checked={(roleForm.visibleKpis || []).includes(kpi)}
+                      onCheckedChange={(checked) => {
+                        const currentKpis = roleForm.visibleKpis || [];
+                        if (checked) {
+                          setRoleForm({ ...roleForm, visibleKpis: [...currentKpis, kpi] });
+                        } else {
+                          setRoleForm({ ...roleForm, visibleKpis: currentKpis.filter(k => k !== kpi) });
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`kpi-${kpi}`} className="cursor-pointer font-normal">
+                      {kpi}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -2528,62 +3008,6 @@ export function MasterSetupTab() {
                 <p className="font-medium">{item.value}</p>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* PERMISSION FORM */}
-        {activeMaster === "role-permissions" && modalMode !== "view" && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Role *</Label>
-                <Select
-                  value={permissionForm.roleId || ""}
-                  onValueChange={(value) => setPermissionForm({ ...permissionForm, roleId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.id}>{role.roleName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Module *</Label>
-                <Select
-                  value={permissionForm.module || ""}
-                  onValueChange={(value) => setPermissionForm({ ...permissionForm, module: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select module" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Employee">Employee</SelectItem>
-                    <SelectItem value="Tasks">Tasks</SelectItem>
-                    <SelectItem value="Projects">Projects</SelectItem>
-                    <SelectItem value="Sales">Sales</SelectItem>
-                    <SelectItem value="Ops">Ops</SelectItem>
-                    <SelectItem value="Reports">Reports</SelectItem>
-                    <SelectItem value="Tracking">Tracking</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {(["view", "create", "edit", "delete", "approve", "export"] as const).map((perm) => (
-                <div key={perm} className="flex items-center space-x-2 p-3 bg-muted/50 rounded-xl">
-                  <Checkbox
-                    id={perm}
-                    checked={permissionForm[perm] || false}
-                    onCheckedChange={(checked) => setPermissionForm({ ...permissionForm, [perm]: checked })}
-                  />
-                  <Label htmlFor={perm} className="capitalize">{perm}</Label>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -2620,16 +3044,14 @@ export function MasterSetupTab() {
           <div className="space-y-6">
             {/* Step Indicator */}
             <div className="flex items-center justify-center gap-4 mb-6">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                reportingWizardStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${reportingWizardStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
                 <span className="w-6 h-6 rounded-full bg-current/20 flex items-center justify-center text-sm font-bold">1</span>
                 <span className="font-medium">Setup Manager</span>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                reportingWizardStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${reportingWizardStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
                 <span className="w-6 h-6 rounded-full bg-current/20 flex items-center justify-center text-sm font-bold">2</span>
                 <span className="font-medium">Map Employees</span>
               </div>
@@ -2682,7 +3104,7 @@ export function MasterSetupTab() {
                       <UserPlus className="w-4 h-4 text-primary" />
                       Create New Reporting Manager
                     </h4>
-                    
+
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -2854,8 +3276,8 @@ export function MasterSetupTab() {
                                 </div>
                                 <span className="font-medium">{mapping.employeeName}</span>
                               </div>
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => handleRemoveEmployeeMapping(mapping.employeeId)}
                                 className="text-destructive hover:text-destructive"
@@ -2863,7 +3285,7 @@ export function MasterSetupTab() {
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-3">
                               <div className="space-y-1">
                                 <Label className="text-xs">Type</Label>
@@ -3025,16 +3447,14 @@ export function MasterSetupTab() {
           <div className="space-y-6">
             {/* Step Indicator */}
             <div className="flex items-center justify-center gap-4 mb-6">
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                departmentWizardStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${departmentWizardStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
                 <span className="w-6 h-6 rounded-full bg-current/20 flex items-center justify-center text-sm font-bold">1</span>
                 <span className="font-medium">Create Department</span>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                departmentWizardStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}>
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${departmentWizardStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
                 <span className="w-6 h-6 rounded-full bg-current/20 flex items-center justify-center text-sm font-bold">2</span>
                 <span className="font-medium">Assign Head</span>
               </div>
@@ -3054,7 +3474,7 @@ export function MasterSetupTab() {
                     <Building className="w-4 h-4 text-primary" />
                     Department Information
                   </h4>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Department Name *</Label>
@@ -3150,7 +3570,7 @@ export function MasterSetupTab() {
                         <Users className="w-4 h-4 text-primary" />
                         Select Existing Manager as Department Head
                       </h4>
-                      <Select 
+                      <Select
                         value={departmentForm.departmentHeadId || "none"}
                         onValueChange={(value) => handleSelectDeptHead(value === "none" ? "" : value)}
                       >
@@ -3184,7 +3604,7 @@ export function MasterSetupTab() {
                       <UserPlus className="w-4 h-4 text-primary" />
                       Create New Department Head
                     </h4>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Full Name *</Label>
@@ -3246,7 +3666,7 @@ export function MasterSetupTab() {
                     </div>
 
                     {newDeptHeadForm.fullName && newDeptHeadForm.email && newDeptHeadForm.roleId && (
-                      <Button 
+                      <Button
                         onClick={handleCreateDeptHead}
                         className="w-full gradient-btn gap-2"
                       >
@@ -3396,12 +3816,12 @@ export function MasterSetupTab() {
                   placeholder="e.g., Probation, On Notice"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Visibility</Label>
                 <Select
                   value={statusForm.visibility || "All"}
-                  onValueChange={(value: "All" | "Manager Only" | "Admin Only") => 
+                  onValueChange={(value: "All" | "Manager Only" | "Admin Only") =>
                     setStatusForm({ ...statusForm, visibility: value })
                   }
                 >
@@ -3415,7 +3835,7 @@ export function MasterSetupTab() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
                 <div>
                   <Label>Tracking</Label>
@@ -3426,7 +3846,7 @@ export function MasterSetupTab() {
                   onCheckedChange={(checked) => setStatusForm({ ...statusForm, tracking: checked })}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
                 <div>
                   <Label>Active Status</Label>
@@ -3660,19 +4080,19 @@ export function MasterSetupTab() {
             {/* Approval Chain with Signatures */}
             <div>
               <h4 className="text-sm font-semibold mb-3 text-primary">Approval Chain & Signatures</h4>
-              
+
               {/* Proprietor Signature */}
               {selectedDistributor.proprietorSignature && (
                 <div className="mb-4 p-4 bg-muted/50 rounded-xl">
                   <p className="text-xs text-muted-foreground mb-2">Proprietor Signature</p>
-                  <img 
-                    src={selectedDistributor.proprietorSignature} 
-                    alt="Proprietor Signature" 
-                    className="h-20 border rounded-lg bg-white p-2"
+                  <img
+                    src={selectedDistributor.proprietorSignature}
+                    alt="Proprietor Signature"
+                    className="h-20 border rounded-lg bg-card p-2"
                   />
                 </div>
               )}
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Submitted By */}
                 <div className="p-4 bg-blue-50/50 rounded-xl">
@@ -3682,14 +4102,14 @@ export function MasterSetupTab() {
                   </div>
                   <p className="font-medium text-sm mb-2">{selectedDistributor.submittedBy.name || "-"}</p>
                   {selectedDistributor.submittedBy.signature && (
-                    <img 
-                      src={selectedDistributor.submittedBy.signature} 
-                      alt="SO/ASM Signature" 
-                      className="h-16 border rounded-lg bg-white p-1"
+                    <img
+                      src={selectedDistributor.submittedBy.signature}
+                      alt="SO/ASM Signature"
+                      className="h-16 border rounded-lg bg-card p-1"
                     />
                   )}
                 </div>
-                
+
                 {/* Forwarded By */}
                 <div className="p-4 bg-amber-50/50 rounded-xl">
                   <div className="flex items-center gap-2 mb-2">
@@ -3698,14 +4118,14 @@ export function MasterSetupTab() {
                   </div>
                   <p className="font-medium text-sm mb-2">{selectedDistributor.forwardedBy.name || "-"}</p>
                   {selectedDistributor.forwardedBy.signature && (
-                    <img 
-                      src={selectedDistributor.forwardedBy.signature} 
-                      alt="RSM Signature" 
-                      className="h-16 border rounded-lg bg-white p-1"
+                    <img
+                      src={selectedDistributor.forwardedBy.signature}
+                      alt="RSM Signature"
+                      className="h-16 border rounded-lg bg-card p-1"
                     />
                   )}
                 </div>
-                
+
                 {/* Approved By */}
                 <div className="p-4 bg-green-50/50 rounded-xl">
                   <div className="flex items-center gap-2 mb-2">
@@ -3714,10 +4134,10 @@ export function MasterSetupTab() {
                   </div>
                   <p className="font-medium text-sm mb-2">{selectedDistributor.approvedBy.name || "-"}</p>
                   {selectedDistributor.approvedBy.signature && (
-                    <img 
-                      src={selectedDistributor.approvedBy.signature} 
-                      alt="HOD Signature" 
-                      className="h-16 border rounded-lg bg-white p-1"
+                    <img
+                      src={selectedDistributor.approvedBy.signature}
+                      alt="HOD Signature"
+                      className="h-16 border rounded-lg bg-card p-1"
                     />
                   )}
                 </div>
@@ -3900,7 +4320,7 @@ export function MasterSetupTab() {
                   <Label>Type of Firm *</Label>
                   <Select
                     value={distributorForm.typeOfFirm || "Sole Proprietor"}
-                    onValueChange={(value: "Sole Proprietor" | "Partnership" | "Pvt Ltd" | "Co-Op Society") => 
+                    onValueChange={(value: "Sole Proprietor" | "Partnership" | "Pvt Ltd" | "Co-Op Society") =>
                       setDistributorForm({ ...distributorForm, typeOfFirm: value })
                     }
                   >
@@ -3922,12 +4342,12 @@ export function MasterSetupTab() {
                     min={0}
                     max={100}
                     value={distributorForm.distributorProfile?.wholesalerPercent || 0}
-                    onChange={(e) => setDistributorForm({ 
-                      ...distributorForm, 
-                      distributorProfile: { 
-                        wholesalerPercent: Number(e.target.value), 
-                        retailerPercent: 100 - Number(e.target.value) 
-                      } 
+                    onChange={(e) => setDistributorForm({
+                      ...distributorForm,
+                      distributorProfile: {
+                        wholesalerPercent: Number(e.target.value),
+                        retailerPercent: 100 - Number(e.target.value)
+                      }
                     })}
                   />
                 </div>
@@ -3938,12 +4358,12 @@ export function MasterSetupTab() {
                     min={0}
                     max={100}
                     value={distributorForm.distributorProfile?.retailerPercent || 0}
-                    onChange={(e) => setDistributorForm({ 
-                      ...distributorForm, 
-                      distributorProfile: { 
-                        retailerPercent: Number(e.target.value), 
-                        wholesalerPercent: 100 - Number(e.target.value) 
-                      } 
+                    onChange={(e) => setDistributorForm({
+                      ...distributorForm,
+                      distributorProfile: {
+                        retailerPercent: Number(e.target.value),
+                        wholesalerPercent: 100 - Number(e.target.value)
+                      }
                     })}
                   />
                 </div>
@@ -4171,8 +4591,8 @@ export function MasterSetupTab() {
                   <Label>Preferred Transporters (comma separated)</Label>
                   <Input
                     value={distributorForm.preferredTransporters?.join(", ") || ""}
-                    onChange={(e) => setDistributorForm({ 
-                      ...distributorForm, 
+                    onChange={(e) => setDistributorForm({
+                      ...distributorForm,
                       preferredTransporters: e.target.value.split(",").map(s => s.trim()).filter(Boolean)
                     })}
                     placeholder="VRL Logistics, Gati Express, DTDC"
@@ -4221,7 +4641,7 @@ export function MasterSetupTab() {
                 <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs">9</span>
                 Government Documents
               </h4>
-              
+
               {/* Add New Document Form */}
               <div className="p-4 bg-muted/30 rounded-xl mb-4">
                 <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
@@ -4279,8 +4699,8 @@ export function MasterSetupTab() {
                           if (file) {
                             const reader = new FileReader();
                             reader.onload = (event) => {
-                              setDocumentForm({ 
-                                ...documentForm, 
+                              setDocumentForm({
+                                ...documentForm,
                                 fileName: file.name,
                                 fileData: event.target?.result as string
                               });
@@ -4467,14 +4887,14 @@ export function MasterSetupTab() {
                     <p className="text-xs text-muted-foreground">Terms and conditions acceptance</p>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Witness Name</Label>
                     <Input
                       value={distributorForm.witnessDetails?.name || ""}
-                      onChange={(e) => setDistributorForm({ 
-                        ...distributorForm, 
+                      onChange={(e) => setDistributorForm({
+                        ...distributorForm,
                         witnessDetails: { ...distributorForm.witnessDetails!, name: e.target.value }
                       })}
                       placeholder="Witness name"
@@ -4484,8 +4904,8 @@ export function MasterSetupTab() {
                     <Label>Witness Mobile</Label>
                     <Input
                       value={distributorForm.witnessDetails?.mobile || ""}
-                      onChange={(e) => setDistributorForm({ 
-                        ...distributorForm, 
+                      onChange={(e) => setDistributorForm({
+                        ...distributorForm,
                         witnessDetails: { ...distributorForm.witnessDetails!, mobile: e.target.value }
                       })}
                       placeholder="+91 XXXXX XXXXX"
@@ -4495,8 +4915,8 @@ export function MasterSetupTab() {
                     <Label>Witness Address</Label>
                     <Input
                       value={distributorForm.witnessDetails?.address || ""}
-                      onChange={(e) => setDistributorForm({ 
-                        ...distributorForm, 
+                      onChange={(e) => setDistributorForm({
+                        ...distributorForm,
                         witnessDetails: { ...distributorForm.witnessDetails!, address: e.target.value }
                       })}
                       placeholder="Address"
@@ -4512,9 +4932,9 @@ export function MasterSetupTab() {
                   </div>
                   <SignaturePad
                     value={distributorForm.proprietorSignature || ""}
-                    onChange={(signature) => setDistributorForm({ 
-                      ...distributorForm, 
-                      proprietorSignature: signature 
+                    onChange={(signature) => setDistributorForm({
+                      ...distributorForm,
+                      proprietorSignature: signature
                     })}
                   />
                 </div>
@@ -4525,7 +4945,7 @@ export function MasterSetupTab() {
                     <BadgeCheck className="w-4 h-4" />
                     Approval Workflow Signatures
                   </h5>
-                  
+
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Submitted By - Field Staff */}
                     <div className="space-y-3 p-4 bg-blue-50/50 rounded-xl">
@@ -4540,9 +4960,9 @@ export function MasterSetupTab() {
                         <Label className="text-xs">Name & Designation</Label>
                         <Input
                           value={distributorForm.submittedBy?.name || ""}
-                          onChange={(e) => setDistributorForm({ 
-                            ...distributorForm, 
-                            submittedBy: { 
+                          onChange={(e) => setDistributorForm({
+                            ...distributorForm,
+                            submittedBy: {
                               name: e.target.value,
                               signature: distributorForm.submittedBy?.signature || ""
                             }
@@ -4553,11 +4973,11 @@ export function MasterSetupTab() {
                       </div>
                       <SignaturePad
                         value={distributorForm.submittedBy?.signature || ""}
-                        onChange={(signature) => setDistributorForm({ 
-                          ...distributorForm, 
-                          submittedBy: { 
+                        onChange={(signature) => setDistributorForm({
+                          ...distributorForm,
+                          submittedBy: {
                             name: distributorForm.submittedBy?.name || "",
-                            signature: signature 
+                            signature: signature
                           }
                         })}
                         label="Digital Signature"
@@ -4578,9 +4998,9 @@ export function MasterSetupTab() {
                         <Label className="text-xs">Name & Designation</Label>
                         <Input
                           value={distributorForm.forwardedBy?.name || ""}
-                          onChange={(e) => setDistributorForm({ 
-                            ...distributorForm, 
-                            forwardedBy: { 
+                          onChange={(e) => setDistributorForm({
+                            ...distributorForm,
+                            forwardedBy: {
                               name: e.target.value,
                               signature: distributorForm.forwardedBy?.signature || ""
                             }
@@ -4591,11 +5011,11 @@ export function MasterSetupTab() {
                       </div>
                       <SignaturePad
                         value={distributorForm.forwardedBy?.signature || ""}
-                        onChange={(signature) => setDistributorForm({ 
-                          ...distributorForm, 
-                          forwardedBy: { 
+                        onChange={(signature) => setDistributorForm({
+                          ...distributorForm,
+                          forwardedBy: {
                             name: distributorForm.forwardedBy?.name || "",
-                            signature: signature 
+                            signature: signature
                           }
                         })}
                         label="Digital Signature"
@@ -4616,9 +5036,9 @@ export function MasterSetupTab() {
                         <Label className="text-xs">Name & Designation</Label>
                         <Input
                           value={distributorForm.approvedBy?.name || ""}
-                          onChange={(e) => setDistributorForm({ 
-                            ...distributorForm, 
-                            approvedBy: { 
+                          onChange={(e) => setDistributorForm({
+                            ...distributorForm,
+                            approvedBy: {
                               name: e.target.value,
                               signature: distributorForm.approvedBy?.signature || ""
                             }
@@ -4629,11 +5049,11 @@ export function MasterSetupTab() {
                       </div>
                       <SignaturePad
                         value={distributorForm.approvedBy?.signature || ""}
-                        onChange={(signature) => setDistributorForm({ 
-                          ...distributorForm, 
-                          approvedBy: { 
+                        onChange={(signature) => setDistributorForm({
+                          ...distributorForm,
+                          approvedBy: {
                             name: distributorForm.approvedBy?.name || "",
-                            signature: signature 
+                            signature: signature
                           }
                         })}
                         label="Digital Signature"
@@ -4658,7 +5078,6 @@ export function MasterSetupTab() {
             </div>
           </div>
         )}
-
       </GlassModal>
     </div>
   );

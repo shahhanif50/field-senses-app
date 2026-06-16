@@ -5,11 +5,6 @@ import {
   Department,
   StatusMaster,
   Project,
-  initialEmployees,
-  initialRoles,
-  initialDepartments,
-  initialStatusMaster,
-  initialProjects,
   getRoleName,
   getDepartmentName,
   getStatusName,
@@ -41,6 +36,7 @@ import {
   POSTerminal,
   POSAlert,
   EmployeeTask,
+  Site,
 } from "@/data/sharedTypes";
 
 // Re-export types for convenience
@@ -69,6 +65,7 @@ export type {
   PerformanceMetric,
   POSTerminal,
   POSAlert,
+  Site,
 } from "@/data/sharedTypes";
 
 // ============= INITIAL DATA =============
@@ -385,6 +382,8 @@ const initialReportingManagers: ReportingManager[] = [
 
 interface MasterDataContextType {
   // Core Data
+  sites: Site[];
+  setSites: React.Dispatch<React.SetStateAction<Site[]>>;
   employees: Employee[];
   roles: Role[];
   departments: Department[];
@@ -493,34 +492,51 @@ const MasterDataContext = createContext<MasterDataContextType | undefined>(undef
 
 export function MasterDataProvider({ children }: { children: ReactNode }) {
   // Core state
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
-  const [roles, setRoles] = useState<Role[]>(initialRoles);
-  const [departments, setDepartments] = useState<Department[]>(initialDepartments);
-  const [statusMaster, setStatusMaster] = useState<StatusMaster[]>(initialStatusMaster);
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [statusMaster, setStatusMaster] = useState<StatusMaster[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
 
   // Fetch from backend on mount
   React.useEffect(() => {
     // Dynamically detect hostname so mobile devices accessing via local IP can connect
     const host = window.location.hostname;
-    const BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : `http://${host}:8000/api`;
-    const get = (url: string) => fetch(url).then(res => res.json()).catch(() => null);
+    const BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : `/api`;
+    const getHeaders = () => ({
+      "Content-Type": "application/json",
+      "X-User-Id": sessionStorage.getItem("userId") || "",
+      "X-User-Role": sessionStorage.getItem("userRole") || "",
+      "X-Organization-Id": sessionStorage.getItem("organizationId") || "",
+    });
+    const get = (url: string) => fetch(url, { headers: getHeaders() }).then(res => res.json()).catch(() => null);
 
     // Core entities
     Promise.all([
+      get(`${BASE}/auth/me/`),
       get(`${BASE}/employees/`),
       get(`${BASE}/roles/`),
       get(`${BASE}/departments/`),
       get(`${BASE}/status-masters/`),
       get(`${BASE}/role-permissions/`),
       get(`${BASE}/reporting-managers/`),
-    ]).then(([empData, roleData, deptData, statusData, permData, repData]) => {
-      if (Array.isArray(empData) && empData.length > 0) setEmployees(empData);
-      if (Array.isArray(roleData) && roleData.length > 0) setRoles(roleData);
-      if (Array.isArray(deptData) && deptData.length > 0) setDepartments(deptData);
-      if (Array.isArray(statusData) && statusData.length > 0) setStatusMaster(statusData);
-      if (Array.isArray(permData) && permData.length > 0) setRolePermissions(permData);
-      if (Array.isArray(repData) && repData.length > 0) setReportingManagers(repData);
+      get(`${BASE}/sites/`),
+    ]).then(([meData, empData, roleData, deptData, statusData, permData, repData, siteData]) => {
+      if (meData && !meData.error) {
+        sessionStorage.setItem("userRole", meData.roleCode);
+        sessionStorage.setItem("isGlobalAdmin", meData.isGlobalAdmin ? "true" : "false");
+        sessionStorage.setItem("modulesEnabled", JSON.stringify(meData.modulesEnabled || []));
+        sessionStorage.setItem("trackingEnabled", meData.trackingEnabled ? "true" : "false");
+        sessionStorage.setItem("defaultDashboard", meData.defaultDashboard || "");
+      }
+      if (Array.isArray(empData)) setEmployees(empData);
+      if (Array.isArray(roleData)) setRoles(roleData);
+      if (Array.isArray(deptData)) setDepartments(deptData);
+      if (Array.isArray(statusData)) setStatusMaster(statusData);
+      if (Array.isArray(permData)) setRolePermissions(permData);
+      if (Array.isArray(repData)) setReportingManagers(repData);
+      if (Array.isArray(siteData)) setSites(siteData);
     });
 
     // CRM entities
@@ -533,13 +549,13 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
       get(`${BASE}/crm/leads/`),
       get(`${BASE}/crm/customers/`),
     ]).then(([distData, terrData, seData, stData, dlData, leadData, custData]) => {
-      if (Array.isArray(distData) && distData.length > 0) setDistributors(distData);
-      if (Array.isArray(terrData) && terrData.length > 0) setTerritories(terrData);
-      if (Array.isArray(seData) && seData.length > 0) setSalesExecutives(seData);
-      if (Array.isArray(stData) && stData.length > 0) setSalesTargets(stData);
-      if (Array.isArray(dlData) && dlData.length > 0) setDistributorLinks(dlData);
-      if (Array.isArray(leadData) && leadData.length > 0) setLeads(leadData);
-      if (Array.isArray(custData) && custData.length > 0) setCustomers(custData);
+      if (Array.isArray(distData)) setDistributors(distData);
+      if (Array.isArray(terrData)) setTerritories(terrData);
+      if (Array.isArray(seData)) setSalesExecutives(seData);
+      if (Array.isArray(stData)) setSalesTargets(stData);
+      if (Array.isArray(dlData)) setDistributorLinks(dlData);
+      if (Array.isArray(leadData)) setLeads(leadData);
+      if (Array.isArray(custData)) setCustomers(custData);
     });
 
     // Inventory entities
@@ -552,13 +568,13 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
       get(`${BASE}/inventory/pos-terminals/`),
       get(`${BASE}/inventory/pos-alerts/`),
     ]).then(([prodData, catData, uomData, locData, vendData, termData, paData]) => {
-      if (Array.isArray(prodData) && prodData.length > 0) setProducts(prodData);
-      if (Array.isArray(catData) && catData.length > 0) setCategories(catData);
-      if (Array.isArray(uomData) && uomData.length > 0) setUoms(uomData);
-      if (Array.isArray(locData) && locData.length > 0) setLocations(locData);
-      if (Array.isArray(vendData) && vendData.length > 0) setVendors(vendData);
-      if (Array.isArray(termData) && termData.length > 0) setPosTerminals(termData);
-      if (Array.isArray(paData) && paData.length > 0) setPosAlerts(paData);
+      if (Array.isArray(prodData)) setProducts(prodData);
+      if (Array.isArray(catData)) setCategories(catData);
+      if (Array.isArray(uomData)) setUoms(uomData);
+      if (Array.isArray(locData)) setLocations(locData);
+      if (Array.isArray(vendData)) setVendors(vendData);
+      if (Array.isArray(termData)) setPosTerminals(termData);
+      if (Array.isArray(paData)) setPosAlerts(paData);
     });
 
     // Ops entities
@@ -572,45 +588,35 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
       get(`${BASE}/ops/tracking-entries/`),
       get(`${BASE}/ops/employee-tasks/`),
     ]).then(([meetData, alertData, attData, geoData, lbData, pmData, teData, etData]) => {
-      if (Array.isArray(meetData) && meetData.length > 0) setMeetings(meetData);
-      if (Array.isArray(alertData) && alertData.length > 0) setAlerts(alertData);
-      if (Array.isArray(attData) && attData.length > 0) setAttendanceEntries(attData);
-      if (Array.isArray(geoData) && geoData.length > 0) setGeoFenceAlerts(geoData);
-      if (Array.isArray(lbData) && lbData.length > 0) setLeaveBalances(lbData);
-      if (Array.isArray(pmData) && pmData.length > 0) setPerformanceMetrics(pmData);
-      if (Array.isArray(teData) && teData.length > 0) setTrackingEntries(teData);
-      if (Array.isArray(etData) && etData.length > 0) setEmployeeTasks(etData);
+      if (Array.isArray(meetData)) setMeetings(meetData);
+      if (Array.isArray(alertData)) setAlerts(alertData);
+      if (Array.isArray(attData)) setAttendanceEntries(attData);
+      if (Array.isArray(geoData)) setGeoFenceAlerts(geoData);
+      if (Array.isArray(lbData)) setLeaveBalances(lbData);
+      if (Array.isArray(pmData)) setPerformanceMetrics(pmData);
+      if (Array.isArray(teData)) setTrackingEntries(teData);
+      if (Array.isArray(etData)) setEmployeeTasks(etData);
     });
 
-    // Auto-refresh dynamic data every 5 seconds for real-time admin view
-    const pollingInterval = setInterval(() => {
-      Promise.all([
-        get(`${BASE}/ops/alerts/`),
-        get(`${BASE}/ops/tracking-entries/`),
-      ]).then(([alertData, teData]) => {
-        if (Array.isArray(alertData)) setAlerts(alertData);
-        if (Array.isArray(teData)) setTrackingEntries(teData);
-      });
-    }, 5000);
-
-    return () => clearInterval(pollingInterval);
+    // Auto-refresh removed as per user request to avoid real-time tracking costs
+    // Data will only be loaded on mount or manual refresh
   }, []);
 
   // Extended state
-  const [distributors, setDistributors] = useState<Distributor[]>(initialDistributors);
-  const [territories, setTerritories] = useState<Territory[]>(initialTerritories);
-  const [salesExecutives, setSalesExecutives] = useState<SalesExecutive[]>(initialSalesExecutives);
-  const [salesTargets, setSalesTargets] = useState<SalesTarget[]>(initialSalesTargets);
-  const [distributorLinks, setDistributorLinks] = useState<DistributorLink[]>(initialDistributorLinks);
-  const [meetings, setMeetings] = useState<Meeting[]>(initialMeetings);
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [uoms, setUoms] = useState<UOM[]>(initialUOMs);
-  const [locations, setLocations] = useState<Location[]>(initialLocations);
-  const [vendors, setVendors] = useState<Vendor[]>(initialVendors);
-  const [alerts, setAlerts] = useState<Alert[]>(initialAlerts);
-  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(initialRolePermissions);
-  const [reportingManagers, setReportingManagers] = useState<ReportingManager[]>(initialReportingManagers);
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
+  const [territories, setTerritories] = useState<Territory[]>([]);
+  const [salesExecutives, setSalesExecutives] = useState<SalesExecutive[]>([]);
+  const [salesTargets, setSalesTargets] = useState<SalesTarget[]>([]);
+  const [distributorLinks, setDistributorLinks] = useState<DistributorLink[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [uoms, setUoms] = useState<UOM[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
+  const [reportingManagers, setReportingManagers] = useState<ReportingManager[]>([]);
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -686,6 +692,7 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
 
   const value: MasterDataContextType = {
     // Core Data
+    sites,
     employees,
     roles,
     departments,
@@ -719,6 +726,7 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
     employeeTasks,
 
     // Core Setters
+    setSites,
     setEmployees,
     setRoles,
     setDepartments,

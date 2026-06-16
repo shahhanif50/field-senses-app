@@ -20,6 +20,9 @@ export interface Employee {
   taskAssignmentAllowed: boolean;
   statusId: string;
   accountStatus: boolean;
+  siteId?: string;
+  accessibleSites?: string[];
+  region?: string;
 }
 
 export interface Role {
@@ -30,6 +33,7 @@ export interface Role {
   defaultDashboard: string;
   rolePriority: number;
   activeStatus: boolean;
+  visibleKpis?: string[];
 }
 
 export interface Department {

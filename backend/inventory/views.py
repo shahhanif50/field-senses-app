@@ -1,34 +1,39 @@
 from rest_framework import viewsets
-from .models import Category, UOM, Product, Location, Vendor, POSTerminal, POSAlert
+from core.views import BaseTenantViewSet
+from .models import Category, UOM, Product, Location, Vendor, POSTerminal, POSAlert, ProductOrder
 from .serializers import (
     CategorySerializer, UOMSerializer, ProductSerializer,
-    LocationSerializer, VendorSerializer, POSTerminalSerializer, POSAlertSerializer
+    LocationSerializer, VendorSerializer, POSTerminalSerializer, POSAlertSerializer, ProductOrderSerializer
 )
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(BaseTenantViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-class UOMViewSet(viewsets.ModelViewSet):
+class UOMViewSet(BaseTenantViewSet):
     queryset = UOM.objects.all()
     serializer_class = UOMSerializer
 
-class ProductViewSet(viewsets.ModelViewSet):
+class ProductViewSet(BaseTenantViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
 
-class LocationViewSet(viewsets.ModelViewSet):
+class LocationViewSet(BaseTenantViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
 
-class VendorViewSet(viewsets.ModelViewSet):
+class VendorViewSet(BaseTenantViewSet):
     queryset = Vendor.objects.all()
     serializer_class = VendorSerializer
 
-class POSTerminalViewSet(viewsets.ModelViewSet):
+class POSTerminalViewSet(BaseTenantViewSet):
     queryset = POSTerminal.objects.all()
     serializer_class = POSTerminalSerializer
 
-class POSAlertViewSet(viewsets.ModelViewSet):
+class POSAlertViewSet(BaseTenantViewSet):
     queryset = POSAlert.objects.all()
     serializer_class = POSAlertSerializer
+
+class ProductOrderViewSet(BaseTenantViewSet):
+    queryset = ProductOrder.objects.all()
+    serializer_class = ProductOrderSerializer

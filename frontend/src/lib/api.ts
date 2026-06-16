@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Uses Vite environment variables if available, otherwise defaults to your local Django server
-const BASE_URL = import.meta.env.VITE_API_URL || `${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}`;
+const BASE_URL = import.meta.env.VITE_API_URL || ``;
 
 const api = axios.create({
   baseURL: BASE_URL,

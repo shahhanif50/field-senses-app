@@ -1,25 +1,46 @@
 import { useState, useEffect } from "react";
-import { User, Mail, Phone, Building, Briefcase, Calendar, Upload, Loader2, CheckCircle2 } from "lucide-react";
+import { User, Mail, Phone, Building, Briefcase, Calendar, Upload, Loader2, CheckCircle2, Building2, MapPin, Map } from "lucide-react";
+import { useMasterData } from "@/contexts/MasterDataContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 export function ProfileTab() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const { sites } = useMasterData();
+  const [currentOrgName, setCurrentOrgName] = useState("Loading...");
+
+  useEffect(() => {
+    if (profile?.organization) {
+      fetch(`${API}/api/organizations/${profile.organization}/`)
+        .then(res => res.json())
+        .then(data => setCurrentOrgName(data.name || "N/A"))
+        .catch(() => setCurrentOrgName("N/A"));
+    } else if (profile) {
+      setCurrentOrgName("Global / Multi-Tenant");
+    }
+  }, [profile]);
 
   const fetchProfile = async () => {
     const userRole = sessionStorage.getItem("userRole");
     const userId = sessionStorage.getItem("userId") || "";
-    const isAdmin = sessionStorage.getItem("isAdminLoggedIn") === "true" && userRole === "admin";
+    const isAdmin = sessionStorage.getItem("isAdminLoggedIn") === "true" && userRole?.toLowerCase() === "admin";
+    
+    const headers = {
+      "Content-Type": "application/json",
+      "X-User-Id": userId,
+      "X-User-Role": userRole || "",
+      "X-Organization-Id": sessionStorage.getItem("organizationId") || "null",
+    };
     
     try {
       if (userId && userId !== "admin") {
         // Fetch the specific employee by their ID
-        const response = await fetch(`${API}/api/employees/${userId}/`);
+        const response = await fetch(`${API}/api/employees/${userId}/`, { headers });
         if (response.ok) {
           const emp = await response.json();
           setProfile(emp);
@@ -29,15 +50,17 @@ export function ProfileTab() {
 
       if (isAdmin || userId === "admin") {
         // Try to find admin employee record
-        const response = await fetch(`${API}/api/employees/`);
-        const employees = await response.json();
-        const adminRecord = employees.find((e: any) => e.email === "admin@example.com");
+        const response = await fetch(`${API}/api/employees/`, { headers });
+        const data = await response.json();
+        const employees = Array.isArray(data) ? data : data.results || [];
+        const adminRecord = employees.find((e: any) => e.email === "admin@example.com" || e.email === "shahhanif@gmail.com");
+        
         if (adminRecord) {
           setProfile(adminRecord);
         } else {
           setProfile({
             id: "admin",
-            fullName: "System Admin",
+            fullName: sessionStorage.getItem("userName") || "System Admin",
             email: "admin@example.com",
             mobileNumber: "-",
             designation: "Administrator",
@@ -184,6 +207,44 @@ export function ProfileTab() {
                   <div>
                     <p className="text-sm text-muted-foreground">Work Mode</p>
                     <p className="font-medium">{profile.workMode || "Office"}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Building2 className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Organization</p>
+                    <p className="font-medium">{currentOrgName}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <MapPin className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Assigned Sites</p>
+                    <p className="font-medium max-w-[200px] truncate" title={
+                      profile?.accessibleSites?.length > 0
+                        ? sites.filter(s => profile.accessibleSites.includes(s.id)).map(s => s.name).join(", ")
+                        : "All Sites"
+                    }>
+                      {profile?.accessibleSites?.length > 0
+                        ? sites.filter(s => profile.accessibleSites.includes(s.id)).map(s => s.name).join(", ")
+                        : "All Sites"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Map className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Region</p>
+                    <p className="font-medium">{profile.region || "Global"}</p>
                   </div>
                 </div>
               </div>

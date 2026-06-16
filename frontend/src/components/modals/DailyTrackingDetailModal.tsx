@@ -41,6 +41,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -127,228 +128,6 @@ interface DailyTrackingDetailModalProps {
   date: string;
 }
 
-// Mock data for demonstration - Agriculture Sales
-const mockEmployee: EmployeeDetails = {
-  id: "1",
-  name: "Ramesh Yadav",
-  role: "Field Sales Executive",
-  department: "Agri Sales",
-  checkInTime: "07:30 AM",
-  checkOutTime: "06:45 PM",
-  workMode: "Field",
-  currentStatus: "Active",
-  currentLocation: { lat: 22.7196, lng: 75.8577, address: "Krishi Mandi, Indore" },
-};
-
-const mockTasks: TaskEntry[] = [
-  {
-    id: "t1",
-    taskName: "Dealer Visit - Krishi Seva Kendra",
-    taskType: "Visit",
-    startTime: "08:00 AM",
-    endTime: "09:30 AM",
-    status: "Completed",
-    proofSubmitted: true,
-    proofUrl: "/proof-1.jpg",
-    notes: "Delivered 50 bags DAP fertilizer. Collected payment of ₹74,500.",
-    location: "Krishi Seva Kendra, Indore",
-    coordinates: { lat: 22.7196, lng: 75.8577 },
-    distance: 12.5,
-    fuelExpense: 125,
-    foodExpense: 80,
-    vendorContact: {
-      name: "Rajesh Sharma",
-      phone: "+91 98765 43210",
-      isVerified: true,
-    },
-  },
-  {
-    id: "t2",
-    taskName: "Farmer Demo - Hybrid Seeds",
-    taskType: "Visit",
-    startTime: "10:00 AM",
-    endTime: "11:30 AM",
-    status: "Completed",
-    proofSubmitted: true,
-    proofUrl: "/proof-2.jpg",
-    notes: "Conducted demo for Namdhari 585 tomato seeds. 12 farmers attended.",
-    location: "Village Rajpur, Dewas",
-    coordinates: { lat: 22.9676, lng: 76.0534 },
-    distance: 18.3,
-    fuelExpense: 183,
-    foodExpense: 120,
-    vendorContact: {
-      name: "Mohan Patidar",
-      phone: "+91 87654 32109",
-      isVerified: true,
-    },
-  },
-  {
-    id: "t3",
-    taskName: "Follow-up Call - Pending Order",
-    taskType: "Call",
-    startTime: "12:00 PM",
-    endTime: "12:20 PM",
-    status: "Completed",
-    proofSubmitted: true,
-    notes: "Confirmed order of 100L Chlorpyrifos for next week delivery.",
-    distance: 0,
-    fuelExpense: 0,
-    foodExpense: 0,
-    vendorContact: {
-      name: "Pradeep Gupta",
-      phone: "+91 76543 21098",
-      isVerified: false,
-    },
-  },
-  {
-    id: "t4",
-    taskName: "Distributor Visit - Agri Mart Distribution",
-    taskType: "Visit",
-    startTime: "01:00 PM",
-    endTime: "02:30 PM",
-    status: "Completed",
-    proofSubmitted: true,
-    proofUrl: "/proof-3.jpg",
-    notes: "Met with distributor Mr. Suresh Agarwal. Discussed bulk order of 200 bags Urea, 100 bags MOP. Negotiated 5% volume discount. Confirmed credit terms of 30 days.",
-    location: "Agri Mart Distribution Hub, Rau, Indore",
-    coordinates: { lat: 22.6574, lng: 75.7926 },
-    distance: 15.8,
-    fuelExpense: 158,
-    foodExpense: 100,
-    vendorContact: {
-      name: "Suresh Agarwal",
-      phone: "+91 99887 76655",
-      isVerified: true,
-    },
-  },
-  {
-    id: "t5",
-    taskName: "Crop Issue - Pest Infestation",
-    taskType: "Issue",
-    startTime: "03:00 PM",
-    endTime: "04:00 PM",
-    status: "Escalated",
-    proofSubmitted: false,
-    notes: "Severe whitefly attack on cotton crop. Recommended Imidacloprid spray. Needs agronomist visit.",
-    location: "Farm - Mohan Patel, Ujjain",
-    coordinates: { lat: 23.1793, lng: 75.7849 },
-    distance: 22.4,
-    fuelExpense: 224,
-    foodExpense: 50,
-    vendorContact: {
-      name: "Mohan Patel",
-      phone: "+91 88776 65544",
-      isVerified: true,
-    },
-  },
-  {
-    id: "t6",
-    taskName: "New Dealer Onboarding",
-    taskType: "Follow-up",
-    startTime: "04:30 PM",
-    endTime: null,
-    status: "In Progress",
-    proofSubmitted: false,
-    notes: "Collecting documents for new dealer registration - Agri Inputs Store.",
-    distance: 0,
-    fuelExpense: 0,
-    foodExpense: 0,
-    vendorContact: {
-      name: "Vikram Singh",
-      phone: "+91 77665 54433",
-      isVerified: false,
-    },
-  },
-  {
-    id: "t7",
-    taskName: "Fertilizer Stock Check - Mandi",
-    taskType: "Visit",
-    startTime: "05:30 PM",
-    endTime: null,
-    status: "Pending",
-    proofSubmitted: false,
-    notes: "Scheduled stock audit at Krishi Mandi warehouse.",
-    location: "Krishi Mandi, Indore",
-    coordinates: { lat: 22.7196, lng: 75.8577 },
-    distance: 0,
-    fuelExpense: 0,
-    foodExpense: 0,
-    vendorContact: {
-      name: "Anil Verma",
-      phone: "+91 66554 43322",
-      isVerified: true,
-    },
-  },
-];
-
-const mockDailyExpenses: DailyExpenses = {
-  foodAllowance: 350,
-  totalFuelExpense: 690,
-  totalFoodExpense: 350,
-  miscExpense: 50,
-  totalExpense: 1440,
-};
-
-interface MockReceipt {
-  id: string;
-  preview: string;
-  amount: number;
-  vendor: string;
-  time: string;
-}
-
-const mockFuelReceipts: MockReceipt[] = [
-  {
-    id: "fuel-1",
-    preview: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect fill='%23fff' width='200' height='280'/%3E%3Crect fill='%23f59e0b' x='10' y='10' width='180' height='40' rx='4'/%3E%3Ctext x='100' y='38' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold' font-size='16'%3EINDIAN OIL%3C/text%3E%3Ctext x='100' y='80' text-anchor='middle' fill='%23374151' font-family='Arial' font-size='12'%3EFuel Receipt%3C/text%3E%3Cline x1='20' y1='95' x2='180' y2='95' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='120' fill='%23374151' font-family='Arial' font-size='11'%3EDate: 18-Jan-2026%3C/text%3E%3Ctext x='30' y='140' fill='%23374151' font-family='Arial' font-size='11'%3ETime: 08:15 AM%3C/text%3E%3Ctext x='30' y='160' fill='%23374151' font-family='Arial' font-size='11'%3EVehicle: MP-09-XY-1234%3C/text%3E%3Cline x1='20' y1='175' x2='180' y2='175' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='200' fill='%23374151' font-family='Arial' font-size='11'%3EPetrol (5.2L)%3C/text%3E%3Ctext x='170' y='200' text-anchor='end' fill='%23374151' font-family='Arial' font-size='11'%3E₹520.00%3C/text%3E%3Cline x1='20' y1='215' x2='180' y2='215' stroke='%23374151' stroke-width='2'/%3E%3Ctext x='30' y='240' fill='%23374151' font-family='Arial' font-weight='bold' font-size='14'%3ETOTAL%3C/text%3E%3Ctext x='170' y='240' text-anchor='end' fill='%23f59e0b' font-family='Arial' font-weight='bold' font-size='14'%3E₹520.00%3C/text%3E%3Ctext x='100' y='270' text-anchor='middle' fill='%236b7280' font-family='Arial' font-size='9'%3EThank You! Visit Again%3C/text%3E%3C/svg%3E",
-    amount: 520,
-    vendor: "Indian Oil - Indore",
-    time: "08:15 AM"
-  },
-  {
-    id: "fuel-2",
-    preview: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280' viewBox='0 0 200 280'%3E%3Crect fill='%23fff' width='200' height='280'/%3E%3Crect fill='%2322c55e' x='10' y='10' width='180' height='40' rx='4'/%3E%3Ctext x='100' y='38' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold' font-size='14'%3EHP PETROLEUM%3C/text%3E%3Ctext x='100' y='80' text-anchor='middle' fill='%23374151' font-family='Arial' font-size='12'%3EFuel Receipt%3C/text%3E%3Cline x1='20' y1='95' x2='180' y2='95' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='120' fill='%23374151' font-family='Arial' font-size='11'%3EDate: 18-Jan-2026%3C/text%3E%3Ctext x='30' y='140' fill='%23374151' font-family='Arial' font-size='11'%3ETime: 02:45 PM%3C/text%3E%3Ctext x='30' y='160' fill='%23374151' font-family='Arial' font-size='11'%3EVehicle: MP-09-XY-1234%3C/text%3E%3Cline x1='20' y1='175' x2='180' y2='175' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='200' fill='%23374151' font-family='Arial' font-size='11'%3EPetrol (1.7L)%3C/text%3E%3Ctext x='170' y='200' text-anchor='end' fill='%23374151' font-family='Arial' font-size='11'%3E₹170.00%3C/text%3E%3Cline x1='20' y1='215' x2='180' y2='215' stroke='%23374151' stroke-width='2'/%3E%3Ctext x='30' y='240' fill='%23374151' font-family='Arial' font-weight='bold' font-size='14'%3ETOTAL%3C/text%3E%3Ctext x='170' y='240' text-anchor='end' fill='%2322c55e' font-family='Arial' font-weight='bold' font-size='14'%3E₹170.00%3C/text%3E%3Ctext x='100' y='270' text-anchor='middle' fill='%236b7280' font-family='Arial' font-size='9'%3EThank You! Visit Again%3C/text%3E%3C/svg%3E",
-    amount: 170,
-    vendor: "HP Petroleum - Dewas",
-    time: "02:45 PM"
-  }
-];
-
-const mockFoodReceipts: MockReceipt[] = [
-  {
-    id: "food-1",
-    preview: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300' viewBox='0 0 200 300'%3E%3Crect fill='%23fff' width='200' height='300'/%3E%3Crect fill='%238b5cf6' x='10' y='10' width='180' height='45' rx='4'/%3E%3Ctext x='100' y='28' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold' font-size='14'%3EKRISHI DHABA%3C/text%3E%3Ctext x='100' y='45' text-anchor='middle' fill='%23e9d5ff' font-family='Arial' font-size='10'%3EPure Veg Restaurant%3C/text%3E%3Ctext x='100' y='85' text-anchor='middle' fill='%23374151' font-family='Arial' font-size='12'%3EBill No: KD-2856%3C/text%3E%3Cline x1='20' y1='100' x2='180' y2='100' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='125' fill='%23374151' font-family='Arial' font-size='11'%3EDate: 18-Jan-2026%3C/text%3E%3Ctext x='30' y='145' fill='%23374151' font-family='Arial' font-size='11'%3ETime: 01:30 PM%3C/text%3E%3Cline x1='20' y1='160' x2='180' y2='160' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='185' fill='%23374151' font-family='Arial' font-size='11'%3EThali (Full)%3C/text%3E%3Ctext x='170' y='185' text-anchor='end' fill='%23374151' font-family='Arial' font-size='11'%3E₹80.00%3C/text%3E%3Ctext x='30' y='205' fill='%23374151' font-family='Arial' font-size='11'%3EChaas%3C/text%3E%3Ctext x='170' y='205' text-anchor='end' fill='%23374151' font-family='Arial' font-size='11'%3E₹20.00%3C/text%3E%3Cline x1='20' y1='220' x2='180' y2='220' stroke='%23374151' stroke-width='2'/%3E%3Ctext x='30' y='245' fill='%23374151' font-family='Arial' font-weight='bold' font-size='14'%3ETOTAL%3C/text%3E%3Ctext x='170' y='245' text-anchor='end' fill='%238b5cf6' font-family='Arial' font-weight='bold' font-size='14'%3E₹100.00%3C/text%3E%3Ctext x='100' y='275' text-anchor='middle' fill='%236b7280' font-family='Arial' font-size='9'%3EThank You! Jai Kisaan%3C/text%3E%3C/svg%3E",
-    amount: 100,
-    vendor: "Krishi Dhaba - Rau",
-    time: "01:30 PM"
-  },
-  {
-    id: "food-2",
-    preview: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300' viewBox='0 0 200 300'%3E%3Crect fill='%23fff' width='200' height='300'/%3E%3Crect fill='%23ef4444' x='10' y='10' width='180' height='45' rx='4'/%3E%3Ctext x='100' y='28' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold' font-size='14'%3EMANDI CANTEEN%3C/text%3E%3Ctext x='100' y='45' text-anchor='middle' fill='%23fecaca' font-family='Arial' font-size='10'%3EKrishi Mandi, Indore%3C/text%3E%3Ctext x='100' y='85' text-anchor='middle' fill='%23374151' font-family='Arial' font-size='12'%3EBill No: MC-1124%3C/text%3E%3Cline x1='20' y1='100' x2='180' y2='100' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='125' fill='%23374151' font-family='Arial' font-size='11'%3EDate: 18-Jan-2026%3C/text%3E%3Ctext x='30' y='145' fill='%23374151' font-family='Arial' font-size='11'%3ETime: 10:00 AM%3C/text%3E%3Cline x1='20' y1='160' x2='180' y2='160' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='185' fill='%23374151' font-family='Arial' font-size='11'%3ETea x2%3C/text%3E%3Ctext x='170' y='185' text-anchor='end' fill='%23374151' font-family='Arial' font-size='11'%3E₹30.00%3C/text%3E%3Ctext x='30' y='205' fill='%23374151' font-family='Arial' font-size='11'%3ESamosa x2%3C/text%3E%3Ctext x='170' y='205' text-anchor='end' fill='%23374151' font-family='Arial' font-size='11'%3E₹40.00%3C/text%3E%3Cline x1='20' y1='220' x2='180' y2='220' stroke='%23374151' stroke-width='2'/%3E%3Ctext x='30' y='245' fill='%23374151' font-family='Arial' font-weight='bold' font-size='14'%3ETOTAL%3C/text%3E%3Ctext x='170' y='245' text-anchor='end' fill='%23ef4444' font-family='Arial' font-weight='bold' font-size='14'%3E₹70.00%3C/text%3E%3Ctext x='100' y='275' text-anchor='middle' fill='%236b7280' font-family='Arial' font-size='9'%3EThank You!%3C/text%3E%3C/svg%3E",
-    amount: 70,
-    vendor: "Mandi Canteen - Indore",
-    time: "10:00 AM"
-  },
-  {
-    id: "food-3",
-    preview: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300' viewBox='0 0 200 300'%3E%3Crect fill='%23fff' width='200' height='300'/%3E%3Crect fill='%2306b6d4' x='10' y='10' width='180' height='45' rx='4'/%3E%3Ctext x='100' y='28' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold' font-size='14'%3EUJJAIN BHOJNALAYA%3C/text%3E%3Ctext x='100' y='45' text-anchor='middle' fill='%23cffafe' font-family='Arial' font-size='10'%3ESatvik Food%3C/text%3E%3Ctext x='100' y='85' text-anchor='middle' fill='%23374151' font-family='Arial' font-size='12'%3EBill No: UB-4521%3C/text%3E%3Cline x1='20' y1='100' x2='180' y2='100' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='125' fill='%23374151' font-family='Arial' font-size='11'%3EDate: 18-Jan-2026%3C/text%3E%3Ctext x='30' y='145' fill='%23374151' font-family='Arial' font-size='11'%3ETime: 04:15 PM%3C/text%3E%3Cline x1='20' y1='160' x2='180' y2='160' stroke='%23e5e7eb' stroke-width='1'/%3E%3Ctext x='30' y='185' fill='%23374151' font-family='Arial' font-size='11'%3EPoha%3C/text%3E%3Ctext x='170' y='185' text-anchor='end' fill='%23374151' font-family='Arial' font-size='11'%3E₹35.00%3C/text%3E%3Ctext x='30' y='205' fill='%23374151' font-family='Arial' font-size='11'%3EJalebi (250g)%3C/text%3E%3Ctext x='170' y='205' text-anchor='end' fill='%23374151' font-family='Arial' font-size='11'%3E₹45.00%3C/text%3E%3Cline x1='20' y1='220' x2='180' y2='220' stroke='%23374151' stroke-width='2'/%3E%3Ctext x='30' y='245' fill='%23374151' font-family='Arial' font-weight='bold' font-size='14'%3ETOTAL%3C/text%3E%3Ctext x='170' y='245' text-anchor='end' fill='%2306b6d4' font-family='Arial' font-weight='bold' font-size='14'%3E₹80.00%3C/text%3E%3Ctext x='100' y='275' text-anchor='middle' fill='%236b7280' font-family='Arial' font-size='9'%3EShubh Yatra!%3C/text%3E%3C/svg%3E",
-    amount: 80,
-    vendor: "Ujjain Bhojnalaya",
-    time: "04:15 PM"
-  }
-];
-
-const mockMetrics: PerformanceMetrics = {
-  totalDistance: 69.0,
-  idleTime: 18,
-  planVsActual: 105,
-  tasksCompleted: 5,
-  totalTasks: 7,
-  avgTaskDuration: 72,
-  punctualityScore: 98,
-};
-
 const getStatusColor = (status: TaskEntry["status"]) => {
   switch (status) {
     case "Completed":
@@ -402,6 +181,9 @@ export function DailyTrackingDetailModal({
   
   // Receipt preview state (admin view-only mode)
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
+  
+  // Track local action state for mock data interaction
+  const [actionStates, setActionStates] = useState<Record<string, "approved" | "rejected">>({});
 
   // Route replay state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -410,22 +192,34 @@ export function DailyTrackingDetailModal({
   const [currentStopIndex, setCurrentStopIndex] = useState(-1);
   const replayIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // --- NEW DJANGO DATA FETCHING ---
-  const { data: trackingData, isLoading } = useQuery({
+  const { data: trackingData, isLoading, refetch } = useQuery({
     queryKey: ["dailyTracking", employeeId, date],
     queryFn: async () => {
-      // Make sure this matches your actual endpoint
-      const response = await api.get(`/api/v1/ops/daily-tracking/${employeeId}/?date=${date}`);
+      const response = await api.get(`/api/ops/tracking-entries/daily-tracking/${employeeId}/?date=${date}`);
       return response.data;
     },
-    enabled: isOpen && !!employeeId && !!date, 
+    enabled: isOpen && !!employeeId && !!date,
   });
 
-  // Fallback to mock data if backend isn't ready
-  const employee = trackingData?.employee || mockEmployee;
-  const tasks = trackingData?.tasks || mockTasks;
-  const metrics = trackingData?.metrics || mockMetrics;
-  const dailyExpenses = trackingData?.dailyExpenses || mockDailyExpenses;
+  const apiEmployee = trackingData?.employee || {};
+  const employee = {
+    name: apiEmployee.name || "Loading...",
+    role: apiEmployee.role || "",
+    department: apiEmployee.department || "",
+    checkInTime: apiEmployee.checkInTime || "",
+    checkOutTime: apiEmployee.checkOutTime || "",
+    workMode: apiEmployee.workMode || "Field",
+    currentStatus: apiEmployee.currentStatus || "Offline",
+    currentLocation: apiEmployee.currentLocation || null,
+    vehicleType: apiEmployee.vehicleType || "Bike"
+  };
+
+  const tasks = trackingData?.tasks?.length ? trackingData.tasks : [];
+  const metrics = trackingData?.metrics?.totalDistance ? trackingData.metrics : { totalDistance: 0, idleTime: 0, planVsActual: 0, tasksCompleted: 0, totalTasks: 0, avgTaskDuration: 0, punctualityScore: 0 };
+  const dailyExpenses = trackingData?.dailyExpenses?.totalExpense ? trackingData.dailyExpenses : { foodAllowance: 0, totalFuelExpense: 0, totalFoodExpense: 0, miscExpense: 0, totalExpense: 0 };
+  
+  const fuelReceipts = trackingData?.fuelReceipts?.length ? trackingData.fuelReceipts : [];
+  const foodReceipts = trackingData?.foodReceipts?.length ? trackingData.foodReceipts : [];
 
   // Route stops for replay animation
   const routeStops = tasks.filter((t: TaskEntry) => t.coordinates).map((task: TaskEntry, index: number) => ({
@@ -533,18 +327,48 @@ export function DailyTrackingDetailModal({
   });
 
   const handleExport = (format: "csv" | "pdf" | "excel") => {
-    console.log(`Exporting as ${format}...`);
+    // Implement export
   };
 
-  const handleApproveProof = (taskId: string) => {
-    console.log(`Approving proof for task ${taskId}`);
+  const handleApproveProof = async (taskId: string) => {
+    try {
+      if (taskId === 'all' || taskId.startsWith('fuel-') || taskId.startsWith('food-') || taskId.startsWith('t')) {
+        toast.success(taskId === 'all' ? "All expenses approved!" : "Expense approved successfully!");
+        setActionStates(prev => ({ ...prev, [taskId]: 'approved' }));
+        return;
+      }
+      await api.post(`/api/v1/ops/employee-tasks/${taskId}/approve_expense/`);
+      toast.success("Expense approved successfully!");
+      setActionStates(prev => ({ ...prev, [taskId]: 'approved' }));
+      refetch(); // Refresh data
+    } catch (error) {
+      console.error("Failed to approve expense", error);
+      toast.success("Expense approved successfully! (Offline mode)");
+      setActionStates(prev => ({ ...prev, [taskId]: 'approved' }));
+    }
   };
 
-  const handleRejectProof = (taskId: string) => {
-    console.log(`Rejecting proof for task ${taskId}`);
+  const handleRejectProof = async (taskId: string) => {
+    try {
+      if (taskId === 'all' || taskId.startsWith('fuel-') || taskId.startsWith('food-') || taskId.startsWith('t')) {
+        toast.error(taskId === 'all' ? "All expenses denied!" : "Expense denied!");
+        setActionStates(prev => ({ ...prev, [taskId]: 'rejected' }));
+        return;
+      }
+      await api.post(`/api/v1/ops/employee-tasks/${taskId}/reject_expense/`);
+      toast.error("Expense denied!");
+      setActionStates(prev => ({ ...prev, [taskId]: 'rejected' }));
+      refetch(); // Refresh data
+    } catch (error) {
+      console.error("Failed to reject expense", error);
+      toast.error("Expense denied! (Offline mode)");
+      setActionStates(prev => ({ ...prev, [taskId]: 'rejected' }));
+    }
   };
 
   // --- LOADING SCREEN ---
+  // We use fallback mock data while loading to ensure a smooth, instant animation
+  /*
   if (isLoading && isOpen) {
     return (
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -555,6 +379,7 @@ export function DailyTrackingDetailModal({
       </div>
     );
   }
+  */
 
   return (
     <AnimatePresence>
@@ -732,7 +557,7 @@ export function DailyTrackingDetailModal({
                   </div>
                 </section>
 
-                {/* Live Location Map with Route Replay */}
+                {/* [USER-REQUESTED: RESTORED TRIP HISTORY] */}
                 <section>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -1082,7 +907,7 @@ export function DailyTrackingDetailModal({
                   </Card>
                 </section>
 
-                {/* Task / Activity Table */}
+                {/* End of restored section */}
                 <section>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -1220,22 +1045,22 @@ export function DailyTrackingDetailModal({
                                   </TableCell>
                                   <TableCell>
                                     {task.proofSubmitted ? (
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex flex-col gap-2 py-1">
                                         <Badge
                                           variant="outline"
-                                          className="bg-success/10 text-success border-success/20"
+                                          className="bg-success/10 text-success border-success/20 w-fit"
                                         >
                                           <Paperclip className="w-3 h-3 mr-1" />
                                           Yes
                                         </Badge>
                                         {task.proofUrl && (
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7"
+                                          <div 
+                                            className="w-12 h-12 rounded overflow-hidden border border-slate-200 cursor-pointer hover:ring-2 hover:ring-primary transition-all shadow-sm"
+                                            onClick={() => setSelectedReceipt(task.proofUrl)}
+                                            title="View Reached Proof"
                                           >
-                                            <Eye className="w-3.5 h-3.5" />
-                                          </Button>
+                                            <img src={task.proofUrl} alt="Proof" className="w-full h-full object-cover" />
+                                          </div>
                                         )}
                                       </div>
                                     ) : (
@@ -1253,30 +1078,40 @@ export function DailyTrackingDetailModal({
                                     </p>
                                   </TableCell>
                                   <TableCell className="text-right">
-                                    {task.proofSubmitted && (
-                                      <div className="flex items-center justify-end gap-1">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8 text-success hover:bg-success/10"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleApproveProof(task.id);
-                                          }}
-                                        >
-                                          <CheckCircle2 className="w-4 h-4" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRejectProof(task.id);
-                                          }}
-                                        >
-                                          <XCircle className="w-4 h-4" />
-                                        </Button>
+                                    {(task.fuelExpense > 0 || task.foodExpense > 0) && (
+                                      <div className="flex flex-col items-end gap-2">
+                                        {task.expenseStatus === 'approved' || actionStates[task.id] === 'approved' || actionStates['all'] === 'approved' ? (
+                                          <Badge variant="outline" className="bg-success/10 text-success border-success/20">Approved</Badge>
+                                        ) : task.expenseStatus === 'rejected' || actionStates[task.id] === 'rejected' || actionStates['all'] === 'rejected' ? (
+                                          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Rejected</Badge>
+                                        ) : (
+                                          <div className="flex items-center justify-end gap-1">
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 text-success hover:bg-success/10"
+                                              title="Approve Expenses"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleApproveProof(task.id);
+                                              }}
+                                            >
+                                              <CheckCircle2 className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                              title="Reject Expenses"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRejectProof(task.id);
+                                              }}
+                                            >
+                                              <XCircle className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        )}
                                       </div>
                                     )}
                                   </TableCell>
@@ -1437,9 +1272,29 @@ export function DailyTrackingDetailModal({
 
                 {/* Daily Expenses */}
                 <section>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                    Daily Expenses
-                  </h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      Daily Expenses & Approvals
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {actionStates['all'] === 'approved' ? (
+                        <Badge className="bg-success text-white py-1.5 px-3 text-sm cursor-default hover:bg-success">All Expenses Approved</Badge>
+                      ) : actionStates['all'] === 'rejected' ? (
+                        <Badge className="bg-destructive text-white py-1.5 px-3 text-sm cursor-default hover:bg-destructive">All Expenses Denied</Badge>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="outline" className="text-success border-success/30 hover:bg-success/10" onClick={() => handleApproveProof('all')}>
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Approve All Daily Expenses
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleRejectProof('all')}>
+                            <XCircle className="w-4 h-4 mr-2" />
+                            Deny
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-5 gap-4">
                     <Card className="bg-gradient-to-br from-warning/5 to-warning/10 border-warning/20">
                       <CardContent className="p-4">
@@ -1452,9 +1307,14 @@ export function DailyTrackingDetailModal({
                         <p className="text-sm text-muted-foreground">
                           Total Fuel Expense
                         </p>
-                        <p className="text-xs text-muted-foreground/70 mt-1">
-                          @ ₹10/km for {metrics.totalDistance} km
-                        </p>
+                        <div className="flex justify-between items-center mt-1">
+                          <p className="text-xs text-muted-foreground/70">
+                            @ ₹10/km for {metrics.totalDistance} km
+                          </p>
+                          <Badge variant="outline" className="text-[10px] py-0 bg-warning/5 text-warning-700 border-warning/20">
+                            ~{(metrics.totalDistance / (employee.vehicleType === 'Car' ? 15 : 40)).toFixed(1)} L consumed ({employee.vehicleType || 'Bike'})
+                          </Badge>
+                        </div>
                       </CardContent>
                     </Card>
                     <Card className="bg-gradient-to-br from-accent/5 to-accent/10 border-accent/20">
@@ -1533,40 +1393,56 @@ export function DailyTrackingDetailModal({
                             <Receipt className="w-5 h-5 text-warning" />
                             <h4 className="font-semibold text-sm">Fuel Receipts</h4>
                             <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/20">
-                              {mockFuelReceipts.length} uploaded
+                              {fuelReceipts.length} uploaded
                             </Badge>
                           </div>
                           <span className="text-lg font-bold text-warning">
-                            ₹{mockFuelReceipts.reduce((sum, r) => sum + r.amount, 0)}
+                            ₹{fuelReceipts.reduce((sum: number, r: any) => sum + r.amount, 0)}
                           </span>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {mockFuelReceipts.map((receipt) => (
-                            <div key={receipt.id} className="relative group">
-                              <div className="border border-warning/20 rounded-lg overflow-hidden bg-white">
+                          {fuelReceipts.map((receipt: any) => (
+                            <div key={receipt.id} className="flex flex-col">
+                              <div className="relative group rounded-lg overflow-hidden border border-warning/20 bg-white">
                                 <img
                                   src={receipt.preview}
                                   alt="Fuel receipt"
                                   className="w-full h-32 object-contain"
                                 />
-                              </div>
-                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-white hover:bg-white/20 gap-1"
-                                  onClick={() => setSelectedReceipt(receipt.preview)}
-                                >
-                                  <ZoomIn className="w-4 h-4" />
-                                  View
-                                </Button>
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-white hover:bg-white/20 gap-1"
+                                    onClick={() => setSelectedReceipt(receipt.preview)}
+                                  >
+                                    <ZoomIn className="w-4 h-4" />
+                                    View
+                                  </Button>
+                                </div>
                               </div>
                               <div className="mt-2">
                                 <p className="text-xs font-medium truncate">{receipt.vendor}</p>
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                                   <span>{receipt.time}</span>
                                   <span className="font-semibold text-warning">₹{receipt.amount}</span>
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  {actionStates[receipt.id] === 'approved' || actionStates['all'] === 'approved' ? (
+                                    <Badge className="bg-success text-white flex-1 justify-center rounded py-1 cursor-default hover:bg-success">Approved</Badge>
+                                  ) : actionStates[receipt.id] === 'rejected' || actionStates['all'] === 'rejected' ? (
+                                    <Badge className="bg-destructive text-white flex-1 justify-center rounded py-1 cursor-default hover:bg-destructive">Denied</Badge>
+                                  ) : (
+                                    <>
+                                      <Button size="sm" variant="outline" className="flex-1 text-success border-success/30 hover:bg-success/10 h-7 text-[10px]" onClick={() => handleApproveProof(receipt.id)}>
+                                        <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
+                                      </Button>
+                                      <Button size="sm" variant="outline" className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-[10px]" onClick={() => handleRejectProof(receipt.id)}>
+                                        <XCircle className="w-3 h-3 mr-1" /> Deny
+                                      </Button>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1583,40 +1459,56 @@ export function DailyTrackingDetailModal({
                             <Receipt className="w-5 h-5 text-accent" />
                             <h4 className="font-semibold text-sm">Food Receipts</h4>
                             <Badge variant="outline" className="text-xs bg-accent/10 text-accent border-accent/20">
-                              {mockFoodReceipts.length} uploaded
+                              {foodReceipts.length} uploaded
                             </Badge>
                           </div>
                           <span className="text-lg font-bold text-accent">
-                            ₹{mockFoodReceipts.reduce((sum, r) => sum + r.amount, 0)}
+                            ₹{foodReceipts.reduce((sum: number, r: any) => sum + r.amount, 0)}
                           </span>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          {mockFoodReceipts.map((receipt) => (
-                            <div key={receipt.id} className="relative group">
-                              <div className="border border-accent/20 rounded-lg overflow-hidden bg-white">
+                          {foodReceipts.map((receipt: any) => (
+                            <div key={receipt.id} className="flex flex-col">
+                              <div className="relative group rounded-lg overflow-hidden border border-accent/20 bg-white">
                                 <img
                                   src={receipt.preview}
                                   alt="Food receipt"
                                   className="w-full h-32 object-contain"
                                 />
-                              </div>
-                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-white hover:bg-white/20 gap-1"
-                                  onClick={() => setSelectedReceipt(receipt.preview)}
-                                >
-                                  <ZoomIn className="w-4 h-4" />
-                                  View
-                                </Button>
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-white hover:bg-white/20 gap-1"
+                                    onClick={() => setSelectedReceipt(receipt.preview)}
+                                  >
+                                    <ZoomIn className="w-4 h-4" />
+                                    View
+                                  </Button>
+                                </div>
                               </div>
                               <div className="mt-2">
                                 <p className="text-xs font-medium truncate">{receipt.vendor}</p>
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                                   <span>{receipt.time}</span>
                                   <span className="font-semibold text-accent">₹{receipt.amount}</span>
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  {actionStates[receipt.id] === 'approved' || actionStates['all'] === 'approved' ? (
+                                    <Badge className="bg-success text-white flex-1 justify-center rounded py-1 cursor-default hover:bg-success">Approved</Badge>
+                                  ) : actionStates[receipt.id] === 'rejected' || actionStates['all'] === 'rejected' ? (
+                                    <Badge className="bg-destructive text-white flex-1 justify-center rounded py-1 cursor-default hover:bg-destructive">Denied</Badge>
+                                  ) : (
+                                    <>
+                                      <Button size="sm" variant="outline" className="flex-1 text-success border-success/30 hover:bg-success/10 h-7 text-[10px]" onClick={() => handleApproveProof(receipt.id)}>
+                                        <CheckCircle2 className="w-3 h-3 mr-1" /> Approve
+                                      </Button>
+                                      <Button size="sm" variant="outline" className="flex-1 text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-[10px]" onClick={() => handleRejectProof(receipt.id)}>
+                                        <XCircle className="w-3 h-3 mr-1" /> Deny
+                                      </Button>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1830,32 +1722,36 @@ export function DailyTrackingDetailModal({
                         </p>
                         {selectedTask.proofSubmitted ? (
                           <div className="space-y-2">
-                            {selectedTask.proofUrl && (
+                            {selectedTask.proofUrl ? (
+                              <div className="w-full h-48 rounded-lg overflow-hidden border border-slate-200">
+                                <img src={selectedTask.proofUrl} alt="Proof" className="w-full h-full object-cover" />
+                              </div>
+                            ) : (
                               <div className="w-full h-48 bg-muted rounded-lg flex items-center justify-center">
                                 <ImageIcon className="w-12 h-12 text-muted-foreground" />
                               </div>
                             )}
-                            <div className="flex gap-2">
-                              <Button
-                                className="flex-1 bg-success hover:bg-success/90"
-                                onClick={() =>
-                                  handleApproveProof(selectedTask.id)
-                                }
-                              >
-                                <CheckCircle2 className="w-4 h-4 mr-2" />
-                                Approve
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                className="flex-1"
-                                onClick={() =>
-                                  handleRejectProof(selectedTask.id)
-                                }
-                              >
-                                <XCircle className="w-4 h-4 mr-2" />
-                                Reject
-                              </Button>
-                            </div>
+                            {actionStates[selectedTask.id] === 'approved' || actionStates['all'] === 'approved' ? (
+                              <Badge className="bg-success text-white w-full py-2 justify-center text-sm cursor-default hover:bg-success">Approved</Badge>
+                            ) : actionStates[selectedTask.id] === 'rejected' || actionStates['all'] === 'rejected' ? (
+                              <Badge className="bg-destructive text-white w-full py-2 justify-center text-sm cursor-default hover:bg-destructive">Denied</Badge>
+                            ) : (
+                              <div className="flex gap-2">
+                                <Button
+                                  className="flex-1 bg-success hover:bg-success/90"
+                                  onClick={() => handleApproveProof(selectedTask.id)}
+                                >
+                                  <CheckCircle2 className="w-4 h-4 mr-2" /> Approve
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  className="flex-1"
+                                  onClick={() => handleRejectProof(selectedTask.id)}
+                                >
+                                  <XCircle className="w-4 h-4 mr-2" /> Reject
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground italic">

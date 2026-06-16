@@ -8,7 +8,7 @@ import { GlassModal } from '@/components/ui/GlassModal';
 import { useMasterData } from '@/contexts/MasterDataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 interface Message {
   id: string;
@@ -32,14 +32,30 @@ interface Meeting {
   attendees: any[];
   mode: string;
   meetingLink?: string;
+  agenda?: string;
+  location?: string;
+  reminder?: string;
+  recurring?: string;
+  priority?: string;
 }
 
 export function CommunicationTab() {
   const [activeSubTab, setActiveSubTab] = useState<'chat' | 'meetings'>('chat');
-  const { employees } = useMasterData();
+  const { employees, roles, rolePermissions } = useMasterData();
   const userId = sessionStorage.getItem('userId') || '';
   const userName = sessionStorage.getItem('userName') || 'Me';
-  const userRole = sessionStorage.getItem('userRole') || 'employee';
+  
+  // --- PERMISSION CHECKS ---
+  const rawRole = sessionStorage.getItem('userRole') || 'employee';
+  const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const commPerm = rolePermissions?.find(p => p.roleId === currentRole?.id && p.module === "Communication");
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const canCreateMeeting = isAdmin || commPerm?.create;
+  // -----------------------
+
+  const userRole = rawRole;
 
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -382,9 +398,11 @@ export function CommunicationTab() {
           >
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">Upcoming Meetings</h3>
-              <Button onClick={() => setIsMeetingModalOpen(true)} className="rounded-xl shadow-lg shadow-primary/20">
-                <Plus className="w-4 h-4 mr-2" /> Schedule Meeting
-              </Button>
+              {canCreateMeeting && (
+                <Button onClick={() => setIsMeetingModalOpen(true)} className="rounded-xl shadow-lg shadow-primary/20">
+                  <Plus className="w-4 h-4 mr-2" /> Schedule Meeting
+                </Button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

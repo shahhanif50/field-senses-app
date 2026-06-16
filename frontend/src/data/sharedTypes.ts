@@ -1,6 +1,24 @@
 // ============= SHARED INTERFACES FOR CROSS-MODULE LINKING =============
 // All interfaces are defined here and re-exported from MasterDataContext
 
+export interface Site {
+  id: string;
+  name: string;
+  siteCode?: string;
+  productType?: string;
+  country?: string;
+  activateDate?: string;
+  address?: string;
+  region?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  modulesEnabled?: string[];
+  status?: string;
+  createdAt?: string;
+  [key: string]: any;
+}
+
 // ============= DISTRIBUTOR TYPES =============
 
 export interface CompanyAssociation {
@@ -160,6 +178,7 @@ export interface SalesTarget {
   pendingApprovals: number;
   remarks: string;
   period: string; // e.g., "2024-Q1"
+  status?: string;
 }
 
 // ============= DISTRIBUTOR LINKAGE TYPES =============
@@ -285,6 +304,7 @@ export interface Product {
   allowDiscount: boolean;
   serialBatchTracking: boolean;
   expiryTracking: boolean;
+  productImage?: string;
   status: "Active" | "Inactive";
   createdAt: string;
   updatedAt: string;
@@ -362,9 +382,13 @@ export interface TrackingEntry {
   idleTime: number;
   planVsActual: number;
   routePath?: { lat: number; lng: number; timestamp?: string }[];
+  plannedRouteSummary?: any[];
+  clientVisits?: string[];
+  purpose?: string;
+  vehicleType?: string;
   reimbursementAmount?: number;
   timeSpentOnSite?: number;
-  status: "online" | "offline" | "idle";
+  status: "online" | "offline" | "idle" | "completed";
   date: string;
 }
 

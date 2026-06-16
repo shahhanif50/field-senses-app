@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMasterData } from "@/contexts/MasterDataContext";
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 interface Alert {
   id: string;
@@ -64,6 +65,7 @@ function timeAgo(timestamp: string): string {
 }
 
 export function AlertsTab() {
+  const { roles, rolePermissions } = useMasterData();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "high" | "medium" | "low">("all");
@@ -112,6 +114,16 @@ export function AlertsTab() {
   const unresolvedCount = alerts.filter(a => !a.resolved).length;
   const highCount = alerts.filter(a => !a.resolved && a.severity === "high").length;
   const mediumCount = alerts.filter(a => !a.resolved && a.severity === "medium").length;
+
+  // --- PERMISSION CHECKS ---
+  const rawRole = sessionStorage.getItem("userRole") || "employee";
+  const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const alertsPerm = rolePermissions?.find(p => p.roleId === currentRole?.id && p.module === "Alerts");
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const isRegionalManager = rawRole?.toLowerCase() === "regional_manager" || rawRole?.toLowerCase() === "regional manager";
+  const canEdit = !isRegionalManager && (isAdmin || alertsPerm?.edit);
 
   return (
     <div className="space-y-6">
@@ -255,7 +267,7 @@ export function AlertsTab() {
                   </div>
 
                   {/* Action */}
-                  {!alert.resolved && (
+                  {!alert.resolved && canEdit && (
                     <Button
                       size="sm"
                       variant="outline"

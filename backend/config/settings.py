@@ -138,3 +138,13 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny', # Allows frontend to read data without auth for now
     ]
 }
+
+# --- Email Configuration ---
+# Production SMTP backend
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'rdnationalit@gmail.com'
+EMAIL_HOST_PASSWORD = 'pjrzvxyzigirpsmf'
+DEFAULT_FROM_EMAIL = 'rdnationalit@gmail.com'

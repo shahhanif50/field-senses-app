@@ -115,24 +115,24 @@ function SalesPortalContent() {
   const navigate = useNavigate();
   const { leads: mockLeads, meetings: rawMeetings, customers: mockCustomers, employeeTasks: rawTasks } = useMasterData();
 
-  const mockMeetings: Meeting[] = rawMeetings.map(m => ({
+  const mockMeetings: Meeting[] = (rawMeetings || []).map(m => ({
     id: m.id,
     title: m.title,
     customer: m.attendees?.[0]?.name || "N/A",
     time: m.startTime || "00:00",
     date: m.date || new Date().toISOString().split('T')[0],
     location: m.location || "N/A",
-    status: m.status === "scheduled" ? "upcoming" : (m.status as "completed" | "cancelled")
+    status: m.status === "scheduled" ? "upcoming" : (m.status === "completed" ? "completed" : "cancelled")
   }));
 
-  const mockTasks: Task[] = rawTasks.map(t => ({
+  const mockTasks: Task[] = (rawTasks || []).map(t => ({
     id: t.id,
     title: t.taskTitle,
     type: "follow-up",
     customer: "N/A",
     dueDate: t.deadline || new Date().toISOString().split('T')[0],
     priority: "medium",
-    status: t.status === "Completed" ? "completed" : "pending"
+    status: t.status === "completed" ? "completed" : "pending"
   }));
 
   const [activeMenu, setActiveMenu] = useState("dashboard");

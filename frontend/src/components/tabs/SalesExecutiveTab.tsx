@@ -62,173 +62,11 @@ const mockDistricts: Record<string, string[]> = {
 
 // Mock data now comes from MasterDataContext
 
-const mockDistributorLinks: DistributorLinkExtended[] = [
-  {
-    id: "dl-1",
-    distributorId: "d1",
-    firmName: "Agri Fresh Distributors",
-    assignedTerritoryId: "t-1",
-    assignedSalesExecutiveIds: ["se-1"],
-    retailerNetworkCount: 45,
-    seedLicense: true,
-    seedLicenseNumber: "SL-2024-001",
-    seedLicenseExpiry: "2025-12-31",
-    fertiliserLicense: true,
-    fertiliserLicenseNumber: "FL-2024-001",
-    fertiliserLicenseExpiry: "2025-06-30",
-    pesticideLicense: true,
-    pesticideLicenseNumber: "PL-2024-001",
-    pesticideLicenseExpiry: "2025-09-15",
-    godownSpace: 5000,
-    shopSpace: 800,
-    vehicleCount: 3,
-    hasComputer: true,
-    hasInternet: true,
-    status: "Active",
-    contactPerson: "Ramesh Kumar",
-    contactPhone: "9876543210",
-    contactEmail: "ramesh@agrifresh.com",
-    retailers: [
-      { id: "r1", name: "Kisan Mart", phone: "9876543211", location: "Sector 15, Delhi", status: "Active" },
-      { id: "r2", name: "Agro Store", phone: "9876543212", location: "Rohini, Delhi", status: "Active" },
-      { id: "r3", name: "Farm Supplies", phone: "9876543213", location: "Dwarka, Delhi", status: "Active" },
-    ],
-    statusHistory: [
-      { status: "Submitted", changedBy: "Admin", changedAt: "2024-01-01T10:00:00Z", reason: "Initial registration" },
-      { status: "Active", changedBy: "Manager", changedAt: "2024-01-15T14:30:00Z", reason: "Documents verified" },
-    ],
-  },
-  {
-    id: "dl-2",
-    distributorId: "d2",
-    firmName: "Green Valley Fertilizers",
-    assignedTerritoryId: "t-1",
-    assignedSalesExecutiveIds: ["se-1"],
-    retailerNetworkCount: 32,
-    seedLicense: false,
-    fertiliserLicense: true,
-    fertiliserLicenseNumber: "FL-2024-002",
-    fertiliserLicenseExpiry: "2025-03-20",
-    pesticideLicense: true,
-    pesticideLicenseNumber: "PL-2024-002",
-    pesticideLicenseExpiry: "2025-08-10",
-    godownSpace: 3500,
-    shopSpace: 600,
-    vehicleCount: 2,
-    hasComputer: true,
-    hasInternet: true,
-    status: "Active",
-    contactPerson: "Suresh Verma",
-    contactPhone: "9876543220",
-    contactEmail: "suresh@greenvalley.com",
-    retailers: [
-      { id: "r4", name: "Village Agro", phone: "9876543221", location: "Gurgaon", status: "Active" },
-      { id: "r5", name: "Farmers Choice", phone: "9876543222", location: "Faridabad", status: "Active" },
-    ],
-    statusHistory: [
-      { status: "Active", changedBy: "Admin", changedAt: "2024-02-01T09:00:00Z", reason: "Onboarded" },
-    ],
-  },
-  {
-    id: "dl-3",
-    distributorId: "d3",
-    firmName: "Farm Plus Seeds",
-    assignedTerritoryId: "t-2",
-    assignedSalesExecutiveIds: ["se-2"],
-    retailerNetworkCount: 28,
-    seedLicense: true,
-    seedLicenseNumber: "SL-2024-003",
-    seedLicenseExpiry: "2025-11-20",
-    fertiliserLicense: true,
-    fertiliserLicenseNumber: "FL-2024-003",
-    fertiliserLicenseExpiry: "2025-07-15",
-    pesticideLicense: false,
-    godownSpace: 2000,
-    shopSpace: 400,
-    vehicleCount: 1,
-    hasComputer: false,
-    hasInternet: true,
-    status: "Submitted",
-    contactPerson: "Anjali Sharma",
-    contactPhone: "9876543230",
-    contactEmail: "anjali@farmplus.com",
-    retailers: [],
-    statusHistory: [
-      { status: "Submitted", changedBy: "Admin", changedAt: "2024-03-01T11:00:00Z", reason: "Awaiting verification" },
-    ],
-  },
-  {
-    id: "dl-4",
-    distributorId: "d4",
-    firmName: "Kisan Seva Center",
-    assignedTerritoryId: "t-2",
-    assignedSalesExecutiveIds: ["se-2"],
-    retailerNetworkCount: 55,
-    seedLicense: true,
-    seedLicenseNumber: "SL-2024-004",
-    seedLicenseExpiry: "2024-02-28",
-    fertiliserLicense: true,
-    fertiliserLicenseNumber: "FL-2024-004",
-    fertiliserLicenseExpiry: "2025-04-30",
-    pesticideLicense: true,
-    pesticideLicenseNumber: "PL-2024-004",
-    pesticideLicenseExpiry: "2025-10-15",
-    godownSpace: 8000,
-    shopSpace: 1200,
-    vehicleCount: 5,
-    hasComputer: true,
-    hasInternet: true,
-    status: "Inactive",
-    contactPerson: "Mohan Lal",
-    contactPhone: "9876543240",
-    contactEmail: "mohan@kisanseva.com",
-    retailers: [
-      { id: "r6", name: "Rural Mart", phone: "9876543241", location: "Bangalore Rural", status: "Active" },
-      { id: "r7", name: "Agri Hub", phone: "9876543242", location: "Mysore", status: "Inactive" },
-    ],
-    statusHistory: [
-      { status: "Active", changedBy: "Admin", changedAt: "2023-06-01T10:00:00Z", reason: "Onboarded" },
-      { status: "Inactive", changedBy: "Manager", changedAt: "2024-01-10T16:00:00Z", reason: "License expired" },
-    ],
-  },
-];
+
 
 // Sales targets and alerts now come from MasterDataContext
 
-const mockAlerts: Alert[] = [
-  {
-    id: "a-1",
-    type: "low_achievement",
-    message: "Sunita Devi's achievement is below 70% of target",
-    timestamp: "2024-01-15 10:30",
-    severity: "high",
-    resolved: false,
-  },
-  {
-    id: "a-2",
-    type: "pending_approval",
-    message: "5 pending approvals for South Zone A",
-    timestamp: "2024-01-15 09:15",
-    severity: "medium",
-    resolved: false,
-  },
-  {
-    id: "a-3",
-    type: "inactive_gps",
-    message: "GPS inactive for Karan Mehta since 2 hours",
-    timestamp: "2024-01-15 08:00",
-    severity: "low",
-    resolved: true,
-  },
-  {
-    id: "a-4",
-    type: "compliance",
-    message: "Seed license expired for Green Valley Fertilizers",
-    timestamp: "2024-01-14 16:45",
-    severity: "high",
-    resolved: false,
-  },
-];
+
 
 // ============= Sub Tabs =============
 
@@ -242,8 +80,14 @@ const subTabs = [
 
 // ============= Component =============
 
-export function SalesExecutiveTab() {
-  const [activeSubTab, setActiveSubTab] = useState("sales-assignment");
+export function SalesExecutiveTab({ defaultSubTab }: { defaultSubTab?: string }) {
+  const [activeSubTab, setActiveSubTab] = useState(defaultSubTab || "sales-assignment");
+
+  useEffect(() => {
+    if (defaultSubTab) {
+      setActiveSubTab(defaultSubTab);
+    }
+  }, [defaultSubTab]);
   
   // Shared data from context (synced across all modules)
   const { 
@@ -258,10 +102,25 @@ export function SalesExecutiveTab() {
     getTerritoryNameById,
     getSalesExecutiveNameById,
     getDistributorNameById,
+    roles,
+    rolePermissions,
   } = useMasterData();
 
+  // --- PERMISSION CHECKS ---
+  const rawRole = sessionStorage.getItem("userRole") || "employee";
+  const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const salesPerm = rolePermissions?.find(p => p.roleId === currentRole?.id && p.module === "Sales Executive");
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const canCreate = isAdmin || salesPerm?.create;
+  const canEdit = isAdmin || salesPerm?.edit;
+  const canDelete = isAdmin || salesPerm?.delete;
+  const canExport = !!(isAdmin || salesPerm?.export);
+  // -----------------------
+
   // Local state for distributor links view (extends context data)
-  const [localDistributorLinks, setLocalDistributorLinks] = useState<DistributorLinkExtended[]>(mockDistributorLinks);
+  const [localDistributorLinks, setLocalDistributorLinks] = useState<DistributorLinkExtended[]>([]);
 
   // Sync distributor links with context
   useEffect(() => {
@@ -1398,15 +1257,22 @@ export function SalesExecutiveTab() {
     }
   };
 
+    const getHeaders = () => ({
+    "Content-Type": "application/json",
+    "X-User-Id": sessionStorage.getItem("userId") || "",
+    "X-User-Role": sessionStorage.getItem("userRole") || "",
+    "X-Organization-Id": sessionStorage.getItem("organizationId") || "",
+  });
+
   const handleSave = async () => {
-    const BASE_CRM = `${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/crm`;
+    const BASE_CRM = `/api/crm`;
     switch (activeSubTab) {
       case "sales-assignment":
         if (modalMode === "create") {
           try {
             const res = await fetch(`${BASE_CRM}/sales-executives/`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(formData),
             });
             if (res.ok) {
@@ -1421,7 +1287,7 @@ export function SalesExecutiveTab() {
           try {
             const res = await fetch(`${BASE_CRM}/sales-executives/${selectedItem.id}/`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(formData),
             });
             if (res.ok) {
@@ -1439,7 +1305,7 @@ export function SalesExecutiveTab() {
           try {
             const res = await fetch(`${BASE_CRM}/territories/`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(formData),
             });
             if (res.ok) {
@@ -1454,7 +1320,7 @@ export function SalesExecutiveTab() {
           try {
             const res = await fetch(`${BASE_CRM}/territories/${selectedItem.id}/`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(formData),
             });
             if (res.ok) {
@@ -1472,7 +1338,7 @@ export function SalesExecutiveTab() {
           try {
             const res = await fetch(`${BASE_CRM}/sales-targets/`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(formData),
             });
             if (res.ok) {
@@ -1487,7 +1353,7 @@ export function SalesExecutiveTab() {
           try {
             const res = await fetch(`${BASE_CRM}/sales-targets/${selectedItem.id}/`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(formData),
             });
             if (res.ok) {
@@ -1505,33 +1371,33 @@ export function SalesExecutiveTab() {
   };
 
   const handleDelete = async (item: any) => {
-    const BASE_CRM = `${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/crm`;
+    const BASE_CRM = `/api/crm`;
     if (!confirm(`Are you sure you want to delete this item?`)) return;
     switch (activeSubTab) {
       case "sales-assignment":
         try {
-          const res = await fetch(`${BASE_CRM}/sales-executives/${item.id}/`, { method: 'DELETE' });
+          const res = await fetch(`${BASE_CRM}/sales-executives/${item.id}/`, { method: 'DELETE', headers: getHeaders() });
           if (res.ok) setSalesExecutives(salesExecutives.filter((se) => se.id !== item.id));
           else alert("Failed to delete sales executive.");
         } catch { alert("Network error."); }
         break;
       case "territory-setup":
         try {
-          const res = await fetch(`${BASE_CRM}/territories/${item.id}/`, { method: 'DELETE' });
+          const res = await fetch(`${BASE_CRM}/territories/${item.id}/`, { method: 'DELETE', headers: getHeaders() });
           if (res.ok) setTerritories(territories.filter((t) => t.id !== item.id));
           else alert("Failed to delete territory.");
         } catch { alert("Network error."); }
         break;
       case "distributor-linkage":
         try {
-          const res = await fetch(`${BASE_CRM}/distributor-links/${item.id}/`, { method: 'DELETE' });
+          const res = await fetch(`${BASE_CRM}/distributor-links/${item.id}/`, { method: 'DELETE', headers: getHeaders() });
           if (res.ok) setLocalDistributorLinks(localDistributorLinks.filter((dl) => dl.id !== item.id));
           else alert("Failed to delete distributor link.");
         } catch { alert("Network error."); }
         break;
       case "targets-performance":
         try {
-          const res = await fetch(`${BASE_CRM}/sales-targets/${item.id}/`, { method: 'DELETE' });
+          const res = await fetch(`${BASE_CRM}/sales-targets/${item.id}/`, { method: 'DELETE', headers: getHeaders() });
           if (res.ok) setSalesTargets(salesTargets.filter((st) => st.id !== item.id));
           else alert("Failed to delete sales target.");
         } catch { alert("Network error."); }
@@ -1661,9 +1527,10 @@ export function SalesExecutiveTab() {
 
   return (
     <div className="space-y-6">
-      {/* Sub Tabs */}
-      <div className="flex flex-wrap gap-2 p-2 bg-muted/30 rounded-xl border border-border/50">
-        {subTabs.map((tab) => {
+      {/* Sub Tabs - Hidden if controlled by top navigation */}
+      {!defaultSubTab && (
+        <div className="flex flex-wrap gap-2 p-2 bg-muted/30 rounded-xl border border-border/50">
+          {subTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.id;
           return (
@@ -1685,10 +1552,11 @@ export function SalesExecutiveTab() {
           );
         })}
       </div>
+      )}
 
       {/* Section Header - Hide for distributor-linkage as it has its own */}
       {activeSubTab !== "distributor-linkage" && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-foreground">
               {getSectionInfo().title}
@@ -1697,7 +1565,7 @@ export function SalesExecutiveTab() {
               {getSectionInfo().description}
             </p>
           </div>
-          {activeSubTab !== "reporting-alerts" && (
+          {activeSubTab !== "reporting-alerts" && canCreate && (
             <Button onClick={() => openModal("create")} className="gap-2">
               <Plus className="w-4 h-4" />
               {getSectionInfo().addLabel}
@@ -1732,9 +1600,10 @@ export function SalesExecutiveTab() {
               columns={getCurrentColumns()}
               data={getCurrentData()}
               onView={(row) => openModal("view", row)}
-              onEdit={(row) => openModal("edit", row)}
-              onDelete={handleDelete}
-              onExport={() => handleExport("csv")}
+              onEdit={canEdit ? (row) => openModal("edit", row) : undefined}
+              onDelete={canDelete ? handleDelete : undefined}
+              showExport={canExport}
+              onExport={canExport ? () => handleExport("csv") : undefined}
               filterContent={renderFilters()}
             />
           )}

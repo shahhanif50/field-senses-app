@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useMasterData } from "@/contexts/MasterDataContext";
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 export function AttendanceLeavesTab() {
   const { toast } = useToast();
@@ -16,9 +17,18 @@ export function AttendanceLeavesTab() {
   const userRole = sessionStorage.getItem("userRole") || "";
   const employeeId = sessionStorage.getItem("employeeId") || "";
 
-  const isAdmin = userRole.toLowerCase() === "admin";
-  const isManager = userRole.toLowerCase() === "manager";
-  const canManage = isAdmin || isManager;
+  const { roles, rolePermissions } = useMasterData();
+
+  // --- PERMISSION CHECKS ---
+  const rawRole = sessionStorage.getItem("userRole") || "employee";
+  const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const attendancePerm = rolePermissions?.find(p => p.roleId === currentRole?.id && p.module === "Attendance & Leaves");
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const canCreate = isAdmin || attendancePerm?.create; // Request leave
+  const canManage = isAdmin || attendancePerm?.approve; // View and approve team requests
+  // -----------------------
 
   const [leaveBalances, setLeaveBalances] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
@@ -234,7 +244,7 @@ export function AttendanceLeavesTab() {
           </h2>
           <p className="text-muted-foreground mt-1">Manage holidays, track attendance, and view leave balances.</p>
         </div>
-        {!isAdmin && (
+        {!isAdmin && canCreate && (
           <Button onClick={() => setShowRequestForm(!showRequestForm)}>
             {showRequestForm ? "Cancel Request" : <><Plus className="w-4 h-4 mr-2" /> Request Leave</>}
           </Button>

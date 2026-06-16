@@ -51,6 +51,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useMasterData } from "@/contexts/MasterDataContext";
 
 // ============= Interfaces =============
 
@@ -135,18 +136,7 @@ interface DistributorLinkageTabProps {
   getTerritoryName: (id: string) => string;
 }
 
-// ============= Mock Distributors =============
-
-const mockDistributors = [
-  { id: "d1", name: "Agri Fresh Distributors" },
-  { id: "d2", name: "Green Valley Fertilizers" },
-  { id: "d3", name: "Farm Plus Seeds" },
-  { id: "d4", name: "Kisan Seva Center" },
-  { id: "d5", name: "Harvest King Supplies" },
-  { id: "d6", name: "Bio Grow Distributors" },
-  { id: "d7", name: "Crop Care Solutions" },
-  { id: "d8", name: "Agro World Traders" },
-];
+// ============= Component =============
 
 // Status options
 const statusOptions = [
@@ -174,6 +164,8 @@ export function DistributorLinkageTab({
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterRetailerRange, setFilterRetailerRange] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
+
+  const { distributors } = useMasterData();
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -342,7 +334,7 @@ export function DistributorLinkageTab({
   };
 
   const handleSave = async () => {
-    const BASE_CRM = `${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/crm`;
+    const BASE_CRM = `/api/crm`;
     if (modalMode === "create") {
       const newItem: DistributorLinkExtended = {
         ...formData,
@@ -407,7 +399,7 @@ export function DistributorLinkageTab({
   };
 
   const handleDelete = async (item: DistributorLinkExtended) => {
-    const BASE_CRM = `${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/crm`;
+    const BASE_CRM = `/api/crm`;
     if (!confirm(`Are you sure you want to delete this distributor link?`)) return;
     try {
       const res = await fetch(`${BASE_CRM}/distributor-links/${item.id}/`, { method: 'DELETE' });
@@ -420,7 +412,6 @@ export function DistributorLinkageTab({
   };
 
   const handleExport = (format: "csv" | "excel" | "pdf") => {
-    console.log(`Exporting as ${format}...`);
     // In real implementation, this would generate and download the file
   };
 
@@ -586,7 +577,7 @@ export function DistributorLinkageTab({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Distributor Linkage</h2>
           <p className="text-muted-foreground">
@@ -842,8 +833,8 @@ export function DistributorLinkageTab({
                 <Select
                   value={formData.distributorId || ""}
                   onValueChange={(v) => {
-                    const dist = mockDistributors.find((d) => d.id === v);
-                    setFormData({ ...formData, distributorId: v, firmName: dist?.name || "" });
+                    const dist = distributors.find((d) => d.distributorId === v);
+                    setFormData({ ...formData, distributorId: v, firmName: dist?.firmName || "" });
                   }}
                   disabled={modalMode === "view"}
                 >
@@ -851,9 +842,9 @@ export function DistributorLinkageTab({
                     <SelectValue placeholder="Select from approved Distributor Master" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockDistributors.map((dist) => (
-                      <SelectItem key={dist.id} value={dist.id}>
-                        {dist.name}
+                    {distributors.map((dist) => (
+                      <SelectItem key={dist.distributorId} value={dist.distributorId}>
+                        {dist.firmName}
                       </SelectItem>
                     ))}
                   </SelectContent>

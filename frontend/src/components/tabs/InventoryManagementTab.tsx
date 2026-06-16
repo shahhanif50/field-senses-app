@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Package, FolderTree, Ruler, Warehouse, Users, Receipt, PackageOpen, AlertTriangle, ClipboardList, FileText, Monitor, BarChart3, Plus, Edit, Trash2, Eye, Download, User, Building2, Tag, DollarSign, Settings, MapPin, Phone, CreditCard, Calendar, Shield, Layers, Search, Filter } from "lucide-react";
+import React, { useState } from "react";
+import { Package, FolderTree, Ruler, Warehouse, Users, Receipt, PackageOpen, AlertTriangle, ClipboardList, FileText, Monitor, BarChart3, Plus, Edit, Trash2, Eye, Download, User, Building2, Tag, DollarSign, Settings, MapPin, Phone, CreditCard, Calendar, Shield, Layers, Search, Filter, ShoppingCart, Truck, Camera, X } from "lucide-react";
 import POSDashboard from "@/components/pos/POSDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,14 +159,15 @@ let ruleCounter = 4;
 let billingCounter = 4;
 
 // Generate IDs for different modules
-const generateCategoryId = () => `CAT-${String(categoryCounter++).padStart(5, '0')}`;
-const generateUomId = () => `UOM-${String(uomCounter++).padStart(5, '0')}`;
-const generateLocationId = () => `LOC-${String(locationCounter++).padStart(5, '0')}`;
-const generateVendorId = () => `VND-${String(vendorCounter++).padStart(5, '0')}`;
-const generateTaxId = () => `TAX-${String(taxCounter++).padStart(5, '0')}`;
-const generateStockId = () => `OS-${String(stockCounter++).padStart(5, '0')}`;
-const generateRuleId = () => `MSR-${String(ruleCounter++).padStart(5, '0')}`;
-const generateBillingId = () => `BIL-${String(billingCounter++).padStart(5, '0')}`;
+const generateRandomSuffix = () => Math.floor(10000 + Math.random() * 90000).toString();
+const generateCategoryId = () => `CAT-${generateRandomSuffix()}`;
+const generateUomId = () => `UOM-${generateRandomSuffix()}`;
+const generateLocationId = () => `LOC-${generateRandomSuffix()}`;
+const generateVendorId = () => `VND-${generateRandomSuffix()}`;
+const generateTaxId = () => `TAX-${generateRandomSuffix()}`;
+const generateStockId = () => `OS-${generateRandomSuffix()}`;
+const generateRuleId = () => `MSR-${generateRandomSuffix()}`;
+const generateBillingId = () => `BIL-${generateRandomSuffix()}`;
 
 // Sample Data - Categories (Agriculture)
 const sampleCategories: Category[] = [
@@ -240,30 +241,42 @@ const sampleBillingConfigs: BillingConfig[] = [
   { id: "BIL-00004", invoicePrefix: "FLD-", invoiceFormat: "DD-MM-####", financialYear: "2024-25", gstInvoiceType: "Simplified", defaultPaymentModes: ["Cash"], autoGeneration: true, creditSaleAllowed: false, returnRefundEnabled: false, approvalRequired: false, multiCurrency: false, status: "Active", createdAt: "2024-02-05", updatedAt: "2024-02-05" },
 ];
 
-// Product counter for auto-generation
-let productCounter = 5;
-
-const subModules = [
-  { id: "product-master", label: "Product Master", description: "Configure product details and inventory settings", icon: Package },
-  { id: "category-master", label: "Category Master", description: "Manage product categories and hierarchy", icon: FolderTree },
-  { id: "uom", label: "Unit of Measure", description: "Define units of measurement for products", icon: Ruler },
-  { id: "warehouse", label: "Warehouse / Location Master", description: "Configure warehouse and storage locations", icon: Warehouse },
-  { id: "vendor-setup", label: "Vendor Setup", description: "Manage distributors, dealers and resellers", icon: Users },
-  { id: "tax-price", label: "Tax & Price Settings", description: "Configure tax rates and pricing rules", icon: Receipt },
-  { id: "stock-setup", label: "Stock Setup", description: "Opening stock, minimum rules, and inventory settings", icon: Layers },
-  { id: "billing", label: "Billing & Invoicing Setup", description: "Configure invoice formats and payment settings", icon: FileText },
-  { id: "pos", label: "POS Integration Dashboard", description: "Real-time POS monitoring, analytics & management", icon: Monitor },
-  { id: "analytics", label: "Analytics & Reporting Setup", description: "Configure reports and performance tracking", icon: BarChart3 },
+const mainSections = [
+  { id: "product-setup", label: "Product Setup", icon: Package },
+  { id: "stock-management", label: "Stock Management", icon: Layers },
+  { id: "sales-billing", label: "Sales & Billing", icon: DollarSign },
 ];
 
+const subModulesData: Record<string, any[]> = {
+  "product-setup": [
+    { id: "product-master", label: "Product Master", description: "Configure product details and inventory settings", icon: Package },
+    { id: "category-master", label: "Category Master", description: "Manage product categories and hierarchy", icon: FolderTree },
+    { id: "uom", label: "Unit of Measure", description: "Define units of measurement for products", icon: Ruler },
+    { id: "vendor-setup", label: "Vendor Setup", description: "Manage distributors, dealers and resellers", icon: Users },
+    { id: "tax-price", label: "Tax & Price Settings", description: "Configure tax rates and pricing rules", icon: Receipt },
+  ],
+  "stock-management": [
+    { id: "warehouse", label: "Warehouse Master", description: "Configure warehouse and storage locations", icon: Warehouse },
+    { id: "opening-stock", label: "Opening Stock Setup", description: "Manage initial inventory levels", icon: PackageOpen },
+    { id: "min-stock", label: "Stock Rules", description: "Minimum rules and alerts", icon: AlertTriangle },
+    { id: "inventory-master", label: "Inventory Settings", description: "Global inventory preferences", icon: ClipboardList },
+  ],
+  "sales-billing": [
+    { id: "order-management", label: "Order Management", description: "Manage sales orders", icon: ShoppingCart },
+    { id: "billing", label: "Billing & Invoicing", description: "Configure invoice formats and payment settings", icon: FileText },
+    { id: "dispatch-management", label: "Dispatch Management", description: "Manage shipments and delivery", icon: Truck },
+    { id: "payment-tracking", label: "Payment Tracking", description: "Track payments and outstanding dues", icon: CreditCard },
+  ]
+};
+
 // Generate system IDs
-const generateProductId = () => `PID-${String(productCounter++).padStart(5, '0')}`;
+const generateProductId = () => `PID-${Math.floor(10000 + Math.random() * 90000).toString()}`;
 const generateSKU = (prefix: string = "SKU") => `${prefix}-${Date.now().toString(36).toUpperCase()}`;
 const generateBarcode = (sku: string) => `BC${sku.replace(/-/g, '')}`;
 
 export default function InventoryManagementTab() {
-  const [activeModule, setActiveModule] = useState("product-master");
-  const [stockSetupSubTab, setStockSetupSubTab] = useState("opening-stock");
+  const [activeSection, setActiveSection] = useState("");
+  const [activeModule, setActiveModule] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit" | "view">("add");
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -276,6 +289,8 @@ export default function InventoryManagementTab() {
     uoms, setUoms,
     locations, setLocations,
     vendors, setVendors,
+    roles,
+    rolePermissions,
   } = useMasterData();
   const [taxSettings, setTaxSettings] = useState<TaxSetting[]>(sampleTaxSettings);
   const [openingStocks, setOpeningStocks] = useState<OpeningStock[]>(sampleOpeningStocks);
@@ -342,6 +357,48 @@ export default function InventoryManagementTab() {
     exportFormats: ["PDF", "Excel"],
   });
 
+  // --- PERMISSION CHECKS ---
+  const rawRole = sessionStorage.getItem("userRole") || "employee";
+  const currentRole = roles.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const filteredMainSections = React.useMemo(() => {
+    return mainSections.filter(section => {
+      if (isAdmin) return true;
+      const perm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === section.label);
+      return perm?.view;
+    });
+  }, [rolePermissions, currentRole, isAdmin]);
+
+  React.useEffect(() => {
+    if (filteredMainSections.length > 0 && !filteredMainSections.find(s => s.id === activeSection)) {
+      const firstSection = filteredMainSections[0];
+      setActiveSection(firstSection.id);
+      if (subModulesData[firstSection.id] && subModulesData[firstSection.id].length > 0) {
+        setActiveModule(subModulesData[firstSection.id][0].id);
+      }
+    }
+  }, [filteredMainSections, activeSection]);
+
+  const activeSectionLabel = mainSections.find(s => s.id === activeSection)?.label;
+  const activePerm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === activeSectionLabel);
+  const isRegionalManager = rawRole?.toLowerCase() === "regional_manager" || rawRole?.toLowerCase() === "regional manager";
+
+  let canCreate = !isRegionalManager && (isAdmin || activePerm?.create);
+  let canEdit = !isRegionalManager && (isAdmin || activePerm?.edit);
+  let canDelete = !isRegionalManager && (isAdmin || activePerm?.delete);
+  const canExport = !!(isAdmin || activePerm?.export);
+  const canApprove = !isRegionalManager && (isAdmin || activePerm?.approve);
+
+  // Enforce strictly that only Admins can add/edit/delete Product Master items
+  if (activeModule === "product-master") {
+    canCreate = isAdmin;
+    canEdit = isAdmin;
+    canDelete = isAdmin;
+  }
+  // -----------------------
+
   const handleAdd = () => {
     setModalMode("add");
     setSelectedItem(null);
@@ -351,7 +408,7 @@ export default function InventoryManagementTab() {
     const now = new Date().toISOString().split('T')[0];
     
     // Pre-populate system-generated fields for each module
-    const currentModule = activeModule === "stock-setup" ? stockSetupSubTab : activeModule;
+    const currentModule = activeModule;
     switch (currentModule) {
       case "product-master":
         const newProductId = generateProductId();
@@ -544,7 +601,7 @@ export default function InventoryManagementTab() {
 
   const handleSave = async () => {
     const now = new Date().toISOString().split('T')[0];
-    const BASE_INV = `${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/inventory`;
+    const BASE_INV = `/api/inventory`;
     
     switch (activeModule) {
       case "product-master":
@@ -568,6 +625,7 @@ export default function InventoryManagementTab() {
             allowDiscount: productForm.allowDiscount || false,
             serialBatchTracking: productForm.serialBatchTracking || false,
             expiryTracking: productForm.expiryTracking || false,
+            productImage: productForm.productImage,
             status: productForm.status || "Active",
             createdAt: productForm.createdAt || now,
             updatedAt: now,
@@ -769,10 +827,13 @@ export default function InventoryManagementTab() {
         break;
         
       case "vendor-setup":
-        if (!vendorForm.name?.trim()) {
-          toast.error("Vendor Name is required");
-          return;
-        }
+        if (!vendorForm.name?.trim()) { toast.error("Vendor Name is required"); return; }
+        if (!vendorForm.contactPerson?.trim()) { toast.error("Contact Person is required"); return; }
+        if (!vendorForm.phone?.trim()) { toast.error("Phone Number is required"); return; }
+        if (!vendorForm.email?.trim()) { toast.error("Email is required"); return; }
+        if (!vendorForm.address?.trim()) { toast.error("Address is required"); return; }
+        if (!vendorForm.gstId?.trim()) { toast.error("GST ID is required"); return; }
+        if (!vendorForm.linkedWarehouse?.trim()) { toast.error("Linked Warehouse is required"); return; }
         if (modalMode === "add") {
           const newVendor: Vendor = {
             id: vendorForm.id || generateVendorId(),
@@ -954,7 +1015,7 @@ export default function InventoryManagementTab() {
   };
 
   const handleDelete = async (item: any) => {
-    const BASE_INV = `${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/inventory`;
+    const BASE_INV = `/api/inventory`;
     if (!confirm("Are you sure you want to delete this item?")) return;
 
     switch (activeModule) {
@@ -1066,7 +1127,18 @@ export default function InventoryManagementTab() {
   const productColumns: Column<Product>[] = [
     { key: "productId", header: "Product ID", sortable: true },
     { key: "sku", header: "SKU Code/ Batch Number", sortable: true },
-    { key: "name", header: "Product Name", sortable: true },
+    { key: "name", header: "Product Name", sortable: true, render: (value: unknown, row: Product) => (
+      <div className="flex items-center gap-3">
+        {row.productImage ? (
+          <img src={row.productImage} alt={value as string} className="w-8 h-8 rounded object-cover border" />
+        ) : (
+          <div className="w-8 h-8 rounded bg-muted flex items-center justify-center border">
+            <Package className="w-4 h-4 text-muted-foreground" />
+          </div>
+        )}
+        <span className="font-medium">{value as string}</span>
+      </div>
+    )},
     { key: "category", header: "Category", sortable: true, render: (value: unknown) => (
       <span className="text-sm">{getCategoryName(value as string)}</span>
     )},
@@ -1332,6 +1404,52 @@ export default function InventoryManagementTab() {
               className="bg-muted/50 font-mono"
               placeholder="Auto-generated"
             />
+          </div>
+          <div className="col-span-full md:col-span-2 space-y-2">
+            <Label>Product Photo</Label>
+            <div className="flex items-center gap-4">
+              {productForm.productImage ? (
+                <div className="relative w-24 h-24 rounded-lg overflow-hidden border">
+                  <img src={productForm.productImage} alt="Product" className="w-full h-full object-cover" />
+                  {modalMode !== "view" && (
+                    <button 
+                      onClick={() => setProductForm({ ...productForm, productImage: undefined })}
+                      className="absolute top-1 right-1 bg-white/80 rounded-full p-1 hover:bg-white transition-colors"
+                    >
+                      <X className="w-3 h-3 text-red-500" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="w-24 h-24 rounded-lg border-2 border-dashed flex items-center justify-center bg-muted/30">
+                  <Camera className="w-6 h-6 text-muted-foreground" />
+                </div>
+              )}
+              {modalMode !== "view" && (
+                <div className="space-y-2">
+                  <Input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error("Image size must be less than 5MB");
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setProductForm({ ...productForm, productImage: reader.result as string });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="max-w-[250px] cursor-pointer"
+                  />
+                  <p className="text-xs text-muted-foreground">Recommended: Square image, max 5MB</p>
+                </div>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Product Name <span className="text-destructive">*</span></Label>
@@ -3760,7 +3878,7 @@ export default function InventoryManagementTab() {
   );
 
   const getModalTitle = () => {
-    const currentModule = activeModule === "stock-setup" ? stockSetupSubTab : activeModule;
+    const currentModule = activeModule;
     const moduleLabels: Record<string, string> = {
       "product-master": "Product Master",
       "category-master": "Category Master",
@@ -3777,7 +3895,7 @@ export default function InventoryManagementTab() {
   };
 
   const renderForm = () => {
-    const currentModule = activeModule === "stock-setup" ? stockSetupSubTab : activeModule;
+    const currentModule = activeModule;
     switch (currentModule) {
       case "product-master":
         return renderProductForm();
@@ -3811,8 +3929,9 @@ export default function InventoryManagementTab() {
             columns={productColumns} 
             searchPlaceholder="Search products..."
             onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onEdit={canEdit ? handleEdit : undefined}
+            onDelete={canDelete ? handleDelete : undefined}
+            showExport={canExport}
           />
         );
       case "category-master":
@@ -3822,8 +3941,9 @@ export default function InventoryManagementTab() {
             columns={categoryColumns} 
             searchPlaceholder="Search categories..."
             onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onEdit={canEdit ? handleEdit : undefined}
+            onDelete={canDelete ? handleDelete : undefined}
+            showExport={canExport}
           />
         );
       case "uom":
@@ -3833,8 +3953,9 @@ export default function InventoryManagementTab() {
             columns={uomColumns} 
             searchPlaceholder="Search UOM..."
             onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onEdit={canEdit ? handleEdit : undefined}
+            onDelete={canDelete ? handleDelete : undefined}
+            showExport={canExport}
           />
         );
       case "warehouse":
@@ -3844,8 +3965,9 @@ export default function InventoryManagementTab() {
             columns={locationColumns} 
             searchPlaceholder="Search locations..."
             onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onEdit={canEdit ? handleEdit : undefined}
+            onDelete={canDelete ? handleDelete : undefined}
+            showExport={canExport}
           />
         );
       case "vendor-setup":
@@ -3855,8 +3977,9 @@ export default function InventoryManagementTab() {
             columns={vendorColumns} 
             searchPlaceholder="Search vendors..."
             onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onEdit={canEdit ? handleEdit : undefined}
+            onDelete={canDelete ? handleDelete : undefined}
+            showExport={canExport}
           />
         );
       case "tax-price":
@@ -3866,8 +3989,9 @@ export default function InventoryManagementTab() {
             columns={taxColumns} 
             searchPlaceholder="Search tax settings..."
             onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onEdit={canEdit ? handleEdit : undefined}
+            onDelete={canDelete ? handleDelete : undefined}
+            showExport={canExport}
           />
         );
       case "billing":
@@ -3877,8 +4001,33 @@ export default function InventoryManagementTab() {
             columns={billingColumns} 
             searchPlaceholder="Search billing configs..."
             onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
+            onEdit={canEdit ? handleEdit : undefined}
+            onDelete={canDelete ? handleDelete : undefined}
+            showExport={canExport}
+          />
+        );
+      case "opening-stock":
+        return (
+          <DataTable 
+            data={openingStocks} 
+            columns={openingStockColumns} 
+            searchPlaceholder="Search opening stock..."
+            onView={handleView}
+            onEdit={canEdit ? handleEdit : undefined}
+            onDelete={canDelete ? handleDelete : undefined}
+            showExport={canExport}
+          />
+        );
+      case "min-stock":
+        return (
+          <DataTable 
+            data={minStockRules} 
+            columns={minStockColumns} 
+            searchPlaceholder="Search stock rules..."
+            onView={handleView}
+            onEdit={canEdit ? handleEdit : undefined}
+            onDelete={canDelete ? handleDelete : undefined}
+            showExport={canExport}
           />
         );
       default:
@@ -3886,125 +4035,121 @@ export default function InventoryManagementTab() {
     }
   };
 
-  const renderStockSetup = () => {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Stock Setup</h2>
-            <p className="text-muted-foreground mt-1">Opening stock, minimum rules, and inventory settings</p>
-          </div>
-        </div>
-        
-        <Tabs value={stockSetupSubTab} onValueChange={setStockSetupSubTab} className="w-full">
-          <TabsList className="bg-muted/50 p-1 rounded-lg">
-            <TabsTrigger value="opening-stock" className="flex items-center gap-2 data-[state=active]:bg-background">
-              <PackageOpen className="w-4 h-4" />
-              <span>Opening Stock</span>
-            </TabsTrigger>
-            <TabsTrigger value="min-stock" className="flex items-center gap-2 data-[state=active]:bg-background">
-              <AlertTriangle className="w-4 h-4" />
-              <span>Minimum Rules</span>
-            </TabsTrigger>
-            <TabsTrigger value="inventory-master" className="flex items-center gap-2 data-[state=active]:bg-background">
-              <ClipboardList className="w-4 h-4" />
-              <span>Inventory Master</span>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="opening-stock" className="mt-4">
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button onClick={() => { setStockSetupSubTab("opening-stock"); handleAdd(); }} className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Opening Stock
-                </Button>
-              </div>
-              <DataTable 
-                data={openingStocks} 
-                columns={openingStockColumns} 
-                searchPlaceholder="Search opening stock..."
-                onView={handleView}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="min-stock" className="mt-4">
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button onClick={() => { setStockSetupSubTab("min-stock"); handleAdd(); }} className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add Stock Rule
-                </Button>
-              </div>
-              <DataTable 
-                data={minStockRules} 
-                columns={minStockColumns} 
-                searchPlaceholder="Search stock rules..."
-                onView={handleView}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="inventory-master" className="mt-4">
-            {renderInventorySettings()}
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
-  };
+  const isSettingsModule = ["inventory-master", "order-management", "dispatch-management", "payment-tracking"].includes(activeModule);
 
-  const isSettingsModule = ["stock-setup", "pos", "analytics"].includes(activeModule);
+  let currentSubModules = subModulesData[activeSection] || [];
+  if (rawRole.toLowerCase() === "employee" && activeSection === "product-setup") {
+    currentSubModules = currentSubModules.filter(m => m.id === "product-master");
+  }
 
   return (
-    <div className="space-y-6">
-      <Tabs value={activeModule} onValueChange={setActiveModule} className="w-full">
-        <div className="glass-card p-4 rounded-xl">
-          <TabsList className="w-full h-auto bg-transparent p-0 flex flex-wrap justify-center gap-2">
-            {subModules.map((module, index) => (
-              <TabsTrigger
-                key={module.id}
-                value={module.id}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground hover:bg-muted/50 transition-all ${index < 7 ? '' : ''}`}
+    <div className="space-y-6 pb-12">
+      {/* Main Sections */}
+      {filteredMainSections.length > 1 && (
+        <div className="glass-card p-2 flex flex-wrap justify-center gap-2">
+          {filteredMainSections.map((section) => {
+            const isActive = activeSection === section.id;
+            return (
+              <button
+                key={section.id}
+                onClick={() => {
+                  setActiveSection(section.id);
+                  let availableMods = subModulesData[section.id] || [];
+                  if (rawRole.toLowerCase() === "employee" && section.id === "product-setup") {
+                    availableMods = availableMods.filter(m => m.id === "product-master");
+                  }
+                  const firstMod = availableMods[0]?.id;
+                  if (firstMod) setActiveModule(firstMod);
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-lg"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <module.icon className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm whitespace-nowrap hidden sm:inline">{module.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+                <section.icon className="w-4 h-4" />
+                {section.label}
+              </button>
+            );
+          })}
         </div>
+      )}
 
-        {subModules.map((module) => (
-          <TabsContent key={module.id} value={module.id} className="mt-6">
+      {/* Sub Modules */}
+      {currentSubModules.length > 1 && (
+        <div className="glass-card p-2 flex flex-wrap justify-center gap-2">
+          {currentSubModules.map((module) => {
+            const isActive = activeModule === module.id;
+            return (
+              <button
+                key={module.id}
+                onClick={() => setActiveModule(module.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-lg"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <module.icon className="w-4 h-4" />
+                <span className="whitespace-nowrap">{module.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="mt-6">
+        {currentSubModules.map((module) => (
+          <div key={module.id} className={activeModule === module.id ? "block" : "hidden"}>
             {isSettingsModule ? (
-              <>
-                {activeModule === "stock-setup" && renderStockSetup()}
-                {activeModule === "pos" && renderPOSDashboard()}
-                {activeModule === "analytics" && renderAnalyticsSettings()}
-              </>
+              <div className="animate-in fade-in zoom-in-95 duration-500 ease-out">
+                {activeModule === "inventory-master" && renderInventorySettings()}
+                {activeModule === "order-management" && <div className="p-12 flex flex-col items-center justify-center text-muted-foreground border border-dashed border-primary/20 rounded-3xl glass-card bg-gradient-to-b from-background/50 to-muted/20">
+                  <ShoppingCart className="w-16 h-16 mb-4 text-primary/40 opacity-50" />
+                  <h3 className="text-xl font-bold text-foreground">Order Management</h3>
+                  <p className="text-sm mt-2 max-w-sm text-center">Streamline your sales order process, track statuses, and fulfill customer requests seamlessly.</p>
+                  <div className="mt-6 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold tracking-widest uppercase">Coming Soon</div>
+                </div>}
+                {activeModule === "dispatch-management" && <div className="p-12 flex flex-col items-center justify-center text-muted-foreground border border-dashed border-primary/20 rounded-3xl glass-card bg-gradient-to-b from-background/50 to-muted/20">
+                  <Truck className="w-16 h-16 mb-4 text-primary/40 opacity-50" />
+                  <h3 className="text-xl font-bold text-foreground">Dispatch Management</h3>
+                  <p className="text-sm mt-2 max-w-sm text-center">Manage shipments, assign vehicles, and track delivery status in real-time.</p>
+                  <div className="mt-6 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold tracking-widest uppercase">Coming Soon</div>
+                </div>}
+                {activeModule === "payment-tracking" && <div className="p-12 flex flex-col items-center justify-center text-muted-foreground border border-dashed border-primary/20 rounded-3xl glass-card bg-gradient-to-b from-background/50 to-muted/20">
+                  <CreditCard className="w-16 h-16 mb-4 text-primary/40 opacity-50" />
+                  <h3 className="text-xl font-bold text-foreground">Payment Tracking</h3>
+                  <p className="text-sm mt-2 max-w-sm text-center">Monitor outstanding dues, record incoming payments, and integrate with payment gateways.</p>
+                  <div className="mt-6 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-semibold tracking-widest uppercase">Coming Soon</div>
+                </div>}
+              </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
                 {/* Section Header */}
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-foreground">{module.label}</h2>
-                    <p className="text-muted-foreground mt-1">{module.description}</p>
+                <div className="flex items-end justify-between px-2 pb-4 border-b border-border/50">
+                  <div className="space-y-1.5">
+                    <h2 className="text-3xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">{module.label}</h2>
+                    <p className="text-[15px] text-muted-foreground font-medium flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary/50"></span>
+                      {module.description}
+                    </p>
                   </div>
-                  <Button onClick={handleAdd} className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Add {module.label.split(' ')[0]}
-                  </Button>
+                  {canCreate && !["inventory-master", "order-management", "dispatch-management", "payment-tracking"].includes(module.id) && (
+                    <Button onClick={handleAdd} className="gap-2 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 rounded-xl px-5 h-11 bg-primary text-primary-foreground font-semibold">
+                      <Plus className="w-4 h-4" />
+                      Add {module.label.split(' ')[0]}
+                    </Button>
+                  )}
                 </div>
-                {renderModuleContent()}
+                <div className="pt-2">
+                  {renderModuleContent()}
+                </div>
               </div>
             )}
-          </TabsContent>
+          </div>
         ))}
-      </Tabs>
+      </div>
 
       <GlassModal
         isOpen={showModal}
@@ -4015,10 +4160,10 @@ export default function InventoryManagementTab() {
         <div className="space-y-6">
           {renderForm()}
           {modalMode !== "view" && (
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
-              <Button onClick={handleSave}>
-                {modalMode === "add" ? "Add" : "Save Changes"}
+            <div className="flex justify-end gap-3 pt-6 border-t border-border/50">
+              <Button variant="outline" onClick={() => setShowModal(false)} className="rounded-xl px-6">Cancel</Button>
+              <Button onClick={handleSave} className="rounded-xl px-6 shadow-sm">
+                {modalMode === "add" ? "Add Item" : "Save Changes"}
               </Button>
             </div>
           )}

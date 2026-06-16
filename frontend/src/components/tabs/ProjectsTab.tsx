@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { useMasterData } from '@/contexts/MasterDataContext';
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 interface Project {
   id: string;
@@ -44,7 +44,7 @@ interface Task {
 export function ProjectsTab() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const { employees } = useMasterData();
+  const { employees, roles, rolePermissions } = useMasterData();
 
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -52,12 +52,22 @@ export function ProjectsTab() {
   const [projectForm, setProjectForm] = useState<Partial<Project>>({});
   const [taskForm, setTaskForm] = useState<Partial<Task>>({});
 
-  const userRole = sessionStorage.getItem("userRole") || "employee";
   const employeeId = sessionStorage.getItem("employeeId") || "";
   const userId = sessionStorage.getItem("userId") || "";
-  const isAdmin = userRole.toLowerCase() === "admin";
-  const isManager = userRole.toLowerCase() === "manager";
-  const canManage = isAdmin || isManager;
+
+  // --- PERMISSION CHECKS ---
+  const rawRole = sessionStorage.getItem("userRole") || "employee";
+  const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const projectsPerm = rolePermissions?.find(p => p.roleId === currentRole?.id && p.module === "Projects & Tasks");
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const canCreate = isAdmin || projectsPerm?.create;
+  const canEdit = isAdmin || projectsPerm?.edit;
+  const canDelete = isAdmin || projectsPerm?.delete;
+  // -----------------------
+
+  const userRole = rawRole;
 
   useEffect(() => {
     fetchProjects();
@@ -169,14 +179,14 @@ export function ProjectsTab() {
     <div className="space-y-8">
       {/* Projects Section */}
       <section>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <FolderKanban className="w-6 h-6 text-primary" /> Projects
             </h2>
             <p className="text-muted-foreground mt-1">Manage active initiatives and projects.</p>
           </div>
-          {isAdmin && (
+          {canCreate && (
             <Button onClick={() => { setProjectForm({}); setIsProjectModalOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" /> New Project
             </Button>
@@ -202,7 +212,7 @@ export function ProjectsTab() {
                 <span>Assignees: {proj.assignedEmployeeNames || 'Unassigned'}</span>
                 <span>Due: {proj.endDate ? new Date(proj.endDate).toLocaleDateString() : 'N/A'}</span>
               </div>
-              {isAdmin && (
+              {canEdit && (
                 <button 
                   onClick={() => { setProjectForm(proj); setIsProjectModalOpen(true); }}
                   className="absolute top-4 right-20 p-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background rounded-full hover:bg-accent"
@@ -218,14 +228,14 @@ export function ProjectsTab() {
 
       {/* Tasks Section */}
       <section className="pt-8 border-t border-border/50">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <CheckCircle2 className="w-6 h-6 text-primary" /> Tasks
             </h2>
             <p className="text-muted-foreground mt-1">Track and manage individual task assignments.</p>
           </div>
-          {canManage && (
+          {canCreate && (
             <Button onClick={() => { setTaskForm({}); setIsTaskModalOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" /> New Task
             </Button>
@@ -261,7 +271,7 @@ export function ProjectsTab() {
                     <SelectItem value="Done">Done</SelectItem>
                   </SelectContent>
                 </Select>
-                {canManage && (
+                {canEdit && (
                   <Button variant="ghost" size="icon" onClick={() => { setTaskForm(task); setIsTaskModalOpen(true); }}>
                     <Edit2 className="w-4 h-4" />
                   </Button>

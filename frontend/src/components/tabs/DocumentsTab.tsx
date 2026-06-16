@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { GlassModal } from '@/components/ui/GlassModal';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMasterData } from '@/contexts/MasterDataContext';
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 interface Document {
   id: string;
@@ -18,6 +20,7 @@ interface Document {
   uploadDate: string;
   fileType: string;
   status: string;
+  relatedDistributorId?: string;
 }
 
 export function DocumentsTab() {
@@ -26,11 +29,26 @@ export function DocumentsTab() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [filterOwnerId, setFilterOwnerId] = useState<string>("all");
+  const [uploadDistributorId, setUploadDistributorId] = useState<string>("none");
   
-  const userRole = sessionStorage.getItem("userRole") || "employee";
+  const { roles, rolePermissions, employees, distributors } = useMasterData();
   const userId = sessionStorage.getItem("userId") || "";
   const employeeId = sessionStorage.getItem("employeeId") || "";
-  const isAdmin = userRole.toLowerCase() === "admin";
+  
+  // --- PERMISSION CHECKS ---
+  const rawRole = sessionStorage.getItem("userRole") || "employee";
+  const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const docsPerm = rolePermissions?.find(p => p.roleId === currentRole?.id && p.module === "Documents");
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const isRegionalManager = rawRole?.toLowerCase() === "regional_manager" || rawRole?.toLowerCase() === "regional manager";
+  const canCreate = !isRegionalManager && (isAdmin || docsPerm?.create);
+  const canDelete = !isRegionalManager && (isAdmin || docsPerm?.delete);
+  // -----------------------
+
+  const userRole = rawRole;
 
   useEffect(() => {
     fetchDocuments();
@@ -80,8 +98,9 @@ export function DocumentsTab() {
             title: uploadTitle,
             fileUrl: base64String,
             uploadedBy: userId,
+            relatedDistributorId: uploadDistributorId === "none" ? null : uploadDistributorId,
             fileType: fileType,
-            status: 'Valid'
+            status: 'Pending'
           }),
         });
         
@@ -117,9 +136,42 @@ export function DocumentsTab() {
     }
   };
 
-  const filteredDocuments = documents.filter(doc => 
-    doc.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      const response = await fetch(`${API}/api/documents/${id}/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': userId,
+          'X-User-Role': userRole.toUpperCase()
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (response.ok) {
+        fetchDocuments();
+      }
+    } catch (error) {
+      console.error('Error updating document status:', error);
+    }
+  };
+
+  const filteredDocuments = documents.filter(doc => {
+    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (filterOwnerId === "all") return matchesSearch;
+    
+    if (filterOwnerId.startsWith("emp-")) {
+      const targetEmpId = filterOwnerId.replace("emp-", "");
+      return matchesSearch && doc.uploadedBy === targetEmpId && !doc.relatedDistributorId;
+    }
+    
+    if (filterOwnerId.startsWith("dist-")) {
+      const targetDistId = filterOwnerId.replace("dist-", "");
+      return matchesSearch && doc.relatedDistributorId === targetDistId;
+    }
+    
+    return matchesSearch;
+  });
 
   return (
     <div className="space-y-6">
@@ -145,10 +197,24 @@ export function DocumentsTab() {
               className="pl-10 bg-background"
             />
           </div>
-          <Button variant="outline" className="gap-2">
-            <Filter className="w-4 h-4" />
-            Filters
-          </Button>
+          {isAdmin && (
+            <Select value={filterOwnerId} onValueChange={setFilterOwnerId}>
+              <SelectTrigger className="w-full md:w-[280px] bg-background">
+                <SelectValue placeholder="Filter by Uploader / Distributor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Documents</SelectItem>
+                <SelectGroup>
+                  <SelectLabel>Employees</SelectLabel>
+                  {employees.map(e => <SelectItem key={`emp-${e.id}`} value={`emp-${e.id}`}>{e.fullName}</SelectItem>)}
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel>Distributors</SelectLabel>
+                  {distributors.map(d => <SelectItem key={`dist-${d.id}`} value={`dist-${d.id}`}>{d.firmName}</SelectItem>)}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
@@ -161,11 +227,13 @@ export function DocumentsTab() {
             key={doc.id}
             className="group bg-card/40 backdrop-blur-md border border-border/50 rounded-2xl p-5 hover:shadow-xl hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300 relative overflow-hidden"
           >
-            <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => handleDelete(doc.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded-full transition-colors">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+            {canDelete && (
+              <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => handleDelete(doc.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded-full transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             
             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform duration-300">
               <FileText className="w-6 h-6" />
@@ -176,11 +244,27 @@ export function DocumentsTab() {
             
             {isAdmin && <p className="text-xs text-muted-foreground mb-4 truncate">Uploaded By: {doc.uploadedByName}</p>}
             
-            <div className="flex items-center justify-between mt-auto pt-4 border-t border-border/50">
-              <StatusBadge status="active" label={doc.status} />
-              <a href={doc.fileUrl} download={doc.title} className="p-2 hover:bg-primary/10 text-primary rounded-full transition-colors cursor-pointer">
-                <Download className="w-4 h-4" />
-              </a>
+            <div className="flex flex-col gap-3 mt-auto pt-4 border-t border-border/50">
+              <div className="flex items-center justify-between">
+                <StatusBadge 
+                  status={doc.status.toLowerCase() === 'pending' ? 'idle' : doc.status.toLowerCase() === 'rejected' ? 'offline' : 'active'} 
+                  label={doc.status} 
+                />
+                <a href={doc.fileUrl} download={doc.title} className="p-2 hover:bg-primary/10 text-primary rounded-full transition-colors cursor-pointer">
+                  <Download className="w-4 h-4" />
+                </a>
+              </div>
+              
+              {isAdmin && doc.status === 'Pending' && (
+                <div className="flex gap-2 w-full mt-2">
+                  <Button size="sm" variant="outline" className="flex-1 text-destructive hover:bg-destructive hover:text-white" onClick={() => handleStatusChange(doc.id, 'Rejected')}>
+                    Reject
+                  </Button>
+                  <Button size="sm" className="flex-1 bg-success hover:bg-success/90 text-white" onClick={() => handleStatusChange(doc.id, 'Valid')}>
+                    Approve
+                  </Button>
+                </div>
+              )}
             </div>
           </motion.div>
         ))}
@@ -207,6 +291,22 @@ export function DocumentsTab() {
               onChange={(e) => setUploadTitle(e.target.value)}
             />
           </div>
+          {isAdmin && (
+            <div className="space-y-2">
+              <Label>Link to Distributor (Optional)</Label>
+              <Select value={uploadDistributorId} onValueChange={setUploadDistributorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Distributor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {distributors.map(d => (
+                    <SelectItem key={d.id} value={d.id}>{d.firmName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Select File</Label>
             <Input 

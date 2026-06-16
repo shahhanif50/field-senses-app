@@ -12,9 +12,9 @@ export function AdminEarningsDashboard() {
   useEffect(() => {
     const fetchData = () => {
       Promise.all([
-        fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/tracking-entries/`).then(res => res.json()),
-        fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/ops/wallets/`).then(res => res.json()),
-        fetch(`${import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`}/api/employees/`).then(res => res.json())
+        fetch(`/api/ops/tracking-entries/`).then(res => res.json()),
+        fetch(`/api/ops/wallets/`).then(res => res.json()),
+        fetch(`/api/employees/`).then(res => res.json())
       ]).then(([tracking, wallets, emps]) => {
         setTrackingData(tracking);
         setWalletData(wallets);

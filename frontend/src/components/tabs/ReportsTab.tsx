@@ -1,5 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from "framer-motion";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 import {
   FileText,
   Download,
@@ -64,10 +68,7 @@ import { useMasterData } from "@/contexts/MasterDataContext";
 type ReportModule = 
   | "sales-executive"
   | "employee-portal"
-  | "inventory"
-  | "daily-tracking"
-  | "alerts"
-  | "documents";
+  | "inventory";
 
 interface ReportConfig {
   module: ReportModule;
@@ -77,6 +78,10 @@ interface ReportConfig {
   focus: string;
   metrics: string[];
 }
+
+const IconMap: Record<string, any> = {
+  Activity, Target, MapPin, Building2, UserCheck, CheckCircle2, TrendingUp, Calendar, Package, AlertTriangle, RefreshCw, Clock, Navigation, Shield, Bell, FileText, FolderOpen
+};
 
 const reportModules: ReportConfig[] = [
   {
@@ -103,97 +108,19 @@ const reportModules: ReportConfig[] = [
     focus: "Stock Movement, Low Stock Alerts, Billing Summary",
     metrics: ["Stock Value", "Items Below Minimum", "Monthly Movement", "Billing Total"],
   },
-  {
-    module: "daily-tracking",
-    title: "Daily Tracking",
-    icon: Navigation,
-    color: "violet",
-    focus: "Distance Covered, Idle Time, Geo-Fence Breaches",
-    metrics: ["Total Distance", "Avg Idle Time", "Geo-Fence Breaches", "Route Compliance"],
-  },
-  {
-    module: "alerts",
-    title: "Alerts & Escalation",
-    icon: Bell,
-    color: "red",
-    focus: "High Priority Alerts, Resolution Status",
-    metrics: ["Active Alerts", "Resolved Today", "Avg Resolution Time", "Escalation Rate"],
-  },
-  {
-    module: "documents",
-    title: "Documents & Logs",
-    icon: FolderOpen,
-    color: "cyan",
-    focus: "Uploaded Docs, Expiry Status, Approval Logs",
-    metrics: ["Total Documents", "Expiring Soon", "Pending Approvals", "Storage Used"],
-  },
 ];
 
-// Mock data for reports
-const mockEmployees = [
-  { id: "EMP001", name: "Rajesh Kumar", territory: "North Zone", role: "Territory Manager" },
-  { id: "EMP002", name: "Priya Sharma", territory: "South Zone", role: "Sales Executive" },
-  { id: "EMP003", name: "Amit Patel", territory: "East Zone", role: "Sales Executive" },
-  { id: "EMP004", name: "Sunita Verma", territory: "West Zone", role: "Agronomist" },
-  { id: "EMP005", name: "Vikram Singh", territory: "Central Zone", role: "Territory Manager" },
-];
 
-const mockTerritories = ["North Zone", "South Zone", "East Zone", "West Zone", "Central Zone"];
-const mockDistributors = ["Agri Solutions Pvt Ltd", "Green Fields Traders", "Krishi Mart", "Farmers Hub", "Seed World"];
 
-// Mock report data
-const generateMockReportData = (module: ReportModule) => {
-  const baseData = {
-    "sales-executive": [
-      { employee: "Rajesh Kumar", territory: "North Zone", visits: 45, target: 100000, achieved: 92000, coverage: "85%" },
-      { employee: "Priya Sharma", territory: "South Zone", visits: 38, target: 85000, achieved: 78000, coverage: "78%" },
-      { employee: "Amit Patel", territory: "East Zone", visits: 52, target: 90000, achieved: 95000, coverage: "92%" },
-      { employee: "Sunita Verma", territory: "West Zone", visits: 41, target: 75000, achieved: 68000, coverage: "72%" },
-      { employee: "Vikram Singh", territory: "Central Zone", visits: 48, target: 110000, achieved: 105000, coverage: "88%" },
-    ],
-    "employee-portal": [
-      { employee: "Rajesh Kumar", attendance: "96%", tasksCompleted: 42, kpiScore: 87, leaves: 2 },
-      { employee: "Priya Sharma", attendance: "92%", tasksCompleted: 38, kpiScore: 82, leaves: 4 },
-      { employee: "Amit Patel", attendance: "98%", tasksCompleted: 51, kpiScore: 94, leaves: 1 },
-      { employee: "Sunita Verma", attendance: "88%", tasksCompleted: 35, kpiScore: 76, leaves: 6 },
-      { employee: "Vikram Singh", attendance: "95%", tasksCompleted: 45, kpiScore: 89, leaves: 3 },
-    ],
-    "inventory": [
-      { item: "Nitrogen Fertilizer (50kg)", sku: "NF-50-001", opening: 500, inward: 200, outward: 350, closing: 350, value: "₹2,45,000" },
-      { item: "Phosphorus Compound", sku: "PC-25-002", opening: 300, inward: 150, outward: 280, closing: 170, value: "₹1,87,000" },
-      { item: "Hybrid Wheat Seeds", sku: "HWS-10-003", opening: 1000, inward: 500, outward: 800, closing: 700, value: "₹4,20,000" },
-      { item: "Pesticide Spray (5L)", sku: "PS-5L-004", opening: 200, inward: 100, outward: 180, closing: 120, value: "₹96,000" },
-      { item: "Organic Manure", sku: "OM-50-005", opening: 400, inward: 300, outward: 450, closing: 250, value: "₹1,25,000" },
-    ],
-    "daily-tracking": [
-      { employee: "Rajesh Kumar", date: "2024-01-15", distance: "78 km", idleTime: "45 min", breaches: 0, compliance: "95%" },
-      { employee: "Priya Sharma", date: "2024-01-15", distance: "65 km", idleTime: "62 min", breaches: 1, compliance: "88%" },
-      { employee: "Amit Patel", date: "2024-01-15", distance: "92 km", idleTime: "28 min", breaches: 0, compliance: "98%" },
-      { employee: "Sunita Verma", date: "2024-01-15", distance: "54 km", idleTime: "78 min", breaches: 2, compliance: "75%" },
-      { employee: "Vikram Singh", date: "2024-01-15", distance: "71 km", idleTime: "35 min", breaches: 0, compliance: "92%" },
-    ],
-    "alerts": [
-      { alert: "Low Stock - Fertilizer", priority: "High", raised: "2024-01-15", status: "Active", assignee: "Inventory Team" },
-      { alert: "Geo-Fence Breach", priority: "Medium", raised: "2024-01-15", status: "Resolved", assignee: "Priya Sharma" },
-      { alert: "Target Deviation", priority: "High", raised: "2024-01-14", status: "Active", assignee: "Sales Manager" },
-      { alert: "Document Expiry", priority: "Low", raised: "2024-01-13", status: "Resolved", assignee: "Admin" },
-      { alert: "Attendance Issue", priority: "Medium", raised: "2024-01-12", status: "Active", assignee: "HR Team" },
-    ],
-    "documents": [
-      { document: "GST Certificate", type: "License", uploaded: "2024-01-01", expiry: "2024-12-31", status: "Valid", approver: "Admin" },
-      { document: "Fertilizer License", type: "Permit", uploaded: "2023-06-15", expiry: "2024-06-15", status: "Expiring Soon", approver: "HOD" },
-      { document: "Trade Agreement", type: "Contract", uploaded: "2024-01-10", expiry: "2025-01-10", status: "Valid", approver: "Legal" },
-      { document: "Insurance Policy", type: "Insurance", uploaded: "2023-04-01", expiry: "2024-04-01", status: "Expiring Soon", approver: "Finance" },
-      { document: "Quality Cert", type: "Certificate", uploaded: "2024-01-05", expiry: "2025-01-05", status: "Valid", approver: "QA Team" },
-    ],
-  };
-  return baseData[module] || [];
-};
 
 export const ReportsTab = () => {
-  const { employees, territories, distributors } = useMasterData();
+  const { employees, territories, distributors, roles, rolePermissions } = useMasterData();
   const [selectedModule, setSelectedModule] = useState<ReportModule>("sales-executive");
-  const [dateRange, setDateRange] = useState({ from: "2024-01-01", to: "2024-01-31" });
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+  
+  const [dateRange, setDateRange] = useState({ from: formatDate(firstDay), to: formatDate(today) });
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [selectedTerritory, setSelectedTerritory] = useState<string>("all");
   const [selectedDistributor, setSelectedDistributor] = useState<string>("all");
@@ -206,17 +133,54 @@ export const ReportsTab = () => {
   const [generatedReport, setGeneratedReport] = useState<boolean>(false);
   const [showPreview, setShowPreview] = useState(false);
 
-  const userRole = sessionStorage.getItem("userRole") || "employee";
+  // --- PERMISSION CHECKS ---
+  const rawRole = sessionStorage.getItem("userRole") || "employee";
   const userName = sessionStorage.getItem("userName") || "";
-  const isAdmin = userRole.toLowerCase() === "admin";
+  const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const reportsPerm = rolePermissions?.find(p => p.roleId === currentRole?.id && p.module === "Reports");
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+
+  const canExport = !!(isAdmin || reportsPerm?.export);
+  // -----------------------
 
   const currentModuleConfig = reportModules.find(m => m.module === selectedModule)!;
-  const rawReportData = generateMockReportData(selectedModule);
+  const [reportData, setReportData] = useState<any[]>([]);
+  const [summaryMetrics, setSummaryMetrics] = useState<any[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   
-  // Filter report data if not admin
-  const reportData = isAdmin ? rawReportData : rawReportData.filter((row: any) => {
-    return row.employee === userName || row.assignee === userName;
-  });
+  useEffect(() => {
+    const fetchReportData = async () => {
+      setIsLoadingData(true);
+      try {
+        const queryParams = new URLSearchParams({
+          module: selectedModule,
+          from: dateRange.from,
+          to: dateRange.to,
+          employee: selectedEmployee,
+          territory: selectedTerritory,
+          distributor: selectedDistributor
+        });
+        
+        const response = await fetch(`/api/ops/reports/?${queryParams.toString()}`);
+        if (response.ok) {
+          const data = await response.json();
+          let finalData = data.data;
+          if (!isAdmin) {
+             finalData = finalData.filter((row: any) => row.employee === userName || row.assignee === userName);
+          }
+          setReportData(finalData);
+          setSummaryMetrics(data.summary);
+        }
+      } catch (error) {
+        console.error('Failed to fetch report data:', error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    
+    fetchReportData();
+  }, [selectedModule, dateRange, selectedEmployee, selectedTerritory, selectedDistributor, isAdmin, userName]);
 
   // Filter employees dropdown if not admin
   const availableEmployees = isAdmin ? employees : employees.filter(e => e.fullName === userName);
@@ -231,16 +195,30 @@ export const ReportsTab = () => {
   };
 
   const handleExport = (format: "pdf" | "excel") => {
-    const fileName = `Report_${currentModuleConfig.title.replace(/\s+/g, "_")}_${dateRange.from}_to_${dateRange.to}${selectedEmployee !== "all" ? `_${selectedEmployee}` : ""}.${format === "pdf" ? "pdf" : "xlsx"}`;
+    const fileName = `Report_${currentModuleConfig.title.replace(/\s+/g, "_")}_${dateRange.from}_to_${dateRange.to}${selectedEmployee !== "all" ? `_${selectedEmployee}` : ""}`;
     
-    // Create mock download
-    const blob = new Blob([`Mock ${format.toUpperCase()} Report Data`], { type: format === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    link.click();
-    URL.revokeObjectURL(url);
+    if (format === 'excel') {
+      const worksheet = XLSX.utils.json_to_sheet(reportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+      XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    } else {
+      const doc = new jsPDF();
+      doc.text(`${currentModuleConfig.title} Report`, 14, 15);
+      doc.setFontSize(10);
+      doc.text(`Date Range: ${dateRange.from} to ${dateRange.to}`, 14, 22);
+      
+      const tableColumn = Object.keys(reportData[0] || {});
+      const tableRows = reportData.map(row => Object.values(row).map(val => String(val).replace(/₹/g, 'Rs. ')));
+      
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 30,
+      });
+      
+      doc.save(`${fileName}.pdf`);
+    }
   };
 
   const getSummaryMetrics = () => {
@@ -263,36 +241,15 @@ export const ReportsTab = () => {
         { label: "Monthly Turnover", value: "₹8.45L", trend: "+15%", icon: RefreshCw },
         { label: "Avg Days Stock", value: "18 days", trend: "-3", icon: Clock },
       ],
-      "daily-tracking": [
-        { label: "Total Distance", value: "360 km", trend: "+25 km", icon: Navigation },
-        { label: "Avg Idle Time", value: "49.6 min", trend: "-8 min", icon: Clock },
-        { label: "Geo Breaches", value: "3", trend: "-1", icon: Shield },
-        { label: "Route Compliance", value: "89.6%", trend: "+4%", icon: CheckCircle2 },
-      ],
-      "alerts": [
-        { label: "Active Alerts", value: "12", trend: "-3", icon: Bell },
-        { label: "Resolved Today", value: "8", trend: "+2", icon: CheckCircle2 },
-        { label: "Avg Resolution", value: "4.2 hrs", trend: "-1.5 hrs", icon: Clock },
-        { label: "Escalation Rate", value: "15%", trend: "-5%", icon: AlertTriangle },
-      ],
-      "documents": [
-        { label: "Total Documents", value: "156", trend: "+12", icon: FileText },
-        { label: "Expiring Soon", value: "8", trend: "+2", icon: AlertTriangle },
-        { label: "Pending Approval", value: "5", trend: "-3", icon: Clock },
-        { label: "Storage Used", value: "2.4 GB", trend: "+0.3 GB", icon: FolderOpen },
-      ],
     };
     return metrics[selectedModule] || [];
   };
 
   const getTableColumns = () => {
     const columns: Record<ReportModule, string[]> = {
-      "sales-executive": ["Employee", "Territory", "Visits", "Target (₹)", "Achieved (₹)", "Coverage"],
-      "employee-portal": ["Employee", "Attendance", "Tasks Completed", "KPI Score", "Leaves"],
+      "sales-executive": ["Employee ID", "Employee", "Territory", "Visits", "Target (₹)", "Achieved (₹)", "Coverage"],
+      "employee-portal": ["Employee ID", "Employee", "Attendance", "Tasks Completed", "KPI Score", "Leaves"],
       "inventory": ["Item", "SKU", "Opening", "Inward", "Outward", "Closing", "Value"],
-      "daily-tracking": ["Employee", "Date", "Distance", "Idle Time", "Breaches", "Compliance"],
-      "alerts": ["Alert", "Priority", "Raised", "Status", "Assignee"],
-      "documents": ["Document", "Type", "Uploaded", "Expiry", "Status", "Approver"],
     };
     return columns[selectedModule];
   };
@@ -462,7 +419,10 @@ export const ReportsTab = () => {
                   <Button
                     variant={exportFormat === "pdf" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setExportFormat("pdf")}
+                    onClick={() => {
+                      setExportFormat("pdf");
+                      if (reportData.length > 0) handleExport("pdf");
+                    }}
                     className="flex-1"
                   >
                     <FileText className="w-4 h-4 mr-1" />
@@ -471,7 +431,10 @@ export const ReportsTab = () => {
                   <Button
                     variant={exportFormat === "excel" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setExportFormat("excel")}
+                    onClick={() => {
+                      setExportFormat("excel");
+                      if (reportData.length > 0) handleExport("excel");
+                    }}
                     className="flex-1"
                   >
                     <FileSpreadsheet className="w-4 h-4 mr-1" />
@@ -547,7 +510,7 @@ export const ReportsTab = () => {
                 exit={{ opacity: 0 }}
               >
                 <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                       <CardTitle className="text-lg">Report Preview</CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -555,14 +518,18 @@ export const ReportsTab = () => {
                       </p>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
-                        <FileText className="w-4 h-4 mr-1" />
-                        PDF
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleExport("excel")}>
-                        <FileSpreadsheet className="w-4 h-4 mr-1" />
-                        Excel
-                      </Button>
+                      {canExport && (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => handleExport("pdf")}>
+                            <FileText className="w-4 h-4 mr-1" />
+                            PDF
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleExport("excel")}>
+                            <FileSpreadsheet className="w-4 h-4 mr-1" />
+                            Excel
+                          </Button>
+                        </>
+                      )}
                       <Button variant="ghost" size="icon" onClick={() => setShowPreview(false)}>
                         <X className="w-4 h-4" />
                       </Button>
@@ -572,7 +539,7 @@ export const ReportsTab = () => {
                 <CardContent className="space-y-6">
                   {/* Report Header */}
                   <div className="p-4 rounded-lg border bg-muted/30">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-3">
                       <div>
                         <h3 className="font-bold text-lg">Agri Distribution Company</h3>
                         <p className="text-sm text-muted-foreground">{currentModuleConfig.title} Report</p>
@@ -584,7 +551,7 @@ export const ReportsTab = () => {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       {selectedEmployee !== "all" && (
-                        <Badge variant="secondary">Employee: {mockEmployees.find(e => e.id === selectedEmployee)?.name}</Badge>
+                        <Badge variant="secondary">Employee: {employees.find(e => e.id === selectedEmployee)?.fullName || "Unknown"}</Badge>
                       )}
                       {selectedTerritory !== "all" && (
                         <Badge variant="secondary">Territory: {selectedTerritory}</Badge>
@@ -603,7 +570,7 @@ export const ReportsTab = () => {
                       Summary Metrics
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-3">
-                      {getSummaryMetrics().map((metric, index) => (
+                      {summaryMetrics.map((metric, index) => (
                         <motion.div
                           key={metric.label}
                           initial={{ opacity: 0, y: 10 }}
@@ -612,14 +579,19 @@ export const ReportsTab = () => {
                           className="p-3 rounded-lg border bg-card"
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <metric.icon className="w-4 h-4 text-primary" />
+                            {(() => { 
+                               const Icon = typeof metric.icon === 'string' ? IconMap[metric.icon] || Activity : metric.icon; 
+                               return <Icon className="w-4 h-4 text-primary" />; 
+                             })()}
                             <span className="text-xs text-muted-foreground">{metric.label}</span>
                           </div>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-lg font-bold">{metric.value}</span>
-                            <span className={`text-xs ${metric.trend.includes("+") ? "text-emerald-500" : metric.trend.includes("-") ? "text-red-500" : "text-muted-foreground"}`}>
-                              {metric.trend}
-                            </span>
+                          <div className="flex items-end justify-between">
+                            <span className="text-xl font-bold">{metric.value}</span>
+                            {metric.trend && (
+                              <span className="text-xs font-medium text-emerald-500">
+                                {metric.trend}
+                              </span>
+                            )}
                           </div>
                         </motion.div>
                       ))}
@@ -673,18 +645,72 @@ export const ReportsTab = () => {
                         <BarChart3 className="w-4 h-4 text-primary" />
                         Performance Charts
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="h-40 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center">
-                          <div className="text-center">
-                            <BarChart3 className="w-10 h-10 text-primary/40 mx-auto mb-2" />
-                            <p className="text-sm text-muted-foreground">KPI Trend Chart</p>
-                          </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="h-[300px] rounded-lg border bg-card p-4">
+                          <h5 className="text-sm font-medium text-center mb-4">
+                            {selectedModule === 'sales-executive' ? 'Target vs Achievement' :
+                             selectedModule === 'employee-portal' ? 'KPI Scores' :
+                             selectedModule === 'inventory' ? 'Stock Values' :
+                             'Performance Trend'}
+                          </h5>
+                          <ResponsiveContainer width="100%" height="100%">
+                            {selectedModule === 'sales-executive' ? (
+                              <BarChart data={reportData.slice(0, 10)}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="employee" tick={{fontSize: 12}} />
+                                <YAxis tick={{fontSize: 12}} />
+                                <RechartsTooltip />
+                                <Legend />
+                                <Bar dataKey="target" fill="#8884d8" name="Target" />
+                                <Bar dataKey="achieved" fill="#82ca9d" name="Achieved" />
+                              </BarChart>
+                            ) : selectedModule === 'employee-portal' ? (
+                              <LineChart data={reportData.slice(0, 10)}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="employee" tick={{fontSize: 12}} />
+                                <YAxis tick={{fontSize: 12}} />
+                                <RechartsTooltip />
+                                <Legend />
+                                <Line type="monotone" dataKey="kpiScore" stroke="#8884d8" name="KPI Score" strokeWidth={2} />
+                                <Line type="monotone" dataKey="tasksCompleted" stroke="#82ca9d" name="Tasks" strokeWidth={2} />
+                              </LineChart>
+                            ) : (
+                              <BarChart data={reportData.slice(0, 10)}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey={reportData[0]?.employee ? "employee" : "item"} tick={{fontSize: 12}} />
+                                <YAxis tick={{fontSize: 12}} />
+                                <RechartsTooltip />
+                                <Legend />
+                                <Bar dataKey={Object.keys(reportData[0] || {}).find(k => k !== 'empId' && k !== 'employee' && k !== 'item' && typeof reportData[0]?.[k] === 'number') || "value"} fill="#8884d8" name="Value" />
+                              </BarChart>
+                            )}
+                          </ResponsiveContainer>
                         </div>
-                        <div className="h-40 rounded-lg border bg-gradient-to-br from-emerald-500/5 to-emerald-500/10 flex items-center justify-center">
-                          <div className="text-center">
-                            <PieChart className="w-10 h-10 text-emerald-500/40 mx-auto mb-2" />
-                            <p className="text-sm text-muted-foreground">Distribution Chart</p>
-                          </div>
+                        <div className="h-[300px] rounded-lg border bg-card p-4">
+                          <h5 className="text-sm font-medium text-center mb-4">Distribution Metrics</h5>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsPieChart>
+                              <Pie
+                                data={reportData.slice(0, 5).map(d => ({
+                                  name: d.employee || d.item || d.alert || d.document || 'Item',
+                                  value: Number(d.tasksCompleted || d.visits || d.distance || d.opening || d.leaves || 10)
+                                }))}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                fill="#8884d8"
+                                paddingAngle={5}
+                                dataKey="value"
+                              >
+                                {reportData.slice(0, 5).map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'][index % 5]} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip />
+                              <Legend />
+                            </RechartsPieChart>
+                          </ResponsiveContainer>
                         </div>
                       </div>
                     </div>
@@ -780,9 +806,11 @@ export const ReportsTab = () => {
                               <p className="text-xs text-muted-foreground">{report.date}</p>
                             </div>
                           </div>
-                          <Button variant="ghost" size="icon">
-                            <Download className="w-4 h-4" />
-                          </Button>
+                          {canExport && (
+                            <Button variant="ghost" size="icon" onClick={() => handleExport(report.format.toLowerCase() as "pdf" | "excel")}>
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       ))}
                     </div>

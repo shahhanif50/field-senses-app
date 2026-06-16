@@ -18,14 +18,23 @@ import {
   Building2,
   UserCircle,
   Package,
-  UserPlus, // Added this icon for the new tab
-  Navigation, // For Live Tracking
+  PackageCheck,
+  ShoppingCart,
+  UserPlus,
+  Navigation,
   LogOut,
   FolderKanban,
   CheckCircle2,
   Contact,
+  ClipboardEdit,
+  ClipboardList,
+  MapPin,
+  Map,
   Calendar,
   MessageSquare,
+  UserCheck,
+  Target,
+  CreditCard
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,7 +43,7 @@ import { NotificationBell } from "./NotificationBell";
 import { toast } from "sonner";
 import { useMasterData } from "@/contexts/MasterDataContext";
 
-const API = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
+const API = "";
 
 interface TopNavigationProps {
   activeTab: string;
@@ -43,22 +52,27 @@ interface TopNavigationProps {
   onThemeToggle: () => void;
 }
 
-const allTabs = [
+export const allTabs = [
+  { id: "organizations", label: "Organizations", icon: Building2, roles: ["superadmin"] },
+  { id: "superadmin-sites", label: "Sites Management", icon: MapPin, roles: ["superadmin"] },
+  { id: "superadmin-modules", label: "Modules Access", icon: CreditCard, roles: ["superadmin"] },
+  { id: "admin-dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin"] },
+  { id: "employee-dashboard", label: "Dashboard", icon: Activity, roles: ["employee"] },
+  { id: "product-booking", label: "Product Booking", icon: ShoppingCart, roles: ["employee"] },
   { id: "master-setup", label: "Master Setup", icon: Settings, roles: ["admin"] },
   { id: "sales-executive", label: "Sales Executive", icon: Users, roles: ["admin", "manager"] },
-  { id: "employee-portal", label: "Employee Portal", icon: Contact, roles: ["admin", "manager", "employee", "WH_MGR"] },
-  { id: "employees", label: "Employees", icon: UserPlus, roles: ["admin"] }, 
+  { id: "employee-portal", label: "Employee Portal", icon: Contact, roles: ["manager", "employee", "WH_MGR"] },
   { id: "inventory-management", label: "Inventory Management", icon: Package, roles: ["admin", "manager", "WH_MGR"] },
-  { id: "daily-tracking", label: "Daily Tracking", icon: Activity, roles: ["admin", "manager", "employee"] },
-  { id: "live-tracking", label: "Live Tracking", icon: Navigation, roles: ["admin", "manager", "WH_MGR", "employee"] },
-  { id: "reports", label: "Reports", icon: BarChart3, roles: ["admin", "manager", "employee"] },
+  { id: "admin-orders", label: "Admin Orders", icon: ClipboardList, roles: ["admin", "manager"] },
+  { id: "daily-tracking", label: "Daily Tracking", icon: MapPin, roles: ["admin"] },
+  { id: "team-tracking", label: "Team Tracking", icon: Users, roles: ["admin", "manager"] },
+  { id: "live-tracking", label: "Live Tracking", icon: Navigation, roles: ["admin", "manager", "employee"] },
+  { id: "reports", label: "Reports & Analytics", icon: BarChart3, roles: ["admin", "manager", "employee"] },
   { id: "alerts", label: "Alerts", icon: AlertTriangle, roles: ["admin", "manager"] },
-  { id: "attendance-leaves", label: "Attendance & Leaves", icon: Calendar, roles: ["admin", "manager", "employee"] },
-  { id: "projects", label: "Projects & Tasks", icon: FolderKanban, roles: ["admin", "manager", "employee"] },
-  { id: "communication", label: "Communication & Meetings", icon: MessageSquare, roles: ["admin", "manager", "employee", "WH_MGR"] },
+  { id: "projects", label: "Projects & Tasks", icon: FolderKanban, roles: ["manager", "employee"] },
+  { id: "communication", label: "Communication & Meetings", icon: MessageSquare, roles: ["manager", "employee", "WH_MGR"] },
   { id: "documents", label: "Documents", icon: FileText, roles: ["admin", "manager", "employee"] },
-  { id: "permissions", label: "Permission Requests", icon: CheckCircle2, roles: ["admin", "manager", "employee"] },
-  { id: "approvals", label: "Registration Approvals", icon: UserPlus, roles: ["admin"] },
+  { id: "permissions", label: "Permission Requests", icon: CheckCircle2, roles: ["manager", "employee"] },
   { id: "profile", label: "My Profile", icon: UserCircle, roles: ["admin", "manager", "WH_MGR", "employee"] },
 ];
 
@@ -77,20 +91,126 @@ export function TopNavigation({
   const userName = sessionStorage.getItem("userName") || "User";
   
   // Normalize the backend roleCode to match our frontend tab permissions
-  const userRole = ["ADMIN", "admin"].includes(rawRole) ? "admin" 
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const currentOrgId = sessionStorage.getItem("organizationId");
+  const isImpersonating = isGlobalAdmin && currentOrgId && currentOrgId !== "null";
+  
+  const userRole = (isGlobalAdmin && !isImpersonating) ? "superadmin"
+                 : ["ADMIN", "admin"].includes(rawRole) ? "admin" 
                  : ["WH_MGR"].includes(rawRole) ? "WH_MGR" 
-                 : ["MANAGER", "manager"].includes(rawRole) ? "manager" 
+                 : ["MANAGER", "manager", "SR_MGR", "HEAD"].includes(rawRole) ? "manager" 
                  : "employee";
 
-  const tabs = allTabs.filter(tab => tab.roles.includes(userRole) || tab.roles.includes("admin") && userRole === "admin");
+  let modulesEnabled: string[] = [];
+  try {
+    modulesEnabled = JSON.parse(sessionStorage.getItem("modulesEnabled") || "[]");
+  } catch(e) {}
 
+  const { roles, rolePermissions, employees } = useMasterData();
+  const currentRole = roles.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+
+  let tabs = allTabs.filter(tab => {
+    // Superadmin sees Organizations
+    if (tab.roles.includes("superadmin") && (isGlobalAdmin && !isImpersonating)) return true;
+    if (tab.roles.includes("superadmin")) return false;
+    
+    // Check RBAC database permission
+    const rolePerm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === tab.label);
+    
+    // Strict Role checking: Tenant Admin has implicit access to default modules, 
+    // and can be granted additional access via Role Permissions.
+    let hasRole = (userRole.toLowerCase() === "admin" && tab.roles.includes("admin")) || !!rolePerm?.view;
+    if (!hasRole && rolePermissions) {
+      if (tab.id === "inventory-management") {
+        hasRole = rolePermissions.some(p => p.roleId === currentRole?.id && ["Product Setup", "Stock Management", "Sales & Billing", "Inventory Management"].includes(p.module) && p.view);
+      } else if (tab.id === "sales-executive") {
+        hasRole = rolePermissions.some(p => p.roleId === currentRole?.id && ["Territory Management", "Distributor Linkage", "Sales Monitoring", "Sales Executive"].includes(p.module) && p.view);
+      } else if (tab.id === "master-setup") {
+        hasRole = rolePermissions.some(p => p.roleId === currentRole?.id && ["Role Management", "Organization Chart", "Site Master", "Distributor Master"].includes(p.module) && p.view);
+      }
+    }
+    
+    // If Global Admin or the module is enabled at the organization level
+    const effectiveModuleLabel = tab.label;
+
+    const alwaysActiveTabs = ["profile", "approvals", "admin-dashboard", "employee-dashboard", "product-booking", "admin-orders"];
+    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(effectiveModuleLabel) || alwaysActiveTabs.includes(tab.id);
+    
+    // Explicitly grant employee default tabs
+    if (userRole === "employee" && (tab.id === "employee-dashboard" || tab.id === "product-booking")) {
+      return true;
+    }
+    
+    return hasRole && moduleActive;
+  });
+
+  // Dynamically append any additional modules granted via Role Permissions
+  const rolePerms = rolePermissions.filter(rp => rp.roleId === currentRole?.id);
+  const dynamicallyEnabledTabs = allTabs.filter(tab => {
+    const rolePerm = rolePerms.find(rp => rp.module === tab.label);
+    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(tab.label) || ["master-setup", "profile", "approvals"].includes(tab.id);
+    return rolePerm?.view && moduleActive;
+  });
+
+  // Explicit override for requested roles
+  if (userRole === "superadmin") {
+    tabs = allTabs.filter(tab => tab.roles.includes("superadmin"));
+  } else if (userRole.toLowerCase() === "admin") {
+    tabs = [
+      { id: "admin-dashboard", label: "Dashboard", icon: Activity, roles: ["admin"] },
+      { id: "master-setup", label: "Master Setup", icon: Settings, roles: ["admin"] },
+      { id: "sales-executive", label: "Sales Executive Setup", icon: Users, roles: ["admin"] },
+      { id: "inventory-management", label: "Inventory Management", icon: Package, roles: ["admin"] },
+      { id: "admin-orders", label: "Admin Orders", icon: ClipboardList, roles: ["admin"] },
+      { id: "team-daily-tracking", label: "Daily Tracking Monitoring", icon: ClipboardEdit, roles: ["admin"] },
+      { id: "reports", label: "Reports & Analytics", icon: BarChart3, roles: ["admin"] },
+      { id: "alerts", label: "Alerts & Escalation", icon: AlertTriangle, roles: ["admin"] },
+      { id: "documents", label: "Documents & Logs", icon: FileText, roles: ["admin"] },
+      { id: "profile", label: "My Profile", icon: UserCircle, roles: ["admin"] },
+    ].filter(tab => {
+        let moduleName = tab.label;
+        if (tab.label === "Dashboard" || tab.id === "profile") return true;
+        if (tab.label === "Sales Executive Setup") moduleName = "Sales Executive";
+        if (tab.label === "Daily Tracking Monitoring") moduleName = "Daily Tracking";
+        if (tab.label === "Reports & Analytics") moduleName = "Reports";
+        if (tab.label === "Alerts & Escalation") moduleName = "Alerts";
+        if (tab.label === "Documents & Logs") moduleName = "Documents";
+        if (tab.id === "admin-orders") return true;
+        return (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(moduleName);
+    });
+    dynamicallyEnabledTabs.forEach(dTab => {
+        if (!tabs.find(t => t.id === dTab.id)) tabs.push(dTab);
+    });
+  } else if (rawRole.toLowerCase() === "regional manager" || rawRole.toLowerCase() === "regional_manager" || currentRole?.roleName?.toLowerCase() === "regional manager") {
+    tabs = [
+      { id: "rm-dashboard", label: "Dashboard", icon: Activity, roles: ["manager"] },
+      { id: "rm-team", label: "Team Management", icon: Users, roles: ["manager"] },
+      { id: "rm-territory", label: "Territory Management", icon: MapPin, roles: ["manager"] },
+      { id: "rm-distributors", label: "Distributor Monitoring", icon: Package, roles: ["manager"] },
+      { id: "reports", label: "Reports", icon: BarChart3, roles: ["manager"] },
+      { id: "alerts", label: "Alerts", icon: AlertTriangle, roles: ["manager"] },
+      { id: "documents", label: "Documents", icon: FileText, roles: ["manager"] },
+      { id: "profile", label: "My Profile", icon: UserCircle, roles: ["manager"] },
+    ].filter(tab => {
+        let moduleName = tab.label;
+        if (tab.label === "Dashboard" || tab.id === "profile") return true;
+        if (tab.label === "Team Management") moduleName = "Team Tracking";
+        if (tab.label === "Territory Management") moduleName = "Master Setup";
+        if (tab.label === "Distributor Monitoring") moduleName = "Sales Executive";
+        return (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(moduleName);
+    });
+    dynamicallyEnabledTabs.forEach(dTab => {
+        if (!tabs.find(t => t.id === dTab.id)) tabs.push(dTab);
+    });
+  }
   const handleLogout = () => {
-    sessionStorage.removeItem("isAdminLoggedIn");
-    navigate("/login");
+    sessionStorage.clear();
+    window.location.href = "/login";
   };
 
-  const { getEmployeeNameById } = useMasterData();
+  const { getEmployeeNameById, sites } = useMasterData();
   const userId = sessionStorage.getItem("userId") || "";
+  
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const [lastMeetingId, setLastMeetingId] = useState<string | null>(null);
   const [lastAlertId, setLastAlertId] = useState<string | null>(null);
@@ -271,7 +391,9 @@ export function TopNavigation({
             </div>
             <div className="hidden sm:block">
               <h1 className="font-display font-bold text-lg gradient-text">Field Senses</h1>
-              <p className="text-xs text-muted-foreground capitalize">{userName} • {rawRole.toLowerCase()}</p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {userName} • {rawRole.toLowerCase()}
+              </p>
             </div>
           </div>
 
@@ -298,14 +420,24 @@ export function TopNavigation({
 
           {/* ... (Keep the rest of your Right Actions div exactly as it is) ... */}
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="xl:hidden"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
+            
+            {isImpersonating && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground gap-2"
+                onClick={() => {
+                  sessionStorage.setItem("organizationId", "null");
+                  toast.success("Returned to Global View");
+                  setTimeout(() => window.location.reload(), 1000);
+                }}
+                title="Exit Tenant View"
+              >
+                <LogOut className="w-4 h-4 rotate-180" />
+                <span className="hidden sm:inline">Exit Tenant View</span>
+              </Button>
+            )}
+
             {/* Notifications */}
             <NotificationBell 
               onNotificationClick={handleTabClick} 
