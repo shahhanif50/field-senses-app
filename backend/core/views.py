@@ -42,10 +42,16 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response({"error": "Email already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
         # 1. Use the existing global ADMIN role
-        try:
-            role = Role.objects.get(roleCode='ADMIN')
-        except Role.DoesNotExist:
-            return Response({"error": "Global ADMIN role does not exist. Please run seed_admin."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        role, created = Role.objects.get_or_create(
+            roleCode='ADMIN',
+            defaults={
+                'roleName': 'Superadmin',
+                'roleType': 'Management',
+                'defaultDashboard': '/master-setup',
+                'rolePriority': 1,
+                'activeStatus': True
+            }
+        )
 
         # 2. Create the Employee
         emp = Employee.objects.create(
