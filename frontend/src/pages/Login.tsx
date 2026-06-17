@@ -305,36 +305,7 @@ const Login = () => {
           </form>
         </div>
 
-        {/* Demo Credentials Box */}
-        <motion.div variants={itemVariants} className="mt-8">
-          <div className="bg-blue-50/80 backdrop-blur-md rounded-[1.5rem] p-5 border border-blue-100 shadow-sm relative overflow-hidden group">
-            {/* Decorative background element */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/30 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none" />
 
-            <div className="flex items-center gap-2 mb-3 relative z-10">
-              <Info className="w-4 h-4 text-blue-500" />
-              <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Demo Access</p>
-            </div>
-
-            <div className="space-y-2.5 relative z-10">
-              {[
-                { role: 'Admin', email: 'admin@example.com' },
-                { role: 'Manager', email: 'bob@example.com' },
-                { role: 'Employee', email: 'eve@example.com' }
-              ].map((cred) => (
-                <div key={cred.role} className="flex justify-between items-center text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                    <span className="font-semibold text-slate-700 w-20">{cred.role}</span>
-                  </div>
-                  <span className="text-slate-500 font-mono text-xs bg-white/60 px-2 py-1 rounded-md border border-slate-100">
-                    {cred.email} / {cred.role === 'Admin' ? 'Admin@123' : 'password123'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
 
       </motion.div>
     </div>
