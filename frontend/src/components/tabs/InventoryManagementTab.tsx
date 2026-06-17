@@ -633,6 +633,7 @@ export default function InventoryManagementTab() {
             serialBatchTracking: productForm.serialBatchTracking || false,
             expiryTracking: productForm.expiryTracking || false,
             productImage: productForm.productImage,
+            brochure: productForm.brochure,
             status: productForm.status || "Active",
             createdAt: productForm.createdAt || now,
             updatedAt: now,
@@ -1454,6 +1455,41 @@ export default function InventoryManagementTab() {
                     className="max-w-[250px] cursor-pointer"
                   />
                   <p className="text-xs text-muted-foreground">Recommended: Square image, max 5MB</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Product Brochure (PDF)</Label>
+            <div className="flex items-center gap-4">
+              {productForm.brochure ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-green-600 font-medium">Brochure Uploaded</span>
+                  {modalMode !== "view" && (
+                    <Button variant="ghost" size="sm" onClick={() => setProductForm({ ...productForm, brochure: undefined })} className="text-destructive h-8 px-2">
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Input 
+                    type="file" 
+                    disabled={modalMode === "view"}
+                    accept=".pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setProductForm({ ...productForm, brochure: reader.result as string });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="max-w-[250px] cursor-pointer"
+                  />
+                  <p className="text-xs text-muted-foreground">Upload a PDF brochure</p>
                 </div>
               )}
             </div>

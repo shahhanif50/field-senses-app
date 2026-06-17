@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMasterData } from '@/contexts/MasterDataContext';
-import { Package, Search, ChevronRight, ChevronLeft, Download, CheckCircle2, XCircle } from 'lucide-react';
+import { Package, Search, ChevronRight, ChevronLeft, Download, CheckCircle2, XCircle, LayoutGrid, List } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -10,8 +10,11 @@ import { Label } from '@/components/ui/label';
 const API = "";
 
 export function EmployeeProductBooking() {
-  const { activeProducts } = useMasterData();
+  const { activeProducts, categories, activeVendors } = useMasterData();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('grid');
+  const [selectedVendor, setSelectedVendor] = useState<string>('');
   const [view, setView] = useState<'list' | 'detail' | 'order' | 'success' | 'history'>('list');
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   
@@ -33,10 +36,11 @@ export function EmployeeProductBooking() {
   const userId = sessionStorage.getItem("userId") || "EMP-Unknown";
   const userName = sessionStorage.getItem("userName") || "Employee";
 
-  const filteredProducts = activeProducts.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.brand.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = activeProducts.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.brand.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const fetchMyOrders = async () => {
     setOrdersLoading(true);
@@ -80,6 +84,7 @@ export function EmployeeProductBooking() {
           productId: selectedProduct.id,
           quantity: quantity,
           totalPrice: totalPrice,
+          vendorId: selectedVendor || null,
           status: 'pending'
         })
       });
@@ -143,9 +148,30 @@ export function EmployeeProductBooking() {
                 >
                   My Orders
                 </Button>
-                <Button variant="outline" className="rounded-xl bg-background text-sm h-10 font-medium border-border">
-                  Select Category
-                </Button>
+                <select 
+                  className="rounded-xl bg-background text-sm h-10 font-medium border border-border px-3 focus-visible:outline-none"
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                >
+                  <option value="all">All Categories</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <div className="flex border border-border rounded-xl overflow-hidden">
+                  <button 
+                    onClick={() => setDisplayMode('grid')}
+                    className={`p-2 ${displayMode === 'grid' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-foreground'}`}
+                  >
+                    <LayoutGrid className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => setDisplayMode('list')}
+                    className={`p-2 ${displayMode === 'list' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-foreground'}`}
+                  >
+                    <List className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -159,7 +185,7 @@ export function EmployeeProductBooking() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+            <div className={`grid gap-6 pb-20 ${displayMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1 max-w-4xl'}`}>
               {filteredProducts.map((product) => (
                 <div 
                   key={product.id}
@@ -221,7 +247,19 @@ export function EmployeeProductBooking() {
                   {selectedProduct.name} is a premium {selectedProduct.brand || "agricultural product"}. It is used to improve crop yields and soil health. It can also be used together with other products to treat deficiencies.
                 </p>
 
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-12 text-lg font-medium mb-8 shadow-md transition-all">
+                <Button 
+                  onClick={() => {
+                    if (selectedProduct.brochure) {
+                      const a = document.createElement('a');
+                      a.href = selectedProduct.brochure;
+                      a.download = `${selectedProduct.name}_Brochure.pdf`;
+                      a.click();
+                    } else {
+                      toast.error("No brochure available for this product.");
+                    }
+                  }}
+                  className={`w-full text-primary-foreground rounded-xl h-12 text-lg font-medium mb-8 shadow-md transition-all ${selectedProduct.brochure ? 'bg-primary hover:bg-primary/90' : 'bg-muted-foreground cursor-not-allowed opacity-50'}`}
+                >
                   <Download className="w-5 h-5 mr-2" /> Download Brochure
                 </Button>
 
@@ -278,6 +316,20 @@ export function EmployeeProductBooking() {
                   <Label className="text-foreground font-semibold">Selected Product</Label>
                   <select disabled className="flex h-12 w-full items-center justify-between rounded-xl border border-border bg-muted/50 px-4 py-2 text-sm text-foreground font-medium opacity-80">
                     <option>{selectedProduct.name}</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-foreground font-semibold">Select Vendor (Optional)</Label>
+                  <select 
+                    value={selectedVendor}
+                    onChange={(e) => setSelectedVendor(e.target.value)}
+                    className="flex h-12 w-full items-center justify-between rounded-xl border border-border bg-background px-4 py-2 text-sm text-foreground font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <option value="">No Vendor Selected</option>
+                    {activeVendors.map(v => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
                   </select>
                 </div>
 
