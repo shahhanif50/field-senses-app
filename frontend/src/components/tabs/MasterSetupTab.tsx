@@ -199,7 +199,8 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
           "distributors": "distributor_master",
           "sites": "sites"
         };
-        filtered = filtered.filter(m => modulesEnabled.includes(tabIdToModuleId[m.id]));
+        const hasOrgLevelAccess = modulesEnabled.includes("Master Setup");
+        filtered = filtered.filter(m => hasOrgLevelAccess || modulesEnabled.includes(tabIdToModuleId[m.id]));
       }
     }
 
