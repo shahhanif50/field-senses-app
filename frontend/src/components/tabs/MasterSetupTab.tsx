@@ -172,10 +172,28 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
   const [showPassword, setShowPassword] = useState(false);
 
   const visibleMasters = useMemo(() => {
+    let modulesEnabled: string[] = [];
+    try {
+      modulesEnabled = JSON.parse(sessionStorage.getItem("modulesEnabled") || "[]");
+    } catch (e) { }
+
+    const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+    const orgId = sessionStorage.getItem("organizationId");
+    const isImpersonating = isGlobalAdmin && orgId && orgId !== "null";
+
+    let filtered = masterTabs;
+
     if (isTeamManagementView) {
-      return masterTabs.filter(m => ["employees", "reporting-manager"].includes(m.id));
+      filtered = filtered.filter(m => ["employees", "reporting-manager"].includes(m.id));
     }
-    return masterTabs;
+
+    if (!isGlobalAdmin || isImpersonating) {
+      if (!modulesEnabled.includes("All")) {
+        filtered = filtered.filter(m => modulesEnabled.includes(m.label));
+      }
+    }
+
+    return filtered;
   }, [isTeamManagementView]);
 
   // Shared data from context (synced across all tabs)
