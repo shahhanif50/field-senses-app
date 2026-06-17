@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useMasterData } from "@/contexts/MasterDataContext";
-import { RolePermissionsTable, PermissionsMap } from "@/components/shared/RolePermissionsTable";
+import { MODULES_HIERARCHY } from "@/components/shared/RolePermissionsTable";
 
 export function SuperAdminSitesTab() {
   const [view, setView] = useState<"list" | "add" | "edit">("list");
@@ -37,7 +37,7 @@ export function SuperAdminSitesTab() {
   const [contactPerson, setContactPerson] = useState({
     name: "", phone: "", email: ""
   });
-  const [permissions, setPermissions] = useState<PermissionsMap>({});
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -57,6 +57,7 @@ export function SuperAdminSitesTab() {
       phone: site.contactPhone || "",
       email: site.contactEmail || ""
     });
+    setSelectedModules(site.modulesEnabled || []);
     setEditingSiteId(site.id);
     setView("edit");
   };
@@ -102,6 +103,7 @@ export function SuperAdminSitesTab() {
           contactName: contactPerson.name,
           contactEmail: contactPerson.email,
           contactPhone: contactPerson.phone,
+          modulesEnabled: selectedModules,
         })
       });
 
@@ -117,6 +119,7 @@ export function SuperAdminSitesTab() {
         setView("list");
         setSiteDetails({ name: "", code: "", product: "", country: "", address: "", date: "", status: true, orgId: "" });
         setContactPerson({ name: "", phone: "", email: "" });
+        setSelectedModules([]);
       } else {
         const errData = await res.json().catch(() => ({}));
         console.error("Failed to create site:", errData);
@@ -220,38 +223,53 @@ export function SuperAdminSitesTab() {
           </CardContent>
         </Card>
 
-        <Card className="border-border shadow-sm">
-          <CardContent className="p-6">
-            <h3 className="text-lg font-bold mb-4 text-foreground">Module Access</h3>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Search modules..." className="pl-9 bg-background" />
+        {siteDetails.product === "field-sense" && (
+          <Card className="border-border shadow-sm">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-bold mb-4 text-foreground">Select Modules</h3>
+              <div className="space-y-4">
+                {MODULES_HIERARCHY.map(mod => (
+                  <div key={mod.id} className="p-4 border rounded-lg bg-card">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Checkbox 
+                        id={`mod-${mod.id}`}
+                        checked={selectedModules.includes(mod.id)}
+                        onCheckedChange={(c) => {
+                          if (c) {
+                            setSelectedModules([...selectedModules, mod.id, ...mod.subModules.map(s => s.id)]);
+                          } else {
+                            setSelectedModules(selectedModules.filter(m => m !== mod.id && !mod.subModules.map(s => s.id).includes(m)));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`mod-${mod.id}`} className="font-bold text-base cursor-pointer">{mod.label}</Label>
+                    </div>
+                    <div className="ml-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {mod.subModules.map(sub => (
+                        <div key={sub.id} className="flex items-center gap-2">
+                          <Checkbox 
+                            id={`sub-${sub.id}`}
+                            checked={selectedModules.includes(sub.id)}
+                            onCheckedChange={(c) => {
+                              if (c) {
+                                const newMods = [...selectedModules, sub.id];
+                                if (!newMods.includes(mod.id)) newMods.push(mod.id);
+                                setSelectedModules(newMods);
+                              } else {
+                                setSelectedModules(selectedModules.filter(m => m !== sub.id));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`sub-${sub.id}`} className="text-sm cursor-pointer font-medium text-muted-foreground">{sub.label}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <Button className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white gap-2">
-                <Plus className="w-4 h-4" /> Add Module
-              </Button>
-            </div>
-
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-4 border-y border-border mb-6">
-              <Button variant="outline" className="gap-2 bg-background">
-                <Upload className="w-4 h-4" /> Bulk Import (CSV)
-              </Button>
-              <div className="flex items-center gap-3">
-                <Label className="text-sm font-medium">Assign to Role:</Label>
-                <Select defaultValue="admin">
-                  <SelectTrigger className="w-[150px] bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <RolePermissionsTable permissions={permissions} onChange={setPermissions} />
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   }
