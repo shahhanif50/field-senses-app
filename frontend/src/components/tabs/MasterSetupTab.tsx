@@ -189,7 +189,17 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
 
     if (!isGlobalAdmin || isImpersonating) {
       if (!modulesEnabled.includes("All")) {
-        filtered = filtered.filter(m => modulesEnabled.includes(m.label));
+        const tabIdToModuleId: Record<string, string> = {
+          "employees": "employees",
+          "roles": "roles",
+          "role-permissions": "role_permissions",
+          "reporting-manager": "reporting_manager",
+          "departments": "departments",
+          "status": "status_master",
+          "distributors": "distributor_master",
+          "sites": "sites"
+        };
+        filtered = filtered.filter(m => modulesEnabled.includes(tabIdToModuleId[m.id]));
       }
     }
 

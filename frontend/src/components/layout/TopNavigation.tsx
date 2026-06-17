@@ -134,7 +134,12 @@ export function TopNavigation({
     const effectiveModuleLabel = tab.label;
 
     const alwaysActiveTabs = ["profile", "approvals", "admin-dashboard", "employee-dashboard", "product-booking", "admin-orders"];
-    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(effectiveModuleLabel) || alwaysActiveTabs.includes(tab.id);
+    let moduleId = effectiveModuleLabel;
+    if (effectiveModuleLabel === "Master Setup") moduleId = "master_setup";
+    if (effectiveModuleLabel === "Inventory Management") moduleId = "inventory_management";
+    if (effectiveModuleLabel === "Sales Executive") moduleId = "sales_executive";
+
+    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(effectiveModuleLabel) || modulesEnabled.includes(moduleId) || alwaysActiveTabs.includes(tab.id);
     
     // Explicitly grant employee default tabs
     if (userRole === "employee" && (tab.id === "employee-dashboard" || tab.id === "product-booking")) {
@@ -148,7 +153,12 @@ export function TopNavigation({
   const rolePerms = rolePermissions.filter(rp => rp.roleId === currentRole?.id);
   const dynamicallyEnabledTabs = allTabs.filter(tab => {
     const rolePerm = rolePerms.find(rp => rp.module === tab.label);
-    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(tab.label) || ["master-setup", "profile", "approvals"].includes(tab.id);
+    let moduleId = tab.label;
+    if (tab.label === "Master Setup") moduleId = "master_setup";
+    if (tab.label === "Inventory Management") moduleId = "inventory_management";
+    if (tab.label === "Sales Executive") moduleId = "sales_executive";
+
+    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(tab.label) || modulesEnabled.includes(moduleId) || ["master-setup", "profile", "approvals"].includes(tab.id);
     return rolePerm?.view && moduleActive;
   });
 
@@ -176,7 +186,11 @@ export function TopNavigation({
         if (tab.label === "Alerts & Escalation") moduleName = "Alerts";
         if (tab.label === "Documents & Logs") moduleName = "Documents";
         if (tab.id === "admin-orders") return true;
-        return (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(moduleName);
+        let moduleId = moduleName;
+        if (moduleName === "Master Setup") moduleId = "master_setup";
+        if (moduleName === "Inventory Management") moduleId = "inventory_management";
+        if (moduleName === "Sales Executive") moduleId = "sales_executive";
+        return (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(moduleName) || modulesEnabled.includes(moduleId);
     });
     dynamicallyEnabledTabs.forEach(dTab => {
         if (!tabs.find(t => t.id === dTab.id)) tabs.push(dTab);
