@@ -14,6 +14,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -62,6 +64,7 @@ export function DataTable<T extends { id: string | number }>({
   const [pageSize, setPageSize] = useState(10);
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   const filteredData = useMemo(() => {
     let result = [...data];
@@ -115,6 +118,31 @@ export function DataTable<T extends { id: string | number }>({
     );
   };
 
+  const handleExport = () => {
+    if (onExport) {
+      onExport();
+      return;
+    }
+    
+    // Default CSV export
+    const headers = columns.map(c => c.header).join(",");
+    const csvData = data.map(row => {
+      return columns.map(col => {
+        const val = getNestedValue(row, col.key as string);
+        const strVal = String(val ?? "").replace(/"/g, '""');
+        return `"${strVal}"`;
+      }).join(",");
+    }).join("\n");
+    
+    const blob = new Blob([`${headers}\n${csvData}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "export.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="glass-card overflow-hidden">
       {/* Toolbar */}
@@ -129,6 +157,14 @@ export function DataTable<T extends { id: string | number }>({
           />
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-muted/50 p-1 rounded-lg border border-border mr-2 hidden sm:flex">
+            <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setViewMode("grid")} title="Grid View">
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+            <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setViewMode("list")} title="List View">
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
           {filterContent && (
             <Button 
               variant={showFilters ? "default" : "outline"} 
@@ -141,7 +177,7 @@ export function DataTable<T extends { id: string | number }>({
             </Button>
           )}
           {showExport && (
-            <Button variant="outline" size="sm" className="gap-2" onClick={onExport}>
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleExport}>
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Export</span>
             </Button>
@@ -165,9 +201,10 @@ export function DataTable<T extends { id: string | number }>({
         )}
       </AnimatePresence>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      {/* Table / Grid */}
+      {viewMode === "list" ? (
+        <div className="overflow-x-auto">
+          <table className="w-full">
           <thead>
             <tr className="bg-muted/50">
               {columns.map((col) => (
@@ -262,6 +299,58 @@ export function DataTable<T extends { id: string | number }>({
           </div>
         )}
       </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-muted/10">
+          {paginatedData.map((row, index) => (
+            <motion.div
+              key={row.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.03 }}
+              className="glass-card p-4 flex flex-col gap-4 relative hover:shadow-md transition-shadow bg-card"
+            >
+              <div className="flex-1 space-y-4">
+                {columns.map((col) => {
+                  const val = getNestedValue(row, col.key as string);
+                  const rendered = col.render ? col.render(val, row) : String(val ?? "");
+                  return (
+                    <div key={String(col.key)} className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{col.header}</span>
+                      <div className="text-sm font-medium">{rendered}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {(onView || onEdit || onDelete) && (
+                <div className="pt-3 border-t border-border/50 flex justify-end gap-1 mt-2">
+                  {onView && (
+                    <Button variant="ghost" size="icon" onClick={() => onView(row)} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {onEdit && (
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(row)} className="h-8 w-8 rounded-lg hover:bg-warning/10 hover:text-warning">
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button variant="ghost" size="icon" onClick={() => onDelete(row)} className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          ))}
+          {paginatedData.length === 0 && (
+            <div className="col-span-full py-12 text-center text-muted-foreground">
+              <p className="text-lg font-medium">No results found</p>
+              <p className="text-sm mt-1">Try adjusting your search or filters</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pagination */}
       <div className="p-4 border-t border-border/50 flex flex-col sm:flex-row gap-4 items-center justify-between">
