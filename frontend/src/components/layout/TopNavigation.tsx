@@ -398,7 +398,7 @@ export function TopNavigation({
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden xl:flex items-center justify-start gap-2 overflow-x-auto no-scrollbar flex-1 mx-4 px-2 py-1">
+          <nav className="hidden xl:flex items-center justify-center gap-2 overflow-x-auto no-scrollbar flex-1 mx-4 px-2 py-1">
             {/* 1. Dashboard Tab(s) */}
             {tabs.filter(t => t.id.includes('dashboard') || t.label.toLowerCase() === 'dashboard').map((tab) => {
               const Icon = tab.icon;
