@@ -1028,7 +1028,7 @@ export default function InventoryManagementTab() {
     switch (activeModule) {
       case "product-master":
         try {
-          const res = await fetch(`${BASE_INV}/products/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
+          const res = await fetch(`${BASE_INV}/products/${item.id}/`, { method: 'DELETE', headers: getHeaders() });
           if (res.ok) {
             setProducts(products.filter(p => p.id !== item.id));
           } else {
@@ -1045,7 +1045,7 @@ export default function InventoryManagementTab() {
           return;
         }
         try {
-          const res = await fetch(`${BASE_INV}/categories/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
+          const res = await fetch(`${BASE_INV}/categories/${item.id}/`, { method: 'DELETE', headers: getHeaders() });
           if (res.ok) {
             setCategories(categories.filter(c => c.id !== item.id));
           } else {
@@ -1062,7 +1062,7 @@ export default function InventoryManagementTab() {
           return;
         }
         try {
-          const res = await fetch(`${BASE_INV}/uoms/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
+          const res = await fetch(`${BASE_INV}/uoms/${item.id}/`, { method: 'DELETE', headers: getHeaders() });
           if (res.ok) {
             setUoms(uoms.filter(u => u.id !== item.id));
           } else {
@@ -1080,7 +1080,7 @@ export default function InventoryManagementTab() {
           return;
         }
         try {
-          const res = await fetch(`${BASE_INV}/locations/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
+          const res = await fetch(`${BASE_INV}/locations/${item.id}/`, { method: 'DELETE', headers: getHeaders() });
           if (res.ok) {
             setLocations(locations.filter(l => l.id !== item.id));
           } else {
@@ -1091,7 +1091,7 @@ export default function InventoryManagementTab() {
         break;
       case "vendor-setup":
         try {
-          const res = await fetch(`${BASE_INV}/vendors/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
+          const res = await fetch(`${BASE_INV}/vendors/${item.id}/`, { method: 'DELETE', headers: getHeaders() });
           if (res.ok) {
             setVendors(vendors.filter(p => p.id !== item.id));
           } else {
