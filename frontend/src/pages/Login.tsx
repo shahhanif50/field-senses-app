@@ -64,7 +64,7 @@ const Login = () => {
       sessionStorage.setItem("trackingEnabled", data.trackingEnabled ? "true" : "false");
       sessionStorage.setItem("defaultDashboard", data.defaultDashboard || "");
       sessionStorage.setItem("isAdminLoggedIn", "true");
-      window.location.href = "/";
+      window.location.replace("/");
 
     } catch (err) {
       setError("Network error. Could not connect to the server.");

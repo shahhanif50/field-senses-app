@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Building2, Plus, Shield, CheckCircle2, XCircle, Settings, Trash2, UserPlus, Eye, MapPin } from "lucide-react";
+import { Building2, Plus, Shield, CheckCircle2, XCircle, Settings, Trash2, UserPlus, Eye, MapPin, LayoutGrid, List } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface Organization {
   id: string;
@@ -31,6 +32,7 @@ const AVAILABLE_MODULES = [
 export function OrganizationsTab() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [newOrg, setNewOrg] = useState({ name: "", domain: "", modulesEnabled: ["Master Setup", "Employee Portal"] });
 
@@ -423,14 +425,6 @@ export function OrganizationsTab() {
                 <h4 className="font-medium text-foreground/90 bg-card px-2 py-1 rounded shadow-sm inline-block">Application Modules</h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2 mt-2">
                   {AVAILABLE_MODULES.map(mod => {
-                    const isOrgEnabled = (() => {
-                      try {
-                        const orgMods = org?.modulesEnabled || [];
-                        return orgMods.includes("All") || orgMods.includes(mod);
-                      } catch { return true; }
-                    })();
-                    if (!isOrgEnabled) return null;
-                    
                     return (
                       <label key={mod} className={`flex items-center gap-2 text-sm cursor-pointer`}>
                         <input type="checkbox" className="rounded border-input" checked={(newSite.modulesEnabled || []).includes(mod)} onChange={(e) => {
@@ -462,6 +456,14 @@ export function OrganizationsTab() {
         </div>
         
         <div className="flex gap-2">
+          <div className="flex gap-1 bg-muted/50 p-1 rounded-lg border border-border mr-2 hidden sm:flex">
+            <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setViewMode("grid")} title="Grid View">
+              <LayoutGrid className="w-4 h-4" />
+            </Button>
+            <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="h-8 w-8" onClick={() => setViewMode("list")} title="List View">
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
           {currentOrgId && currentOrgId !== "null" && (
             <Button variant="outline" className="border-primary text-primary" onClick={clearImpersonation}>
               Exit Organization View
@@ -607,120 +609,180 @@ export function OrganizationsTab() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading ? (
-          <p>Loading organizations...</p>
-        ) : organizations.length === 0 ? (
-          <p className="text-muted-foreground col-span-3">No organizations found. Create your first tenant above.</p>
-        ) : (
-          organizations.map((org) => (
-            <Card key={org.id} className="relative overflow-hidden group border-border/40 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 bg-card/50 backdrop-blur-sm">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-primary/40 opacity-50 group-hover:opacity-100 transition-opacity" />
-              <CardHeader className="pb-3 px-5 pt-5">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg font-bold tracking-tight">{org.name}</CardTitle>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                      <Shield className="w-3 h-3" />
-                      {org.domain || "No domain set"}
-                    </p>
-                  </div>
-                  <Badge variant={org.is_deleted ? "destructive" : "default"} className="shadow-none">
-                    {org.is_deleted ? "Inactive" : "Active"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="px-5 pb-5">
-                <div className="space-y-5">
-                  <div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Modules Enabled</span>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {org.modulesEnabled && org.modulesEnabled.map((mod: string) => (
-                        <Badge key={mod} variant="secondary" className="bg-primary/5 text-primary border-primary/10 hover:bg-primary/10 text-[10px] transition-colors shadow-none">
-                          {mod}
-                        </Badge>
-                      ))}
+      {viewMode === "grid" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            <p>Loading organizations...</p>
+          ) : organizations.length === 0 ? (
+            <p className="text-muted-foreground col-span-3">No organizations found. Create your first tenant above.</p>
+          ) : (
+            organizations.map((org) => (
+              <Card key={org.id} className="relative overflow-hidden group border-border/40 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 bg-card/50 backdrop-blur-sm">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-primary/40 opacity-50 group-hover:opacity-100 transition-opacity" />
+                <CardHeader className="pb-3 px-5 pt-5">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg font-bold tracking-tight">{org.name}</CardTitle>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <Shield className="w-3 h-3" />
+                        {org.domain || "No domain set"}
+                      </p>
                     </div>
+                    <Badge variant={org.is_deleted ? "destructive" : "default"} className="shadow-none">
+                      {org.is_deleted ? "Inactive" : "Active"}
+                    </Badge>
                   </div>
+                </CardHeader>
+                <CardContent className="px-5 pb-5">
+                  <div className="space-y-5">
+                    <div>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Modules Enabled</span>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {org.modulesEnabled && org.modulesEnabled.map((mod: string) => (
+                          <Badge key={mod} variant="secondary" className="bg-primary/5 text-primary border-primary/10 hover:bg-primary/10 text-[10px] transition-colors shadow-none">
+                            {mod}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
 
-                  <div>
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Administrators</span>
-                    <div className="mt-2 space-y-2">
-                      {org.admins && org.admins.length > 0 ? (
-                        org.admins.map((admin, idx) => (
-                          <div key={admin.id || idx} className="flex items-center gap-2.5 bg-muted/40 p-2 rounded-lg border border-border/30 transition-colors hover:bg-muted/60">
-                            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
-                              {admin.name.charAt(0).toUpperCase()}
+                    <div>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Administrators</span>
+                      <div className="mt-2 space-y-2">
+                        {org.admins && org.admins.length > 0 ? (
+                          org.admins.map((admin, idx) => (
+                            <div key={admin.id || idx} className="flex items-center gap-2.5 bg-muted/40 p-2 rounded-lg border border-border/30 transition-colors hover:bg-muted/60">
+                              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
+                                {admin.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="text-sm font-medium leading-none truncate">{admin.name}</span>
+                                <span className="text-[10px] text-muted-foreground mt-1 truncate">{admin.email}</span>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 text-destructive hover:bg-destructive/10 shrink-0" 
+                                onClick={() => handleDeleteAdmin(org.id, admin.id)}
+                                title="Remove Admin"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
                             </div>
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <span className="text-sm font-medium leading-none truncate">{admin.name}</span>
-                              <span className="text-[10px] text-muted-foreground mt-1 truncate">{admin.email}</span>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6 text-destructive hover:bg-destructive/10 shrink-0" 
-                              onClick={() => handleDeleteAdmin(org.id, admin.id)}
-                              title="Remove Admin"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-muted-foreground italic bg-muted/20 p-2 rounded-lg border border-dashed border-border/50 text-center">No admins assigned</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="pt-4 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="h-8 text-xs bg-background/50 hover:bg-muted" onClick={() => {
-                        setSelectedOrgIdForSites(org.id);
-                        setIsSitesModalOpen(true);
-                      }}>
-                        <MapPin className="w-3.5 h-3.5 mr-1.5" />
-                        Sites
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-8 text-xs bg-background/50 hover:bg-muted" onClick={() => {
-                        sessionStorage.setItem("viewOrganizationId", org.id);
-                        window.dispatchEvent(new CustomEvent("changeTab", { detail: "organization-details" }));
-                      }}>
-                        <Eye className="w-3.5 h-3.5 mr-1.5" />
-                        View
-                      </Button>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic bg-muted/20 p-2 rounded-lg border border-dashed border-border/50 text-center">No admins assigned</p>
+                        )}
+                      </div>
                     </div>
                     
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10" onClick={() => {
-                        setEditingOrg(org);
-                        setEditOrgForm({ name: org.name, domain: org.domain || "", modulesEnabled: org.modulesEnabled || [] });
-                        setIsEditModalOpen(true);
-                      }} title="Edit Organization">
-                        <Settings className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={() => {
-                        setSelectedOrgId(org.id);
-                        setIsAdminModalOpen(true);
-                      }}>
-                        <UserPlus className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className={`h-8 w-8 ${org.is_deleted ? "text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600" : "text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"}`} onClick={() => handleToggleStatus(org)} title={org.is_deleted ? "Activate Organization" : "Deactivate Organization"}>
-                        {org.is_deleted ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                      </Button>
-                      {org.is_deleted && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteOrg(org.id)} title="Delete Organization">
-                          <Trash2 className="w-4 h-4" />
+                    <div className="pt-4 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" className="h-8 text-xs bg-background/50 hover:bg-muted" onClick={() => {
+                          setSelectedOrgIdForSites(org.id);
+                          setIsSitesModalOpen(true);
+                        }}>
+                          <MapPin className="w-3.5 h-3.5 mr-1.5" />
+                          Sites
                         </Button>
-                      )}
+                        <Button variant="outline" size="sm" className="h-8 text-xs bg-background/50 hover:bg-muted" onClick={() => {
+                          sessionStorage.setItem("viewOrganizationId", org.id);
+                          window.dispatchEvent(new CustomEvent("changeTab", { detail: "organization-details" }));
+                        }}>
+                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          View
+                        </Button>
+                      </div>
+                      
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10" onClick={() => {
+                          setEditingOrg(org);
+                          setEditOrgForm({ name: org.name, domain: org.domain || "", modulesEnabled: org.modulesEnabled || [] });
+                          setIsEditModalOpen(true);
+                        }} title="Edit Organization">
+                          <Settings className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={() => {
+                          setSelectedOrgId(org.id);
+                          setIsAdminModalOpen(true);
+                        }}>
+                          <UserPlus className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className={`h-8 w-8 ${org.is_deleted ? "text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600" : "text-amber-500 hover:text-amber-600 hover:bg-amber-500/10"}`} onClick={() => handleToggleStatus(org)} title={org.is_deleted ? "Activate Organization" : "Deactivate Organization"}>
+                          {org.is_deleted ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                        </Button>
+                        {org.is_deleted && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteOrg(org.id)} title="Delete Organization">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>Organization</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden md:table-cell">Modules</TableHead>
+                <TableHead className="hidden lg:table-cell">Administrators</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-8">Loading organizations...</TableCell></TableRow>
+              ) : organizations.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No organizations found. Create your first tenant above.</TableCell></TableRow>
+              ) : (
+                organizations.map((org) => (
+                  <TableRow key={org.id} className="group hover:bg-muted/30">
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-foreground">{org.name}</span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Shield className="w-3 h-3" /> {org.domain || "No domain set"}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={org.is_deleted ? "destructive" : "default"} className="shadow-none">{org.is_deleted ? "Inactive" : "Active"}</Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell max-w-[200px]">
+                      <div className="flex flex-wrap gap-1">
+                        {org.modulesEnabled?.slice(0, 3).map(mod => <Badge key={mod} variant="secondary" className="text-[10px] bg-primary/5 text-primary border-primary/10 shadow-none">{mod}</Badge>)}
+                        {org.modulesEnabled && org.modulesEnabled.length > 3 && <Badge variant="secondary" className="text-[10px] bg-primary/5 text-primary border-primary/10 shadow-none">+{org.modulesEnabled.length - 3} more</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <div className="flex -space-x-2 overflow-hidden">
+                        {org.admins && org.admins.length > 0 ? org.admins.map((admin, i) => (
+                          <div key={admin.id || i} className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-primary/10 flex items-center justify-center text-primary text-xs font-bold" title={admin.email}>{admin.name.charAt(0).toUpperCase()}</div>
+                        )) : <span className="text-xs text-muted-foreground italic">None</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { setSelectedOrgIdForSites(org.id); setIsSitesModalOpen(true); }} title="Sites"><MapPin className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { sessionStorage.setItem("viewOrganizationId", org.id); window.dispatchEvent(new CustomEvent("changeTab", { detail: "organization-details" })); }} title="View Details"><Eye className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10" onClick={() => { setEditingOrg(org); setEditOrgForm({ name: org.name, domain: org.domain || "", modulesEnabled: org.modulesEnabled || [] }); setIsEditModalOpen(true); }} title="Edit"><Settings className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={() => { setSelectedOrgId(org.id); setIsAdminModalOpen(true); }} title="Add Admin"><UserPlus className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className={`h-8 w-8 ${org.is_deleted ? "text-emerald-500 hover:bg-emerald-500/10" : "text-amber-500 hover:bg-amber-500/10"}`} onClick={() => handleToggleStatus(org)} title={org.is_deleted ? "Activate" : "Deactivate"}>{org.is_deleted ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}</Button>
+                        {org.is_deleted && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteOrg(org.id)} title="Delete"><Trash2 className="w-4 h-4" /></Button>}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }
