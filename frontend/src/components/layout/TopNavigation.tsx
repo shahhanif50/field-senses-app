@@ -418,15 +418,6 @@ export function TopNavigation({
               );
             })}
 
-            {/* 2. Notification Bell (Between Dashboard and other tabs) */}
-            <div className="flex items-center shrink-0 px-1">
-              <NotificationBell 
-                onNotificationClick={handleTabClick} 
-                isMuted={isMuted} 
-                onToggleMute={toggleMute} 
-              />
-            </div>
-
             {/* 3. Rest of the Tabs */}
             {tabs.filter(t => !t.id.includes('dashboard') && t.label.toLowerCase() !== 'dashboard').map((tab) => {
               const Icon = tab.icon;
@@ -480,6 +471,11 @@ export function TopNavigation({
             <Button variant="ghost" size="icon" onClick={onThemeToggle} title="Toggle Theme" className="rounded-full">
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
+            <NotificationBell 
+              onNotificationClick={handleTabClick} 
+              isMuted={isMuted} 
+              onToggleMute={toggleMute} 
+            />
             <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout" className="text-destructive hover:bg-destructive/10 hover:text-destructive rounded-full">
               <LogOut className="w-5 h-5" />
             </Button>
