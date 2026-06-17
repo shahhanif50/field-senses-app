@@ -31,6 +31,7 @@ import { ProjectsTab } from "@/components/tabs/ProjectsTab";
 import { DocumentsTab } from "@/components/tabs/DocumentsTab";
 import { PermissionsTab } from "@/components/tabs/PermissionsTab";
 import { OrganizationsTab } from "@/components/tabs/OrganizationsTab";
+import { OrganizationDetailsTab } from "@/components/tabs/OrganizationDetailsTab";
 import { SuperAdminSitesTab } from "@/components/tabs/SuperAdminSitesTab";
 import { SuperAdminModulesTab } from "@/components/tabs/SuperAdminModulesTab";
 import RMDashboard from "@/components/regional-manager/RMDashboard";
@@ -87,6 +88,8 @@ const Index = () => {
     switch (activeTab) {
       case "organizations":
         return <OrganizationsTab />;
+      case "organization-details":
+        return <OrganizationDetailsTab />;
       case "superadmin-sites":
         return <SuperAdminSitesTab />;
       case "superadmin-modules":

@@ -722,7 +722,10 @@ export function OrganizationsTab() {
                         <MapPin className="w-3.5 h-3.5 mr-1.5" />
                         Sites
                       </Button>
-                      <Button variant="outline" size="sm" className="h-8 text-xs bg-background/50 hover:bg-muted" onClick={() => handleImpersonate(org.id, org.name, org.modulesEnabled)}>
+                      <Button variant="outline" size="sm" className="h-8 text-xs bg-background/50 hover:bg-muted" onClick={() => {
+                        sessionStorage.setItem("viewOrganizationId", org.id);
+                        window.dispatchEvent(new CustomEvent("changeTab", { detail: "organization-details" }));
+                      }}>
                         <Eye className="w-3.5 h-3.5 mr-1.5" />
                         View
                       </Button>
