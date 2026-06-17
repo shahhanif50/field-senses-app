@@ -437,16 +437,6 @@ export function TopNavigation({
               );
             })}
 
-            {/* 4. Search Bar at the end of the tabs list */}
-            <div className="hidden lg:flex relative w-64 ml-2 shrink-0">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input 
-                placeholder="Search..." 
-                className="pl-9 h-9 bg-muted/50 border-none focus-visible:ring-primary/50 text-sm rounded-full"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
           </nav>
 
           {/* Right Actions */}
