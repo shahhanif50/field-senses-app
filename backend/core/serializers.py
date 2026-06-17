@@ -11,7 +11,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
     def get_admins(self, obj):
         # Find all employees with role ADMIN for this organization
         admins = Employee.objects.filter(organization=obj, roleId__roleCode='ADMIN')
-        return [{"name": admin.fullName, "email": admin.email} for admin in admins]
+        return [{"id": admin.id, "name": admin.fullName, "email": admin.email} for admin in admins]
 
 class SiteSerializer(serializers.ModelSerializer):
     class Meta:

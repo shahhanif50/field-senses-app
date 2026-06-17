@@ -18,7 +18,7 @@ interface Organization {
   modulesEnabled: string[];
   is_deleted: boolean;
   createdAt: string;
-  admins?: {name: string, email: string}[];
+  admins?: {id: string, name: string, email: string}[];
 }
 
 const AVAILABLE_MODULES = [
@@ -40,6 +40,7 @@ export function OrganizationsTab() {
 
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ name: "", email: "", password: "" });
   const [newAdminSites, setNewAdminSites] = useState<string[]>([]);
   const [adminOrgSites, setAdminOrgSites] = useState<any[]>([]);
@@ -225,6 +226,9 @@ export function OrganizationsTab() {
       return toast.error("All fields are required");
     }
     
+    if (isCreatingAdmin) return;
+    setIsCreatingAdmin(true);
+
     try {
       const res = await fetch(`/api/organizations/${selectedOrgId}/create_admin/`, {
         method: "POST",
@@ -238,13 +242,36 @@ export function OrganizationsTab() {
         setIsAdminModalOpen(false);
         setNewAdmin({ name: "", email: "", password: "" });
         setNewAdminSites([]);
+        fetchOrganizations();
       } else {
         toast.error(data.error || "Failed to create admin");
       }
     } catch (e) {
       toast.error("Network error");
+    } finally {
+      setIsCreatingAdmin(false);
     }
   };
+
+  const handleDeleteAdmin = async (orgId: string, adminId: string) => {
+    if (!window.confirm("Are you sure you want to remove this admin from the organization?")) return;
+    try {
+      const res = await fetch(`/api/organizations/${orgId}/delete_admin/?admin_id=${adminId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        toast.success("Admin removed successfully");
+        fetchOrganizations();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to remove admin");
+      }
+    } catch (e) {
+      toast.error("Network error");
+    }
+  };
+
 
   const handleImpersonate = (orgId: string, orgName: string, modulesEnabled: string[] = []) => {
     sessionStorage.setItem("organizationId", orgId);
@@ -609,7 +636,9 @@ export function OrganizationsTab() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsAdminModalOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreateAdmin}>Create Admin</Button>
+              <Button onClick={handleCreateAdmin} disabled={isCreatingAdmin}>
+                {isCreatingAdmin ? "Creating..." : "Create Admin"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -659,14 +688,23 @@ export function OrganizationsTab() {
                     <div className="mt-2 space-y-2">
                       {org.admins && org.admins.length > 0 ? (
                         org.admins.map((admin, idx) => (
-                          <div key={idx} className="flex items-center gap-2.5 bg-muted/40 p-2 rounded-lg border border-border/30 transition-colors hover:bg-muted/60">
+                          <div key={admin.id || idx} className="flex items-center gap-2.5 bg-muted/40 p-2 rounded-lg border border-border/30 transition-colors hover:bg-muted/60">
                             <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
                               {admin.name.charAt(0).toUpperCase()}
                             </div>
-                            <div className="flex flex-col min-w-0">
+                            <div className="flex flex-col min-w-0 flex-1">
                               <span className="text-sm font-medium leading-none truncate">{admin.name}</span>
                               <span className="text-[10px] text-muted-foreground mt-1 truncate">{admin.email}</span>
                             </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 text-destructive hover:bg-destructive/10 shrink-0" 
+                              onClick={() => handleDeleteAdmin(org.id, admin.id)}
+                              title="Remove Admin"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </div>
                         ))
                       ) : (

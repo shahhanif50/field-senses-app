@@ -105,6 +105,19 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             "email": emp.email
         })
 
+    @action(detail=True, methods=['delete'])
+    def delete_admin(self, request, pk=None):
+        org = self.get_object()
+        admin_id = request.data.get('admin_id') or request.query_params.get('admin_id')
+        if not admin_id:
+             return Response({"error": "admin_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            admin = Employee.objects.get(id=admin_id, organization=org, roleId__roleCode='ADMIN')
+            admin.delete()
+            return Response({"message": "Admin deleted successfully"}, status=status.HTTP_200_OK)
+        except Employee.DoesNotExist:
+            return Response({"error": "Admin not found"}, status=status.HTTP_404_NOT_FOUND)
+
 class BaseTenantViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset().filter(is_deleted=False)
