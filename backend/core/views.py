@@ -120,7 +120,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
 class BaseTenantViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
-        queryset = super().get_queryset().filter(is_deleted=False)
+        queryset = super().get_queryset()
+        field_names = [f.name for f in queryset.model._meta.get_fields()]
+        if 'is_deleted' in field_names:
+            queryset = queryset.filter(is_deleted=False)
         user_id = self.request.headers.get('X-User-Id')
         org_id = self.request.headers.get('X-Organization-Id')
         user_role = self.request.headers.get('X-User-Role')

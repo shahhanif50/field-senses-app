@@ -599,6 +599,13 @@ export default function InventoryManagementTab() {
     return tax ? `${tax.name} (${tax.percentage}%)` : id;
   };
 
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'X-User-Id': sessionStorage.getItem("userId") || "",
+    'X-User-Role': sessionStorage.getItem("userRole") || "",
+    'X-Organization-Id': sessionStorage.getItem("organizationId") || "",
+  });
+
   const handleSave = async () => {
     const now = new Date().toISOString().split('T')[0];
     const BASE_INV = `/api/inventory`;
@@ -633,7 +640,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/products/`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(newProduct),
             });
             if (res.ok) {
@@ -649,7 +656,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/products/${selectedItem.id}/`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify({ ...productForm, updatedAt: now }),
             });
             if (res.ok) {
@@ -684,7 +691,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/categories/`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(newCategory),
             });
             if (res.ok) {
@@ -700,7 +707,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/categories/${selectedItem.id}/`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify({ ...categoryForm, updatedAt: now }),
             });
             if (res.ok) {
@@ -740,7 +747,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/uoms/`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(newUom),
             });
             if (res.ok) {
@@ -756,7 +763,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/uoms/${selectedItem.id}/`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify({ ...uomForm, updatedAt: now }),
             });
             if (res.ok) {
@@ -795,7 +802,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/locations/`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(newLocation),
             });
             if (res.ok) {
@@ -811,7 +818,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/locations/${selectedItem.id}/`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify({ ...locationForm, updatedAt: now }),
             });
             if (res.ok) {
@@ -854,7 +861,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/vendors/`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify(newVendor),
             });
             if (res.ok) {
@@ -870,7 +877,7 @@ export default function InventoryManagementTab() {
           try {
             const res = await fetch(`${BASE_INV}/vendors/${selectedItem.id}/`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
+              headers: getHeaders(),
               body: JSON.stringify({ ...vendorForm, updatedAt: now }),
             });
             if (res.ok) {
@@ -1021,7 +1028,7 @@ export default function InventoryManagementTab() {
     switch (activeModule) {
       case "product-master":
         try {
-          const res = await fetch(`${BASE_INV}/products/${item.id}/`, { method: 'DELETE' });
+          const res = await fetch(`${BASE_INV}/products/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
           if (res.ok) {
             setProducts(products.filter(p => p.id !== item.id));
           } else {
@@ -1038,7 +1045,7 @@ export default function InventoryManagementTab() {
           return;
         }
         try {
-          const res = await fetch(`${BASE_INV}/categories/${item.id}/`, { method: 'DELETE' });
+          const res = await fetch(`${BASE_INV}/categories/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
           if (res.ok) {
             setCategories(categories.filter(c => c.id !== item.id));
           } else {
@@ -1055,7 +1062,7 @@ export default function InventoryManagementTab() {
           return;
         }
         try {
-          const res = await fetch(`${BASE_INV}/uoms/${item.id}/`, { method: 'DELETE' });
+          const res = await fetch(`${BASE_INV}/uoms/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
           if (res.ok) {
             setUoms(uoms.filter(u => u.id !== item.id));
           } else {
@@ -1073,7 +1080,7 @@ export default function InventoryManagementTab() {
           return;
         }
         try {
-          const res = await fetch(`${BASE_INV}/locations/${item.id}/`, { method: 'DELETE' });
+          const res = await fetch(`${BASE_INV}/locations/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
           if (res.ok) {
             setLocations(locations.filter(l => l.id !== item.id));
           } else {
@@ -1084,7 +1091,7 @@ export default function InventoryManagementTab() {
         break;
       case "vendor-setup":
         try {
-          const res = await fetch(`${BASE_INV}/vendors/${item.id}/`, { method: 'DELETE' });
+          const res = await fetch(`${BASE_INV}/vendors/${item.id}/`, { method: \'DELETE\', headers: getHeaders() });
           if (res.ok) {
             setVendors(vendors.filter(p => p.id !== item.id));
           } else {
