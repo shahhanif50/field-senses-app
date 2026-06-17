@@ -398,8 +398,9 @@ export function TopNavigation({
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden xl:flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 mx-4 px-2 py-1">
-            {tabs.map((tab) => {
+          <nav className="hidden xl:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 mx-4 px-2 py-1">
+            {/* 1. Dashboard Tab(s) */}
+            {tabs.filter(t => t.id.includes('dashboard') || t.label.toLowerCase() === 'dashboard').map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
@@ -416,11 +417,37 @@ export function TopNavigation({
                 </button>
               );
             })}
-          </nav>
 
-          {/* Right Actions */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="hidden lg:flex relative w-64">
+            {/* 2. Notification Bell (Between Dashboard and other tabs) */}
+            <div className="flex items-center shrink-0 px-1">
+              <NotificationBell 
+                onNotificationClick={handleTabClick} 
+                isMuted={isMuted} 
+                onToggleMute={toggleMute} 
+              />
+            </div>
+
+            {/* 3. Rest of the Tabs */}
+            {tabs.filter(t => !t.id.includes('dashboard') && t.label.toLowerCase() !== 'dashboard').map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabClick(tab.id)}
+                  title={tab.label}
+                  className={`nav-link flex items-center gap-2 shrink-0 ${
+                    isActive ? "active" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="text-xs whitespace-nowrap font-medium">{tab.label}</span>
+                </button>
+              );
+            })}
+
+            {/* 4. Search Bar at the end of the tabs list */}
+            <div className="hidden lg:flex relative w-64 ml-2 shrink-0">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input 
                 placeholder="Search..." 
@@ -429,7 +456,10 @@ export function TopNavigation({
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            
+          </nav>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-3 shrink-0">
             {isImpersonating && (
               <Button 
                 variant="outline" 
@@ -447,12 +477,6 @@ export function TopNavigation({
               </Button>
             )}
 
-            {/* Notifications */}
-            <NotificationBell 
-              onNotificationClick={handleTabClick} 
-              isMuted={isMuted} 
-              onToggleMute={toggleMute} 
-            />
             <Button variant="ghost" size="icon" onClick={onThemeToggle} title="Toggle Theme" className="rounded-full">
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
