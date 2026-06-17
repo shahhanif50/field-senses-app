@@ -81,7 +81,29 @@ const subTabs = [
 // ============= Component =============
 
 export function SalesExecutiveTab({ defaultSubTab }: { defaultSubTab?: string }) {
-  const [activeSubTab, setActiveSubTab] = useState(defaultSubTab || "sales-assignment");
+  let initialSubTabs = subTabs;
+  try {
+    const modulesEnabled: string[] = JSON.parse(sessionStorage.getItem("modulesEnabled") || "[]");
+    const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+    
+    if (!isGlobalAdmin && !modulesEnabled.includes("All")) {
+      const tabToModuleMap: Record<string, string[]> = {
+        "sales-assignment": ["territory_management"],
+        "territory-setup": ["territory_management"],
+        "distributor-linkage": ["distributor_linkage"],
+        "targets-performance": ["sales_monitoring"],
+        "reporting-alerts": ["sales_monitoring"]
+      };
+      
+      initialSubTabs = subTabs.filter(tab => {
+        const requiredModules = tabToModuleMap[tab.id] || [];
+        return requiredModules.some(m => modulesEnabled.includes(m));
+      });
+    }
+  } catch (e) {}
+
+  const defaultActiveTab = defaultSubTab || (initialSubTabs.length > 0 ? initialSubTabs[0].id : "sales-assignment");
+  const [activeSubTab, setActiveSubTab] = useState(defaultActiveTab);
 
   useEffect(() => {
     if (defaultSubTab) {
@@ -1530,7 +1552,7 @@ export function SalesExecutiveTab({ defaultSubTab }: { defaultSubTab?: string })
       {/* Sub Tabs - Hidden if controlled by top navigation */}
       {!defaultSubTab && (
         <div className="flex flex-wrap gap-2 p-2 bg-muted/30 rounded-xl border border-border/50">
-          {subTabs.map((tab) => {
+          {initialSubTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.id;
           return (

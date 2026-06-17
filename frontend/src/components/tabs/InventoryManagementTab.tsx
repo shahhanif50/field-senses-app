@@ -364,12 +364,33 @@ export default function InventoryManagementTab() {
   const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
 
   const filteredMainSections = React.useMemo(() => {
+    let modulesEnabled: string[] = [];
+    try {
+      modulesEnabled = JSON.parse(sessionStorage.getItem("modulesEnabled") || "[]");
+    } catch(e) {}
+    
+    // Map main sections to their required granular module IDs
+    const sectionToModuleIds: Record<string, string[]> = {
+      "product-setup": ["product_setup"],
+      "stock-management": ["stock_transfer", "stock_adjustment", "warehouse_management", "warehouse"],
+      "sales-billing": ["billing", "order_management", "dispatch_management", "payment_tracking"] // Adjust based on granular IDs
+    };
+
     return mainSections.filter(section => {
-      if (isAdmin) return true;
-      const perm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === section.label);
-      return perm?.view;
+      // Role permission check
+      if (!isAdmin) {
+        const perm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === section.label);
+        if (!perm?.view) return false;
+      }
+      
+      // Module access check
+      if (isGlobalAdmin) return true;
+      if (modulesEnabled.includes("All")) return true;
+      
+      const requiredModules = sectionToModuleIds[section.id] || [];
+      return requiredModules.some(m => modulesEnabled.includes(m));
     });
-  }, [rolePermissions, currentRole, isAdmin]);
+  }, [rolePermissions, currentRole, isAdmin, isGlobalAdmin]);
 
   React.useEffect(() => {
     if (filteredMainSections.length > 0 && !filteredMainSections.find(s => s.id === activeSection)) {
