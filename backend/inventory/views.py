@@ -40,7 +40,8 @@ class ProductOrderViewSet(BaseTenantViewSet):
     serializer_class = ProductOrderSerializer
 
     def perform_create(self, serializer):
-        instance = serializer.save()
+        super().perform_create(serializer)
+        instance = serializer.instance
         Alert.objects.create(
             type='new_order',
             message=f"New product order placed by Employee {instance.employeeId}.",

@@ -16,9 +16,16 @@ export function AdminOrdersTab() {
   const { toast } = useToast();
   const { activeProducts } = useMasterData();
 
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'X-User-Id': sessionStorage.getItem("userId") || "",
+    'X-User-Role': sessionStorage.getItem("userRole") || "",
+    'X-Organization-Id': sessionStorage.getItem("organizationId") || "",
+  });
+
   const fetchOrders = () => {
     setLoading(true);
-    fetch(`${API}/api/inventory/orders/`)
+    fetch(`${API}/api/inventory/orders/`, { headers: getHeaders() })
       .then((r) => r.json())
       .then((data) => {
         const results = Array.isArray(data) ? data : (data.results ? data.results : []);
@@ -36,7 +43,7 @@ export function AdminOrdersTab() {
     try {
       const res = await fetch(`${API}/api/inventory/orders/${id}/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
@@ -56,6 +63,7 @@ export function AdminOrdersTab() {
     try {
       const res = await fetch(`${API}/api/inventory/orders/${id}/`, {
         method: "DELETE",
+        headers: getHeaders(),
       });
       if (res.ok) {
         toast({ title: "Order Deleted", description: "The order has been removed." });
