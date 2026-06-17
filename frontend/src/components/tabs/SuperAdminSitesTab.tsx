@@ -177,7 +177,7 @@ export function SuperAdminSitesTab() {
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Select Product</Label>
-                <Select onValueChange={v => setSiteDetails({...siteDetails, product: v})}>
+                <Select value={siteDetails.product} onValueChange={v => setSiteDetails({...siteDetails, product: v})}>
                   <SelectTrigger className="bg-background"><SelectValue placeholder="Select a product" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="field-sense">Field Sense</SelectItem>
