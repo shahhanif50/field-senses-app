@@ -392,7 +392,7 @@ export function TopNavigation({
             <div className="hidden sm:block">
               <h1 className="font-display font-bold text-lg gradient-text">Field Senses</h1>
               <p className="text-xs text-muted-foreground capitalize">
-                {userName} • {rawRole.toLowerCase()}
+                {userName === "Superadmin" || userName === "System Admin" ? "Superadmin" : `${userName} • ${rawRole.toLowerCase()}`}
               </p>
             </div>
           </div>

@@ -443,7 +443,7 @@ class LoginView(APIView):
             if email == "admin@example.com" and password == "Admin@123":
                 return Response({
                     "id": "admin",
-                    "fullName": "System Admin",
+                    "fullName": "Superadmin",
                     "email": email,
                     "roleCode": "ADMIN",
                     "departmentId": "admin",
@@ -495,7 +495,7 @@ class MeView(APIView):
         if user_id == "admin":
             return Response({
                 "id": "admin",
-                "fullName": "System Admin",
+                "fullName": "Superadmin",
                 "email": "admin@example.com",
                 "roleCode": "ADMIN",
                 "departmentId": "admin",

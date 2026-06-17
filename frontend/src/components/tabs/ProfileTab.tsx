@@ -60,7 +60,7 @@ export function ProfileTab() {
         } else {
           setProfile({
             id: "admin",
-            fullName: sessionStorage.getItem("userName") || "System Admin",
+            fullName: sessionStorage.getItem("userName") || "Superadmin",
             email: "admin@example.com",
             mobileNumber: "-",
             designation: "Administrator",

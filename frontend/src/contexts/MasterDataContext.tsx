@@ -635,7 +635,7 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
   const getStatusNameById = useCallback((statusId: string) => getStatusName(statusId, statusMaster), [statusMaster]);
   const getEmployeeById = useCallback((id: string) => employees.find(e => e.id === id), [employees]);
   const getEmployeeNameById = useCallback((id: string) => {
-    if (id === 'admin' || id === 'SYSTEM') return 'System Admin';
+    if (id === 'admin' || id === 'SYSTEM') return 'Superadmin';
     return employees.find(e => e.id === id)?.fullName || "Unknown";
   }, [employees]);
 
