@@ -184,6 +184,52 @@ export function SuperAdminSitesTab() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {siteDetails.product === "field-sense" && (
+                <div className="space-y-4 md:col-span-2 pt-4 mt-2">
+                  <h3 className="text-base font-bold text-foreground">Select Modules</h3>
+                  <div className="space-y-4">
+                    {MODULES_HIERARCHY.map(mod => (
+                      <div key={mod.id} className="p-4 border border-border/50 rounded-lg bg-muted/5">
+                        <div className="flex items-center gap-3 mb-4">
+                          <Checkbox 
+                            id={`mod-${mod.id}`}
+                            checked={selectedModules.includes(mod.id)}
+                            onCheckedChange={(c) => {
+                              if (c) {
+                                setSelectedModules([...selectedModules, mod.id, ...mod.subModules.map(s => s.id)]);
+                              } else {
+                                setSelectedModules(selectedModules.filter(m => m !== mod.id && !mod.subModules.map(s => s.id).includes(m)));
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`mod-${mod.id}`} className="font-bold text-base cursor-pointer">{mod.label}</Label>
+                        </div>
+                        <div className="ml-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                          {mod.subModules.map(sub => (
+                            <div key={sub.id} className="flex items-center gap-2">
+                              <Checkbox 
+                                id={`sub-${sub.id}`}
+                                checked={selectedModules.includes(sub.id)}
+                                onCheckedChange={(c) => {
+                                  if (c) {
+                                    const newMods = [...selectedModules, sub.id];
+                                    if (!newMods.includes(mod.id)) newMods.push(mod.id);
+                                    setSelectedModules(newMods);
+                                  } else {
+                                    setSelectedModules(selectedModules.filter(m => m !== sub.id));
+                                  }
+                                }}
+                              />
+                              <Label htmlFor={`sub-${sub.id}`} className="text-sm cursor-pointer font-medium text-muted-foreground">{sub.label}</Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="space-y-2 md:col-span-2">
                 <Label>Country</Label>
                 <Input placeholder="Select or type country" value={siteDetails.country} onChange={e => setSiteDetails({...siteDetails, country: e.target.value})} />
@@ -224,53 +270,7 @@ export function SuperAdminSitesTab() {
           </CardContent>
         </Card>
 
-        {siteDetails.product === "field-sense" && (
-          <Card className="border-border shadow-sm">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-bold mb-4 text-foreground">Select Modules</h3>
-              <div className="space-y-4">
-                {MODULES_HIERARCHY.map(mod => (
-                  <div key={mod.id} className="p-4 border rounded-lg bg-card">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Checkbox 
-                        id={`mod-${mod.id}`}
-                        checked={selectedModules.includes(mod.id)}
-                        onCheckedChange={(c) => {
-                          if (c) {
-                            setSelectedModules([...selectedModules, mod.id, ...mod.subModules.map(s => s.id)]);
-                          } else {
-                            setSelectedModules(selectedModules.filter(m => m !== mod.id && !mod.subModules.map(s => s.id).includes(m)));
-                          }
-                        }}
-                      />
-                      <Label htmlFor={`mod-${mod.id}`} className="font-bold text-base cursor-pointer">{mod.label}</Label>
-                    </div>
-                    <div className="ml-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {mod.subModules.map(sub => (
-                        <div key={sub.id} className="flex items-center gap-2">
-                          <Checkbox 
-                            id={`sub-${sub.id}`}
-                            checked={selectedModules.includes(sub.id)}
-                            onCheckedChange={(c) => {
-                              if (c) {
-                                const newMods = [...selectedModules, sub.id];
-                                if (!newMods.includes(mod.id)) newMods.push(mod.id);
-                                setSelectedModules(newMods);
-                              } else {
-                                setSelectedModules(selectedModules.filter(m => m !== sub.id));
-                              }
-                            }}
-                          />
-                          <Label htmlFor={`sub-${sub.id}`} className="text-sm cursor-pointer font-medium text-muted-foreground">{sub.label}</Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+
       </div>
     );
   }
