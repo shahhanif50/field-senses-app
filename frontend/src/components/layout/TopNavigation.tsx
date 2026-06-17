@@ -398,7 +398,7 @@ export function TopNavigation({
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden xl:flex items-center gap-1">
+          <nav className="hidden xl:flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 mx-4 px-2 py-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -407,19 +407,28 @@ export function TopNavigation({
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
                   title={tab.label}
-                  className={`nav-link flex items-center gap-2 ${
+                  className={`nav-link flex items-center gap-2 shrink-0 ${
                     isActive ? "active" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden 2xl:inline text-xs">{tab.label}</span>
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="text-xs whitespace-nowrap font-medium">{tab.label}</span>
                 </button>
               );
             })}
           </nav>
 
-          {/* ... (Keep the rest of your Right Actions div exactly as it is) ... */}
-          <div className="flex items-center gap-3">
+          {/* Right Actions */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="hidden lg:flex relative w-64">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input 
+                placeholder="Search..." 
+                className="pl-9 h-9 bg-muted/50 border-none focus-visible:ring-primary/50 text-sm rounded-full"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
             
             {isImpersonating && (
               <Button 
@@ -444,10 +453,10 @@ export function TopNavigation({
               isMuted={isMuted} 
               onToggleMute={toggleMute} 
             />
-            <Button variant="ghost" size="icon" onClick={onThemeToggle} title="Toggle Theme">
+            <Button variant="ghost" size="icon" onClick={onThemeToggle} title="Toggle Theme" className="rounded-full">
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
+            <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout" className="text-destructive hover:bg-destructive/10 hover:text-destructive rounded-full">
               <LogOut className="w-5 h-5" />
             </Button>
           </div>
