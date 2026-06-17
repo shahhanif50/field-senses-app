@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useMasterData } from "@/contexts/MasterDataContext";
 import { MODULES_HIERARCHY } from "@/components/shared/RolePermissionsTable";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function SuperAdminSitesTab() {
   const [view, setView] = useState<"list" | "add" | "edit">("list");
