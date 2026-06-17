@@ -44,19 +44,6 @@ export function OrganizationDetailsTab() {
     window.dispatchEvent(new CustomEvent("changeTab", { detail: "organizations" }));
   };
 
-  const handleImpersonate = () => {
-    if (!org) return;
-    sessionStorage.setItem("organizationId", org.id);
-    sessionStorage.setItem("organizationName", org.name);
-    if (org.modulesEnabled) {
-      sessionStorage.setItem("organizationModules", JSON.stringify(org.modulesEnabled));
-    }
-    toast.success(`Impersonating ${org.name}`);
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  };
-
   if (loading) return <div className="p-8 text-center">Loading organization details...</div>;
   if (!org) return <div className="p-8 text-center text-muted-foreground">Organization not found.</div>;
 
@@ -81,10 +68,6 @@ export function OrganizationDetailsTab() {
             </p>
           </div>
         </div>
-        <Button onClick={handleImpersonate} className="gap-2">
-          <Eye className="w-4 h-4" />
-          Impersonate as Admin
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -495,27 +495,7 @@ export function OrganizationsTab() {
                   onChange={(e) => setNewOrg({...newOrg, domain: e.target.value})}
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium mb-2 block">Enabled Modules</label>
-                <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto p-2 border rounded-md">
-                  {AVAILABLE_MODULES.map(mod => (
-                    <div key={mod} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={mod} 
-                        checked={newOrg.modulesEnabled.includes(mod)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setNewOrg({...newOrg, modulesEnabled: [...newOrg.modulesEnabled, mod]});
-                          } else {
-                            setNewOrg({...newOrg, modulesEnabled: newOrg.modulesEnabled.filter(m => m !== mod)});
-                          }
-                        }}
-                      />
-                      <label htmlFor={mod} className="text-sm cursor-pointer">{mod}</label>
-                    </div>
-                  ))}
-                </div>
-              </div>
+
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsNewModalOpen(false)}>Cancel</Button>
@@ -546,27 +526,7 @@ export function OrganizationsTab() {
                   onChange={(e) => setEditOrgForm({...editOrgForm, domain: e.target.value})}
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium mb-2 block">Enabled Modules</label>
-                <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto p-2 border rounded-md">
-                  {AVAILABLE_MODULES.map(mod => (
-                    <div key={mod} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`edit-${mod}`} 
-                        checked={editOrgForm.modulesEnabled.includes(mod)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setEditOrgForm({...editOrgForm, modulesEnabled: [...editOrgForm.modulesEnabled, mod]});
-                          } else {
-                            setEditOrgForm({...editOrgForm, modulesEnabled: editOrgForm.modulesEnabled.filter(m => m !== mod)});
-                          }
-                        }}
-                      />
-                      <label htmlFor={`edit-${mod}`} className="text-sm cursor-pointer">{mod}</label>
-                    </div>
-                  ))}
-                </div>
-              </div>
+
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
