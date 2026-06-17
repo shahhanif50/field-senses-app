@@ -465,10 +465,7 @@ class LoginView(APIView):
         roleCode = employee.roleId.roleCode if employee.roleId else "NONE"
         modulesEnabled = employee.organization.modulesEnabled if employee.organization else []
         if employee.siteId and employee.siteId.modulesEnabled:
-            if "All" in employee.siteId.modulesEnabled:
-                pass
-            else:
-                modulesEnabled = [m for m in modulesEnabled if m in employee.siteId.modulesEnabled or m == "All"]
+            modulesEnabled = employee.siteId.modulesEnabled
         isGlobalAdmin = (roleCode == "ADMIN" and employee.organization is None)
         
         return Response({
@@ -517,10 +514,7 @@ class MeView(APIView):
         roleCode = employee.roleId.roleCode if employee.roleId else "NONE"
         modulesEnabled = employee.organization.modulesEnabled if employee.organization else []
         if employee.siteId and employee.siteId.modulesEnabled:
-            if "All" in employee.siteId.modulesEnabled:
-                pass
-            else:
-                modulesEnabled = [m for m in modulesEnabled if m in employee.siteId.modulesEnabled or m == "All"]
+            modulesEnabled = employee.siteId.modulesEnabled
         isGlobalAdmin = (roleCode == "ADMIN" and employee.organization is None)
         
         return Response({
