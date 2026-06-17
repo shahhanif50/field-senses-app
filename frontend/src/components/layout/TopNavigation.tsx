@@ -458,11 +458,13 @@ export function TopNavigation({
               </Button>
             )}
 
-            <NotificationBell 
-              onNotificationClick={handleTabClick} 
-              isMuted={isMuted} 
-              onToggleMute={toggleMute} 
-            />
+            {userRole !== "superadmin" && (
+              <NotificationBell 
+                onNotificationClick={handleTabClick} 
+                isMuted={isMuted} 
+                onToggleMute={toggleMute} 
+              />
+            )}
             <Button variant="ghost" size="icon" onClick={onThemeToggle} title="Toggle Theme" className="rounded-full">
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
