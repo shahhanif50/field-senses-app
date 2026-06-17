@@ -221,6 +221,14 @@ class EmployeeViewSet(BaseTenantViewSet):
     def perform_create(self, serializer):
         super().perform_create(serializer)
         emp = serializer.instance
+        from ops.models import Alert
+        Alert.objects.create(
+            type='new_employee',
+            message=f"New employee {emp.fullName} was created.",
+            severity='low',
+            relatedEntityId=emp.employeeId,
+            relatedEntityType='employee'
+        )
         password = self.request.data.get('password')
         if password and emp.email:
             try:

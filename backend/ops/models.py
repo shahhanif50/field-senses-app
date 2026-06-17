@@ -96,7 +96,9 @@ class Alert(models.Model):
         ('low_achievement', 'low_achievement'), ('inactive_gps', 'inactive_gps'), 
         ('pending_approval', 'pending_approval'), ('compliance', 'compliance'), 
         ('license_expiry', 'license_expiry'), ('stock_low', 'stock_low'),
-        ('tracking_update', 'tracking_update')
+        ('tracking_update', 'tracking_update'),
+        ('new_order', 'new_order'), ('travel_start', 'travel_start'),
+        ('expense_approval', 'expense_approval'), ('new_employee', 'new_employee')
     )
     type = models.CharField(max_length=50, choices=TYPE_CHOICES)
     message = models.TextField()

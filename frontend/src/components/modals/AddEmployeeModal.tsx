@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
+import { Eye, EyeOff } from 'lucide-react';
 
 const API = "";
 
@@ -21,6 +22,7 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: initialData?.fullName || '',
@@ -167,7 +169,24 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
             </div>
             <div>
               <label className={labelCls}>Password *</label>
-              <input type="password" name="password" value={formData.password} onChange={handleChange} required placeholder="Set login password" className={inputCls} />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  name="password" 
+                  value={formData.password} 
+                  onChange={handleChange} 
+                  required 
+                  placeholder="Set login password" 
+                  className={inputCls} 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)} 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           </div>
 

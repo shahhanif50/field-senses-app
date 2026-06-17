@@ -88,6 +88,16 @@ class TravelExpenseViewSet(viewsets.ModelViewSet):
     queryset = TravelExpense.objects.all().order_by('-timestamp')
     serializer_class = TravelExpenseSerializer
 
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        Alert.objects.create(
+            type='expense_approval',
+            message=f"New expense submitted for approval by {instance.employeeName}.",
+            severity='medium',
+            relatedEntityId=instance.employeeId,
+            relatedEntityType='employee'
+        )
+
     def get_queryset(self):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
@@ -139,6 +149,17 @@ class TravelExpenseViewSet(viewsets.ModelViewSet):
 class TrackingEntryViewSet(viewsets.ModelViewSet):
     queryset = TrackingEntry.objects.all()
     serializer_class = TrackingEntrySerializer
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        if instance.status == 'online':
+            Alert.objects.create(
+                type='travel_start',
+                message=f"Employee {instance.employeeName} started tracking.",
+                severity='low',
+                relatedEntityId=instance.employeeId,
+                relatedEntityType='employee'
+            )
 
     def get_queryset(self):
         queryset = super().get_queryset()

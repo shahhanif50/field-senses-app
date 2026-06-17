@@ -4043,63 +4043,74 @@ export default function InventoryManagementTab() {
   }
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Main Sections */}
-      {filteredMainSections.length > 1 && (
-        <div className="glass-card p-2 flex flex-wrap justify-center gap-2">
-          {filteredMainSections.map((section) => {
-            const isActive = activeSection === section.id;
-            return (
-              <button
-                key={section.id}
-                onClick={() => {
-                  setActiveSection(section.id);
-                  let availableMods = subModulesData[section.id] || [];
-                  if (rawRole.toLowerCase() === "employee" && section.id === "product-setup") {
-                    availableMods = availableMods.filter(m => m.id === "product-master");
-                  }
-                  const firstMod = availableMods[0]?.id;
-                  if (firstMod) setActiveModule(firstMod);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-lg"
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <section.icon className="w-4 h-4" />
-                {section.label}
-              </button>
-            );
-          })}
+    <div className="flex flex-col gap-6 pb-12">
+      {/* Elegant Header with Section Switcher */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 bg-card p-6 rounded-2xl border shadow-sm">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Inventory Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your products, stock levels, and billing settings in one place.
+          </p>
         </div>
-      )}
+        
+        {/* Section Switcher (Segmented Control) */}
+        {filteredMainSections.length > 1 && (
+          <div className="bg-muted/50 p-1 rounded-xl flex items-center border border-border/50 overflow-x-auto max-w-full">
+            {filteredMainSections.map((section) => {
+              const isActive = activeSection === section.id;
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => {
+                    setActiveSection(section.id);
+                    let availableMods = subModulesData[section.id] || [];
+                    if (rawRole.toLowerCase() === "employee" && section.id === "product-setup") {
+                      availableMods = availableMods.filter(m => m.id === "product-master");
+                    }
+                    const firstMod = availableMods[0]?.id;
+                    if (firstMod) setActiveModule(firstMod);
+                  }}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
+                    isActive
+                      ? "bg-background shadow-sm text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                  }`}
+                >
+                  <section.icon className="w-4 h-4" />
+                  {section.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-      {/* Sub Modules */}
-      {currentSubModules.length > 1 && (
-        <div className="glass-card p-2 flex flex-wrap justify-center gap-2">
-          {currentSubModules.map((module) => {
-            const isActive = activeModule === module.id;
-            return (
-              <button
-                key={module.id}
-                onClick={() => setActiveModule(module.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-lg"
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <module.icon className="w-4 h-4" />
-                <span className="whitespace-nowrap">{module.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div className="flex flex-col gap-6">
+        {/* Sub Modules - Clean Underline Tabs */}
+        {currentSubModules.length > 1 && (
+          <div className="flex items-center gap-8 border-b border-border/50 px-2 overflow-x-auto">
+            {currentSubModules.map((module) => {
+              const isActive = activeModule === module.id;
+              return (
+                <button
+                  key={module.id}
+                  onClick={() => setActiveModule(module.id)}
+                  className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-all text-sm font-medium whitespace-nowrap ${
+                    isActive
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-border/80"
+                  }`}
+                >
+                  <module.icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                  {module.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-      {/* Content */}
-      <div className="mt-6">
+        {/* Content Area */}
+        <div className="mt-2">
         {currentSubModules.map((module) => (
           <div key={module.id} className={activeModule === module.id ? "block" : "hidden"}>
             {isSettingsModule ? (
@@ -4149,6 +4160,8 @@ export default function InventoryManagementTab() {
             )}
           </div>
         ))}
+      </div>
+
       </div>
 
       <GlassModal

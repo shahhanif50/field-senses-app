@@ -52,6 +52,10 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   license_expiry: <Shield className="w-4 h-4" />,
   stock_low: <Package className="w-4 h-4" />,
   tracking_update: <Bell className="w-4 h-4" />,
+  new_order: <Package className="w-4 h-4" />,
+  travel_start: <MapPin className="w-4 h-4" />,
+  expense_approval: <Clock className="w-4 h-4" />,
+  new_employee: <Shield className="w-4 h-4" />,
 };
 
 function timeAgo(timestamp: string): string {

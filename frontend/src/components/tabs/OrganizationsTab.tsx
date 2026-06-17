@@ -34,11 +34,23 @@ export function OrganizationsTab() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-  const [newOrg, setNewOrg] = useState({ name: "", domain: "", modulesEnabled: ["Master Setup", "Employee Portal"] });
+  const [newOrg, setNewOrg] = useState({ 
+    name: "", domain: "", companyName: "", entityName: "", site: "", 
+    country: "", region: "", state: "", city: "", zone: "", 
+    whiteLabel: false, subDomain: "", solutionType: "", solutionFor: "", billingTerm: "",
+    modulesEnabled: ["Master Setup", "Employee Portal"] 
+  });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
-  const [editOrgForm, setEditOrgForm] = useState({ name: "", domain: "", modulesEnabled: [] as string[] });
+  const [editOrgForm, setEditOrgForm] = useState({ 
+    name: "", domain: "", companyName: "", entityName: "", site: "", 
+    country: "", region: "", state: "", city: "", zone: "", 
+    whiteLabel: false, subDomain: "", solutionType: "", solutionFor: "", billingTerm: "",
+    modulesEnabled: [] as string[] 
+  });
+
+  const [orgFilters, setOrgFilters] = useState({ search: "", region: "", country: "", state: "", city: "", zone: "" });
 
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
@@ -419,24 +431,50 @@ export function OrganizationsTab() {
 
           {/* Module Access Section */}
           <div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-4">
-            <h3 className="text-base font-bold text-foreground">Module Access</h3>
+            <div className="flex justify-between items-center mb-2">
+               <h3 className="text-base font-bold text-foreground">Module Access</h3>
+               <div className="flex items-center gap-2">
+                 <Input placeholder="Search modules..." className="w-64 h-8 text-xs border-border" />
+                 <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white"><Plus className="w-4 h-4 mr-1"/> Add Module</Button>
+               </div>
+            </div>
+            
             <div className="space-y-6 p-4 rounded-xl border border-border/50 bg-muted/30">
-              <div className="space-y-2">
-                <h4 className="font-medium text-foreground/90 bg-card px-2 py-1 rounded shadow-sm inline-block">Application Modules</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2 mt-2">
-                  {AVAILABLE_MODULES.map(mod => {
-                    return (
-                      <label key={mod} className={`flex items-center gap-2 text-sm cursor-pointer`}>
-                        <input type="checkbox" className="rounded border-input" checked={(newSite.modulesEnabled || []).includes(mod)} onChange={(e) => {
-                          const current = newSite.modulesEnabled || [];
-                          if (e.target.checked) setNewSite({ ...newSite, modulesEnabled: [...current, mod] });
-                          else setNewSite({ ...newSite, modulesEnabled: current.filter((m: string) => m !== mod) });
-                        }} /> {mod}
-                      </label>
-                    );
-                  })}
+              
+              <div className="space-y-3">
+                <h4 className="font-semibold text-sm text-foreground flex items-center justify-between border-b pb-1">
+                   Core Services
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2">
+                  {["Tickets", "Vendors", "Space Management", "Assets", "Staff", "Communication", "Service Tickets", "Contacts", "Meeting Management", "Items", "Business Cards", "My Tickets"].map(mod => (
+                    <label key={mod} className={`flex items-center gap-2 text-xs cursor-pointer`}>
+                      <input type="checkbox" className="rounded border-input text-blue-600" checked={(newSite.modulesEnabled || []).includes(mod)} onChange={(e) => {
+                        const current = newSite.modulesEnabled || [];
+                        if (e.target.checked) setNewSite({ ...newSite, modulesEnabled: [...current, mod] });
+                        else setNewSite({ ...newSite, modulesEnabled: current.filter((m: string) => m !== mod) });
+                      }} /> {mod}
+                    </label>
+                  ))}
                 </div>
               </div>
+
+              <div className="space-y-3 pt-2">
+                <h4 className="font-semibold text-sm text-foreground flex items-center justify-between border-b pb-1">
+                   Financial & Accounting
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2">
+                  {["Accounting", "Salary Processing", "Bill Pay", "CAM Bill", "Purchase Order", "Bills", "Other Bills", "Advance Salary"].map(mod => (
+                    <label key={mod} className={`flex items-center gap-2 text-xs cursor-pointer`}>
+                      <input type="checkbox" className="rounded border-input text-blue-600" checked={(newSite.modulesEnabled || []).includes(mod)} onChange={(e) => {
+                        const current = newSite.modulesEnabled || [];
+                        if (e.target.checked) setNewSite({ ...newSite, modulesEnabled: [...current, mod] });
+                        else setNewSite({ ...newSite, modulesEnabled: current.filter((m: string) => m !== mod) });
+                      }} /> {mod}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -476,59 +514,221 @@ export function OrganizationsTab() {
               Add Organization
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Organization</DialogTitle>
+              <DialogTitle className="text-xl">Add New Organization</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Organization Name</label>
-                <Input 
-                  placeholder="Acme Corp" 
-                  value={newOrg.name} 
-                  onChange={(e) => setNewOrg({...newOrg, name: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Domain (Optional)</label>
-                <Input 
-                  placeholder="acme.com" 
-                  value={newOrg.domain} 
-                  onChange={(e) => setNewOrg({...newOrg, domain: e.target.value})}
-                />
+            <div className="space-y-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold border-b pb-2 mb-4">Organization Details</h3>
+                <p className="text-sm text-muted-foreground mb-4">Provide the essential information for the new organization.</p>
+                
+                <h4 className="text-sm font-medium mb-3">General Information</h4>
+                <div className="grid grid-cols-1 gap-4 mb-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Organization Name *</Label>
+                    <Input placeholder="Acme Corporation" value={newOrg.name} onChange={(e) => setNewOrg({...newOrg, name: e.target.value})} />
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-medium mb-3">Company details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Company Name *</Label>
+                    <Input placeholder="Acme Inc." value={newOrg.companyName} onChange={(e) => setNewOrg({...newOrg, companyName: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Entity</Label>
+                    <Input placeholder="Acme Global Entity" value={newOrg.entityName} onChange={(e) => setNewOrg({...newOrg, entityName: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Site</Label>
+                    <Input placeholder="Enter your site" value={newOrg.site} onChange={(e) => setNewOrg({...newOrg, site: e.target.value})} />
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-medium mb-3">Location Details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Country</Label>
+                    <Input placeholder="Select or type country" value={newOrg.country} onChange={(e) => setNewOrg({...newOrg, country: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Region</Label>
+                    <Input placeholder="Select or type region" value={newOrg.region} onChange={(e) => setNewOrg({...newOrg, region: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">State</Label>
+                    <Input placeholder="Select or type state" value={newOrg.state} onChange={(e) => setNewOrg({...newOrg, state: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">City</Label>
+                    <Input placeholder="Select or type city" value={newOrg.city} onChange={(e) => setNewOrg({...newOrg, city: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Zone</Label>
+                    <Input placeholder="Select or type zone" value={newOrg.zone} onChange={(e) => setNewOrg({...newOrg, zone: e.target.value})} />
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-medium mb-3">Advanced Options</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-center">
+                  <div className="space-y-1.5 flex flex-col">
+                    <Label className="text-xs mb-2">White Label</Label>
+                    <Switch checked={newOrg.whiteLabel} onCheckedChange={(checked) => setNewOrg({...newOrg, whiteLabel: checked})} />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs">Sub - Domain</Label>
+                    <Input placeholder="www.hml.com" value={newOrg.subDomain} onChange={(e) => setNewOrg({...newOrg, subDomain: e.target.value})} />
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-medium mb-3">Billing</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Solution Type</Label>
+                    <Select value={newOrg.solutionType} onValueChange={(val) => setNewOrg({...newOrg, solutionType: val})}>
+                      <SelectTrigger><SelectValue placeholder="-- Please choose an option --" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="saas">SaaS</SelectItem>
+                        <SelectItem value="onpremise">On-Premise</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Solution For</Label>
+                    <Select value={newOrg.solutionFor} onValueChange={(val) => setNewOrg({...newOrg, solutionFor: val})}>
+                      <SelectTrigger><SelectValue placeholder="-- Please choose an option --" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="enterprise">Enterprise</SelectItem>
+                        <SelectItem value="smb">SMB</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Billing Term</Label>
+                    <Select value={newOrg.billingTerm} onValueChange={(val) => setNewOrg({...newOrg, billingTerm: val})}>
+                      <SelectTrigger><SelectValue placeholder="-- Please choose an option --" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
 
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsNewModalOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreateOrg}>Create Tenant</Button>
+              <Button onClick={handleCreateOrg}>Save Organization</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Organization</DialogTitle>
+              <DialogTitle className="text-xl">Edit Organization</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Organization Name</label>
-                <Input 
-                  placeholder="Acme Corp" 
-                  value={editOrgForm.name} 
-                  onChange={(e) => setEditOrgForm({...editOrgForm, name: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Domain (Optional)</label>
-                <Input 
-                  placeholder="acme.com" 
-                  value={editOrgForm.domain} 
-                  onChange={(e) => setEditOrgForm({...editOrgForm, domain: e.target.value})}
-                />
-              </div>
+            <div className="space-y-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold border-b pb-2 mb-4">Organization Details</h3>
+                
+                <h4 className="text-sm font-medium mb-3">General Information</h4>
+                <div className="grid grid-cols-1 gap-4 mb-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Organization Name *</Label>
+                    <Input placeholder="Acme Corporation" value={editOrgForm.name} onChange={(e) => setEditOrgForm({...editOrgForm, name: e.target.value})} />
+                  </div>
+                </div>
 
+                <h4 className="text-sm font-medium mb-3">Company details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Company Name *</Label>
+                    <Input placeholder="Acme Inc." value={editOrgForm.companyName} onChange={(e) => setEditOrgForm({...editOrgForm, companyName: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Entity</Label>
+                    <Input placeholder="Acme Global Entity" value={editOrgForm.entityName} onChange={(e) => setEditOrgForm({...editOrgForm, entityName: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Site</Label>
+                    <Input placeholder="Enter your site" value={editOrgForm.site} onChange={(e) => setEditOrgForm({...editOrgForm, site: e.target.value})} />
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-medium mb-3">Location Details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Country</Label>
+                    <Input placeholder="Select or type country" value={editOrgForm.country} onChange={(e) => setEditOrgForm({...editOrgForm, country: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Region</Label>
+                    <Input placeholder="Select or type region" value={editOrgForm.region} onChange={(e) => setEditOrgForm({...editOrgForm, region: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">State</Label>
+                    <Input placeholder="Select or type state" value={editOrgForm.state} onChange={(e) => setEditOrgForm({...editOrgForm, state: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">City</Label>
+                    <Input placeholder="Select or type city" value={editOrgForm.city} onChange={(e) => setEditOrgForm({...editOrgForm, city: e.target.value})} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Zone</Label>
+                    <Input placeholder="Select or type zone" value={editOrgForm.zone} onChange={(e) => setEditOrgForm({...editOrgForm, zone: e.target.value})} />
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-medium mb-3">Advanced Options</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-center">
+                  <div className="space-y-1.5 flex flex-col">
+                    <Label className="text-xs mb-2">White Label</Label>
+                    <Switch checked={editOrgForm.whiteLabel} onCheckedChange={(checked) => setEditOrgForm({...editOrgForm, whiteLabel: checked})} />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs">Sub - Domain</Label>
+                    <Input placeholder="www.hml.com" value={editOrgForm.subDomain} onChange={(e) => setEditOrgForm({...editOrgForm, subDomain: e.target.value})} />
+                  </div>
+                </div>
+
+                <h4 className="text-sm font-medium mb-3">Billing</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Solution Type</Label>
+                    <Select value={editOrgForm.solutionType} onValueChange={(val) => setEditOrgForm({...editOrgForm, solutionType: val})}>
+                      <SelectTrigger><SelectValue placeholder="-- Please choose an option --" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="saas">SaaS</SelectItem>
+                        <SelectItem value="onpremise">On-Premise</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Solution For</Label>
+                    <Select value={editOrgForm.solutionFor} onValueChange={(val) => setEditOrgForm({...editOrgForm, solutionFor: val})}>
+                      <SelectTrigger><SelectValue placeholder="-- Please choose an option --" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="enterprise">Enterprise</SelectItem>
+                        <SelectItem value="smb">SMB</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Billing Term</Label>
+                    <Select value={editOrgForm.billingTerm} onValueChange={(val) => setEditOrgForm({...editOrgForm, billingTerm: val})}>
+                      <SelectTrigger><SelectValue placeholder="-- Please choose an option --" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
@@ -725,62 +925,95 @@ export function OrganizationsTab() {
           )}
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead>Organization</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell">Modules</TableHead>
-                <TableHead className="hidden lg:table-cell">Administrators</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8">Loading organizations...</TableCell></TableRow>
-              ) : organizations.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No organizations found. Create your first tenant above.</TableCell></TableRow>
-              ) : (
-                organizations.map((org) => (
-                  <TableRow key={org.id} className="group hover:bg-muted/30">
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-foreground">{org.name}</span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><Shield className="w-3 h-3" /> {org.domain || "No domain set"}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={org.is_deleted ? "destructive" : "default"} className="shadow-none">{org.is_deleted ? "Inactive" : "Active"}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell max-w-[200px]">
-                      <div className="flex flex-wrap gap-1">
-                        {org.modulesEnabled?.slice(0, 3).map(mod => <Badge key={mod} variant="secondary" className="text-[10px] bg-primary/5 text-primary border-primary/10 shadow-none">{mod}</Badge>)}
-                        {org.modulesEnabled && org.modulesEnabled.length > 3 && <Badge variant="secondary" className="text-[10px] bg-primary/5 text-primary border-primary/10 shadow-none">+{org.modulesEnabled.length - 3} more</Badge>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <div className="flex -space-x-2 overflow-hidden">
-                        {org.admins && org.admins.length > 0 ? org.admins.map((admin, i) => (
-                          <div key={admin.id || i} className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-primary/10 flex items-center justify-center text-primary text-xs font-bold" title={admin.email}>{admin.name.charAt(0).toUpperCase()}</div>
-                        )) : <span className="text-xs text-muted-foreground italic">None</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { setSelectedOrgIdForSites(org.id); setIsSitesModalOpen(true); }} title="Sites"><MapPin className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { sessionStorage.setItem("viewOrganizationId", org.id); window.dispatchEvent(new CustomEvent("changeTab", { detail: "organization-details" })); }} title="View Details"><Eye className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10" onClick={() => { setEditingOrg(org); setEditOrgForm({ name: org.name, domain: org.domain || "", modulesEnabled: org.modulesEnabled || [] }); setIsEditModalOpen(true); }} title="Edit"><Settings className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10" onClick={() => { setSelectedOrgId(org.id); setIsAdminModalOpen(true); }} title="Add Admin"><UserPlus className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className={`h-8 w-8 ${org.is_deleted ? "text-emerald-500 hover:bg-emerald-500/10" : "text-amber-500 hover:bg-amber-500/10"}`} onClick={() => handleToggleStatus(org)} title={org.is_deleted ? "Activate" : "Deactivate"}>{org.is_deleted ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}</Button>
-                        {org.is_deleted && <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteOrg(org.id)} title="Delete"><Trash2 className="w-4 h-4" /></Button>}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <div className="space-y-4">
+          {/* Filters Bar */}
+          <div className="bg-card rounded-xl border border-border shadow-sm p-4">
+            <h3 className="text-sm font-semibold mb-3">Filters</h3>
+            <div className="flex flex-wrap gap-3 items-center">
+              <Input placeholder="Search organizations..." className="w-48 h-9 text-sm" value={orgFilters.search} onChange={e => setOrgFilters({...orgFilters, search: e.target.value})} />
+              <Select value={orgFilters.region} onValueChange={v => setOrgFilters({...orgFilters, region: v})}>
+                <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="Region" /></SelectTrigger>
+                <SelectContent><SelectItem value="North America">North America</SelectItem><SelectItem value="Europe">Europe</SelectItem></SelectContent>
+              </Select>
+              <Select value={orgFilters.country} onValueChange={v => setOrgFilters({...orgFilters, country: v})}>
+                <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="Country" /></SelectTrigger>
+                <SelectContent><SelectItem value="US">US</SelectItem><SelectItem value="UK">UK</SelectItem></SelectContent>
+              </Select>
+              <Select value={orgFilters.state} onValueChange={v => setOrgFilters({...orgFilters, state: v})}>
+                <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="State" /></SelectTrigger>
+                <SelectContent><SelectItem value="CA">California</SelectItem><SelectItem value="NY">New York</SelectItem></SelectContent>
+              </Select>
+              <Select value={orgFilters.city} onValueChange={v => setOrgFilters({...orgFilters, city: v})}>
+                <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="City" /></SelectTrigger>
+                <SelectContent><SelectItem value="SF">San Francisco</SelectItem><SelectItem value="London">London</SelectItem></SelectContent>
+              </Select>
+              <Select value={orgFilters.zone} onValueChange={v => setOrgFilters({...orgFilters, zone: v})}>
+                <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="Zone" /></SelectTrigger>
+                <SelectContent><SelectItem value="Z1">Zone 1</SelectItem></SelectContent>
+              </Select>
+              <Button variant="outline" className="h-9 text-sm" onClick={() => setOrgFilters({search: "", region: "", country: "", state: "", city: "", zone: ""})}>Clear Filters</Button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm shadow-sm overflow-x-auto">
+            <Table className="min-w-[1200px]">
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead>Organization Name</TableHead>
+                  <TableHead>Company Name</TableHead>
+                  <TableHead>Entity Name</TableHead>
+                  <TableHead>Total Sites</TableHead>
+                  <TableHead>Country</TableHead>
+                  <TableHead>Region</TableHead>
+                  <TableHead>State</TableHead>
+                  <TableHead>City</TableHead>
+                  <TableHead>Zone</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created Date Time</TableHead>
+                  <TableHead>Created By</TableHead>
+                  <TableHead className="text-right sticky right-0 bg-muted/50">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={13} className="text-center py-8">Loading organizations...</TableCell></TableRow>
+                ) : organizations.length === 0 ? (
+                  <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No organizations found. Create your first tenant above.</TableCell></TableRow>
+                ) : (
+                  organizations.map((org: any) => (
+                    <TableRow key={org.id} className="group hover:bg-muted/30">
+                      <TableCell className="font-semibold">{org.name}</TableCell>
+                      <TableCell>{org.companyName || "-"}</TableCell>
+                      <TableCell>{org.entityName || "-"}</TableCell>
+                      <TableCell>{org.totalSites || "0"}</TableCell>
+                      <TableCell>{org.country || "-"}</TableCell>
+                      <TableCell>{org.region || "-"}</TableCell>
+                      <TableCell>{org.state || "-"}</TableCell>
+                      <TableCell>{org.city || "-"}</TableCell>
+                      <TableCell>{org.zone || "-"}</TableCell>
+                      <TableCell>
+                        <span className={`text-xs px-2 py-1 rounded-full ${!org.is_deleted ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                          {!org.is_deleted ? "Active" : "Inactive"}
+                        </span>
+                      </TableCell>
+                      <TableCell>{org.createdAt ? new Date(org.createdAt).toLocaleString() : "-"}</TableCell>
+                      <TableCell>Admin</TableCell>
+                      <TableCell className="text-right sticky right-0 bg-card group-hover:bg-muted/30">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800" onClick={() => { sessionStorage.setItem("viewOrganizationId", org.id); window.dispatchEvent(new CustomEvent("changeTab", { detail: "organization-details" })); }}>
+                            View
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { setSelectedOrgIdForSites(org.id); setIsSitesModalOpen(true); }} title="Sites"><MapPin className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10" onClick={() => { setEditingOrg(org); setEditOrgForm({ name: org.name, domain: org.domain || "", companyName: org.companyName || "", entityName: org.entityName || "", site: org.site || "", country: org.country || "", region: org.region || "", state: org.state || "", city: org.city || "", zone: org.zone || "", whiteLabel: org.whiteLabel || false, subDomain: org.subDomain || "", solutionType: org.solutionType || "", solutionFor: org.solutionFor || "", billingTerm: org.billingTerm || "", modulesEnabled: org.modulesEnabled || [] }); setIsEditModalOpen(true); }} title="Edit"><Settings className="w-4 h-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
     </div>

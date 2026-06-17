@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Shield, Building, GitBranch, FileText, Plus, User, Mail, Phone, Calendar,
   Briefcase, MapPin, Trash2, Check, X, ChevronRight, ChevronDown, UserPlus, AlertTriangle, Lock,
-  Store, BadgeCheck, Pen, Upload, Eye, Download, File
+  Store, BadgeCheck, Pen, Upload, Eye, EyeOff, Download, File
 } from "lucide-react";
 import { SignaturePad } from "@/components/ui/SignaturePad";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -169,6 +169,7 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
   const [activeMaster, setActiveMaster] = useState<MasterType>(defaultMaster);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit" | "view">("create");
+  const [showPassword, setShowPassword] = useState(false);
 
   const visibleMasters = useMemo(() => {
     if (isTeamManagementView) {
@@ -2527,12 +2528,21 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
                 </div>
                 <div className="space-y-2">
                   <Label>Password *</Label>
-                  <Input
-                    type="password"
-                    value={employeeForm.password || ""}
-                    onChange={(e) => setEmployeeForm({ ...employeeForm, password: e.target.value })}
-                    placeholder="Enter password for login"
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={employeeForm.password || ""}
+                      onChange={(e) => setEmployeeForm({ ...employeeForm, password: e.target.value })}
+                      placeholder="Enter password for login"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Used for employee portal login
                   </p>

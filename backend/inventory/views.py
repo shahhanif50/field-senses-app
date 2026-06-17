@@ -1,5 +1,6 @@
 from rest_framework import viewsets
 from core.views import BaseTenantViewSet
+from ops.models import Alert
 from .models import Category, UOM, Product, Location, Vendor, POSTerminal, POSAlert, ProductOrder
 from .serializers import (
     CategorySerializer, UOMSerializer, ProductSerializer,
@@ -37,3 +38,13 @@ class POSAlertViewSet(BaseTenantViewSet):
 class ProductOrderViewSet(BaseTenantViewSet):
     queryset = ProductOrder.objects.all()
     serializer_class = ProductOrderSerializer
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        Alert.objects.create(
+            type='new_order',
+            message=f"New product order placed by Employee {instance.employeeId}.",
+            severity='medium',
+            relatedEntityId=instance.employeeId,
+            relatedEntityType='employee'
+        )
