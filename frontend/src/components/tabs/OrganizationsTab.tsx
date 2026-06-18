@@ -443,10 +443,10 @@ export function OrganizationsTab() {
               
               <div className="space-y-3">
                 <h4 className="font-semibold text-sm text-foreground flex items-center justify-between border-b pb-1">
-                   Core Services
+                   Field Operations
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2">
-                  {["Tickets", "Vendors", "Space Management", "Assets", "Staff", "Communication", "Service Tickets", "Contacts", "Meeting Management", "Items", "Business Cards", "My Tickets"].map(mod => (
+                  {["Master Setup", "Employee Portal", "Daily Tracking", "Team Tracking", "Live Tracking"].map(mod => (
                     <label key={mod} className={`flex items-center gap-2 text-xs cursor-pointer`}>
                       <input type="checkbox" className="rounded border-input text-blue-600" checked={(newSite.modulesEnabled || []).includes(mod)} onChange={(e) => {
                         const current = newSite.modulesEnabled || [];
@@ -460,10 +460,27 @@ export function OrganizationsTab() {
 
               <div className="space-y-3 pt-2">
                 <h4 className="font-semibold text-sm text-foreground flex items-center justify-between border-b pb-1">
-                   Financial & Accounting
+                   Sales & Inventory
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2">
-                  {["Accounting", "Salary Processing", "Bill Pay", "CAM Bill", "Purchase Order", "Bills", "Other Bills", "Advance Salary"].map(mod => (
+                  {["Sales Executive", "Inventory Management"].map(mod => (
+                    <label key={mod} className={`flex items-center gap-2 text-xs cursor-pointer`}>
+                      <input type="checkbox" className="rounded border-input text-blue-600" checked={(newSite.modulesEnabled || []).includes(mod)} onChange={(e) => {
+                        const current = newSite.modulesEnabled || [];
+                        if (e.target.checked) setNewSite({ ...newSite, modulesEnabled: [...current, mod] });
+                        else setNewSite({ ...newSite, modulesEnabled: current.filter((m: string) => m !== mod) });
+                      }} /> {mod}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <h4 className="font-semibold text-sm text-foreground flex items-center justify-between border-b pb-1">
+                   Productivity & Reports
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2">
+                  {["Reports", "Alerts", "Documents", "Projects & Tasks", "Communication & Meetings", "Attendance & Leaves"].map(mod => (
                     <label key={mod} className={`flex items-center gap-2 text-xs cursor-pointer`}>
                       <input type="checkbox" className="rounded border-input text-blue-600" checked={(newSite.modulesEnabled || []).includes(mod)} onChange={(e) => {
                         const current = newSite.modulesEnabled || [];
