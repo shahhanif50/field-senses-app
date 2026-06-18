@@ -87,7 +87,7 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
   const dashboardId = getDashboardId();
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+    <div className="xl:hidden w-full shrink-0 z-50 bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
       <div className="flex justify-around items-center h-16 px-2">
         
         {/* Overview */}

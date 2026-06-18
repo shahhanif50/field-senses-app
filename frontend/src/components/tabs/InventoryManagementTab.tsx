@@ -359,7 +359,8 @@ export default function InventoryManagementTab() {
 
   // --- PERMISSION CHECKS ---
   const rawRole = sessionStorage.getItem("userRole") || "employee";
-  const currentRole = roles.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const matchingRoles = roles.filter(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const matchingRoleIds = matchingRoles.map(r => r.id);
   const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
   const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
 
@@ -378,19 +379,20 @@ export default function InventoryManagementTab() {
 
     return mainSections.filter(section => {
       // Role permission check
-      if (!isAdmin) {
-        const perm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === section.label);
-        if (!perm?.view) return false;
+      if (!isAdmin && !isGlobalAdmin) {
+        const hasViewPerm = rolePermissions.some(p => matchingRoleIds.includes(p.roleId) && p.module === section.label && p.view);
+        if (hasViewPerm) return true; // Fully Dynamic: If granted explicit permission, bypass module check
+        return false;
       }
       
-      // Module access check
+      // Module access check for Admins
       if (isGlobalAdmin) return true;
-      if (modulesEnabled.includes("All")) return true;
+      if (modulesEnabled.includes("All") || modulesEnabled.includes("Inventory Management") || modulesEnabled.includes("inventory_management")) return true;
       
       const requiredModules = sectionToModuleIds[section.id] || [];
       return requiredModules.some(m => modulesEnabled.includes(m));
     });
-  }, [rolePermissions, currentRole, isAdmin, isGlobalAdmin]);
+  }, [rolePermissions, matchingRoleIds.join(','), isAdmin, isGlobalAdmin]);
 
   React.useEffect(() => {
     if (filteredMainSections.length > 0 && !filteredMainSections.find(s => s.id === activeSection)) {
@@ -403,14 +405,14 @@ export default function InventoryManagementTab() {
   }, [filteredMainSections, activeSection]);
 
   const activeSectionLabel = mainSections.find(s => s.id === activeSection)?.label;
-  const activePerm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === activeSectionLabel);
+  const activePerms = rolePermissions.filter(p => matchingRoleIds.includes(p.roleId) && p.module === activeSectionLabel);
   const isRegionalManager = rawRole?.toLowerCase() === "regional_manager" || rawRole?.toLowerCase() === "regional manager";
 
-  let canCreate = !isRegionalManager && (isAdmin || activePerm?.create);
-  let canEdit = !isRegionalManager && (isAdmin || activePerm?.edit);
-  let canDelete = !isRegionalManager && (isAdmin || activePerm?.delete);
-  const canExport = !!(isAdmin || activePerm?.export);
-  const canApprove = !isRegionalManager && (isAdmin || activePerm?.approve);
+  let canCreate = !isRegionalManager && (isAdmin || activePerms.some(p => p.create));
+  let canEdit = !isRegionalManager && (isAdmin || activePerms.some(p => p.edit));
+  let canDelete = !isRegionalManager && (isAdmin || activePerms.some(p => p.delete));
+  const canExport = !!(isAdmin || activePerms.some(p => p.export));
+  const canApprove = !isRegionalManager && (isAdmin || activePerms.some(p => p.approve));
 
   // Enforce strictly that only Admins can add/edit/delete Product Master items
   if (activeModule === "product-master") {

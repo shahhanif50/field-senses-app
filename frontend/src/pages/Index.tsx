@@ -57,7 +57,7 @@ const Index = () => {
   }
   const initialTab = userRole === "superadmin" ? "organizations"
                    : storedDashboard && storedDashboard !== "admin" ? storedDashboard 
-                   : userRole === "admin" ? "master-setup" 
+                   : userRole === "admin" ? "admin-dashboard" 
                    : userRole === "wh_mgr" ? "inventory-management"
                    : (userRole === "manager" || userRole === "regional_manager" || rawRole?.toLowerCase() === "regional manager") ? "rm-dashboard"
                    : "employee-dashboard";
@@ -149,7 +149,7 @@ const Index = () => {
           </div>
         ) : <DailyTrackingTab viewMode="self" />;
       case "team-tracking":
-        return isAdmin ? (
+        return (
           <div className="space-y-6">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -159,7 +159,7 @@ const Index = () => {
             </div>
             <AdminLiveTracking />
           </div>
-        ) : <DailyTrackingTab viewMode="team" />;
+        );
       case "live-tracking":
       case "my-live-tracking":
         return (
@@ -196,7 +196,7 @@ const Index = () => {
 
   return (
     <MasterDataProvider>
-      <div className="min-h-screen">
+      <div className="h-[100dvh] w-full flex flex-col overflow-hidden relative">
         <TopNavigation
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -204,8 +204,8 @@ const Index = () => {
           onThemeToggle={handleThemeToggle}
         />
 
-        <main className="pt-24 px-4 pb-24">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto pt-24 px-4 pb-6 w-full">
+          <div className="max-w-7xl mx-auto h-full">
             {activeTab === "master-setup" && <KPICards />}
 
             <AnimatePresence mode="wait">

@@ -15,7 +15,7 @@ export function EmployeeProductBooking() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('grid');
   const [selectedVendor, setSelectedVendor] = useState<string>('');
-  const [view, setView] = useState<'list' | 'detail' | 'order' | 'success' | 'history'>('list');
+  const [view, setView] = useState<'list' | 'detail' | 'order' | 'success' | 'history' | 'categories'>('list');
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   
   // order form state
@@ -130,62 +130,95 @@ export function EmployeeProductBooking() {
       
       {/* 1. LIST VIEW */}
       <AnimatePresence mode="wait">
-        {view === 'list' && (
+        {(view === 'list' || view === 'categories') && (
           <motion.div 
-            key="list"
+            key={view}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             className="p-4 md:p-8 flex-1 flex flex-col h-full overflow-y-auto"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 mt-2 gap-4">
-              <h2 className="text-3xl font-extrabold text-foreground tracking-tight">Products</h2>
-              <div className="flex items-center gap-3">
-                <Button 
-                  onClick={() => { setView('history'); fetchMyOrders(); }}
-                  variant="outline" 
-                  className="rounded-xl bg-background text-sm h-10 font-medium border-border"
+            <div className="flex flex-col mb-6 mt-2 gap-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-extrabold text-foreground tracking-tight">Products</h2>
+              </div>
+              
+              <div className="bg-muted p-1 rounded-xl flex items-center justify-between w-full sm:max-w-md shadow-inner border border-border/50 overflow-x-auto hide-scrollbar shrink-0">
+                <button 
+                  onClick={() => { setView('list'); setSelectedCategory('all'); }} 
+                  className={`flex-1 py-2 px-3 text-sm font-bold rounded-lg transition-all duration-200 whitespace-nowrap ${view === 'list' ? 'bg-background shadow-md text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  Products
+                </button>
+                <button 
+                  onClick={() => setView('categories')} 
+                  className={`flex-1 py-2 px-3 text-sm font-bold rounded-lg transition-all duration-200 whitespace-nowrap ${view === 'categories' || (view === 'list' && selectedCategory !== 'all') ? 'bg-background shadow-md text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  Categories
+                </button>
+                <button 
+                  onClick={() => { setView('history'); fetchMyOrders(); }} 
+                  className={`flex-1 py-2 px-3 text-sm font-bold rounded-lg transition-all duration-200 whitespace-nowrap ${view === 'history' ? 'bg-background shadow-md text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   My Orders
-                </Button>
-                <select 
-                  className="rounded-xl bg-background text-sm h-10 font-medium border border-border px-3 focus-visible:outline-none"
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                >
-                  <option value="all">All Categories</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-                <div className="flex border border-border rounded-xl overflow-hidden">
-                  <button 
-                    onClick={() => setDisplayMode('grid')}
-                    className={`p-2 ${displayMode === 'grid' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-foreground'}`}
-                  >
-                    <LayoutGrid className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => setDisplayMode('list')}
-                    className={`p-2 ${displayMode === 'list' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-foreground'}`}
-                  >
-                    <List className="w-5 h-5" />
-                  </button>
-                </div>
+                </button>
               </div>
             </div>
-            
-            <div className="relative mb-6">
-              <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input 
-                className="pl-10 bg-card border-border rounded-full h-12 shadow-sm focus-visible:ring-primary" 
-                placeholder="Search products..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
 
-            <div className={`grid gap-6 pb-20 ${displayMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1 max-w-4xl'}`}>
+            {view === 'categories' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pb-20">
+                {categories.map(c => (
+                  <div 
+                    key={c.id} 
+                    onClick={() => { setSelectedCategory(c.id); setView('list'); }}
+                    className="bg-card hover:border-primary/50 border border-border rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-sm transition-all hover:shadow-md"
+                  >
+                     <h3 className="font-bold text-lg text-center text-foreground">{c.name}</h3>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {view === 'list' && (
+              <>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <div className="relative w-full sm:max-w-md flex-1">
+                    <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input 
+                      className="pl-10 bg-card border-border rounded-full h-12 shadow-sm focus-visible:ring-primary w-full" 
+                      placeholder="Search products..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {selectedCategory !== 'all' && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setSelectedCategory('all')}
+                        className="rounded-full text-xs h-10 border-primary text-primary"
+                      >
+                        Clear Filter
+                      </Button>
+                    )}
+                    <div className="flex border border-border rounded-xl overflow-hidden shadow-sm shrink-0">
+                      <button 
+                        onClick={() => setDisplayMode('grid')}
+                        className={`p-2 transition-colors ${displayMode === 'grid' ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted text-foreground'}`}
+                      >
+                        <LayoutGrid className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => setDisplayMode('list')}
+                        className={`p-2 transition-colors ${displayMode === 'list' ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted text-foreground'}`}
+                      >
+                        <List className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`grid gap-6 pb-20 ${displayMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1 max-w-4xl'}`}>
               {filteredProducts.map((product) => (
                 <div 
                   key={product.id}
@@ -214,6 +247,8 @@ export function EmployeeProductBooking() {
                 <div className="text-center py-10 text-gray-500">No products found.</div>
               )}
             </div>
+            </>
+            )}
           </motion.div>
         )}
 

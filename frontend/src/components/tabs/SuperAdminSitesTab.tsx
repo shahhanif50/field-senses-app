@@ -20,9 +20,15 @@ export function SuperAdminSitesTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const { sites, setSites } = useMasterData();
   
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const currentOrgId = sessionStorage.getItem("organizationId");
+  const isImpersonating = isGlobalAdmin && currentOrgId && currentOrgId !== "null";
+  // If not superadmin, scope to current org
+  const isSuperAdmin = isGlobalAdmin && !isImpersonating;
+
   // Form State
   const [siteDetails, setSiteDetails] = useState({
-    name: "", code: "", product: "", country: "", address: "", date: "", status: true, orgId: ""
+    name: "", code: "", product: "", country: "", address: "", date: "", status: true, orgId: isSuperAdmin ? "" : (currentOrgId || "")
   });
   const [organizations, setOrganizations] = useState<any[]>([]);
 
@@ -41,6 +47,10 @@ export function SuperAdminSitesTab() {
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // Filter sites based on role - admin only sees their org's sites
+  const visibleSites = isSuperAdmin ? sites : sites.filter(s => s.organization === currentOrgId || s.orgId === currentOrgId);
+
 
   const handleManageSite = (site: any) => {
     setSiteDetails({
@@ -156,17 +166,26 @@ export function SuperAdminSitesTab() {
           <CardContent className="p-6">
             <h3 className="text-lg font-bold mb-4 text-foreground">Site Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2 md:col-span-2">
-                <Label>Select Organization <span className="text-red-500">*</span></Label>
-                <Select value={siteDetails.orgId} onValueChange={v => setSiteDetails({...siteDetails, orgId: v})}>
-                  <SelectTrigger className="bg-background"><SelectValue placeholder="Select an organization" /></SelectTrigger>
-                  <SelectContent>
-                    {organizations.map(org => (
-                      <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {isSuperAdmin ? (
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Select Organization <span className="text-red-500">*</span></Label>
+                  <Select value={siteDetails.orgId} onValueChange={v => setSiteDetails({...siteDetails, orgId: v})}>
+                    <SelectTrigger className="bg-background"><SelectValue placeholder="Select an organization" /></SelectTrigger>
+                    <SelectContent>
+                      {organizations.map(org => (
+                        <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Organization</Label>
+                  <div className="h-10 px-3 border border-border rounded-md bg-muted/30 flex items-center text-sm text-muted-foreground">
+                    {organizations.find(o => o.id === currentOrgId)?.name || "Your Organization"}
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Site Name <span className="text-red-500">*</span></Label>
                 <Input placeholder="e.g., Corporate HQ" value={siteDetails.name} onChange={e => setSiteDetails({...siteDetails, name: e.target.value})} />
@@ -320,7 +339,7 @@ export function SuperAdminSitesTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sites.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || (s.siteCode || "").toLowerCase().includes(searchQuery.toLowerCase())).map((site, idx) => (
+              {visibleSites.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || (s.siteCode || "").toLowerCase().includes(searchQuery.toLowerCase())).map((site, idx) => (
                 <TableRow key={idx} className="hover:bg-muted/30 transition-colors">
                   <TableCell className="text-sm font-medium">{site.siteCode || site.id}</TableCell>
                   <TableCell className="text-sm">{site.name}</TableCell>

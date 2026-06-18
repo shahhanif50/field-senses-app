@@ -107,12 +107,22 @@ const permissionModulesHierarchy: PermissionModuleConfig[] = [
     ]
   },
   {
+    id: "Sales Executive",
+    label: "Sales Executive",
+    subModules: [
+      { id: "Territory Management", label: "Territory Management" },
+      { id: "Distributor Linkage", label: "Distributor Linkage" },
+      { id: "Sales Monitoring", label: "Sales Monitoring" }
+    ]
+  },
+  {
     id: "Field Operations & Tracking",
     label: "Field Operations & Tracking",
     subModules: [
       { id: "Daily Tracking", label: "Daily Tracking" },
       { id: "Team Tracking", label: "Team Tracking" },
-      { id: "Live Tracking", label: "Live Tracking" }
+      { id: "Live Tracking", label: "Live Tracking" },
+      { id: "Projects & Tasks", label: "Projects & Tasks" }
     ]
   },
   {
@@ -149,6 +159,7 @@ const permissionModulesHierarchy: PermissionModuleConfig[] = [
     subModules: []
   }
 ];
+
 
 const allPermissionModuleIds: string[] = [];
 permissionModulesHierarchy.forEach(parent => {
@@ -259,12 +270,11 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
     ];
 
     return allDropdownModules.filter(mod => {
-      if (isGlobalAdmin && !isImpersonating) return true; // Superadmin sees everything
+      if (isGlobalAdmin || isAdmin) return true; // Let Admins and SuperAdmins configure permissions for all modules
       if (mod === "Organizations") return false; // Tenant never sees organizations
       if (mod === "Permission Requests" || mod === "Registration Approvals" || mod === "My Profile") return true;
 
       let effectiveMod = mod;
-
       return modulesEnabled.includes("All") || modulesEnabled.includes(effectiveMod);
     });
   }, [isGlobalAdmin]);

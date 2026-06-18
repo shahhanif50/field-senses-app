@@ -219,24 +219,69 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
             
         return queryset
 
+    @action(detail=True, methods=['patch'], url_path='sync-route')
+    def sync_route(self, request, pk=None):
+        try:
+            tracking = self.get_object()
+            new_route = request.data.get('routePath', [])
+            if new_route:
+                if not isinstance(tracking.routePath, list):
+                    tracking.routePath = []
+                # Validate the incoming route coordinates
+                valid_coords = []
+                for pt in new_route:
+                    if isinstance(pt, list) and len(pt) == 2:
+                        valid_coords.append(pt)
+                tracking.routePath.extend(valid_coords)
+                tracking.save()
+            return Response({'status': 'success'})
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
     @action(detail=False, url_path='daily-tracking/(?P<employee_id>[^/.]+)')
     def daily_tracking(self, request, employee_id=None):
         date = request.query_params.get('date')
         if not date:
             return Response({"error": "Date is required"}, status=400)
             
+        # Try to find employee by employeeId code first, then by UUID
+        employee = None
+        emp_uuid = employee_id
+        emp_code = employee_id
         try:
             employee = Employee.objects.get(employeeId=employee_id)
+            emp_uuid = str(employee.id)
+            emp_code = employee.employeeId
             emp_name = employee.fullName
             emp_role = employee.designation
             emp_dept = employee.departmentId.departmentName if employee.departmentId else ""
         except Employee.DoesNotExist:
-            employee = None
-            emp_name = "Unknown Employee"
-            emp_role = ""
-            emp_dept = ""
-            
-        tasks = EmployeeTask.objects.filter(employeeId=employee_id, deadline=date)
+            try:
+                employee = Employee.objects.get(id=employee_id)
+                emp_uuid = str(employee.id)
+                emp_code = employee.employeeId
+                emp_name = employee.fullName
+                emp_role = employee.designation
+                emp_dept = employee.departmentId.departmentName if employee.departmentId else ""
+            except Employee.DoesNotExist:
+                employee = None
+                emp_name = "Unknown Employee"
+                emp_role = ""
+                emp_dept = ""
+
+        from django.db.models import Q
+        # Search tasks by both code AND uuid, for the specific date
+        tasks = EmployeeTask.objects.filter(
+            Q(employeeId=emp_code) | Q(employeeId=emp_uuid),
+            deadline=date
+        )
+        
+        # If no tasks found for exact date, fetch the most recent tasks (up to 20)
+        if not tasks.exists():
+            tasks = EmployeeTask.objects.filter(
+                Q(employeeId=emp_code) | Q(employeeId=emp_uuid)
+            ).order_by('-deadline', '-assignedDate')[:20]
+
         task_data = []
         
         total_distance = 0
@@ -279,7 +324,10 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
         try:
             from datetime import datetime
             date_obj = datetime.strptime(date, '%Y-%m-%d').date()
-            expenses = TravelExpense.objects.filter(employeeId=employee_id, timestamp__date=date_obj)
+            expenses = TravelExpense.objects.filter(
+                Q(employeeId=emp_code) | Q(employeeId=emp_uuid),
+                timestamp__date=date_obj
+            )
             for exp in expenses:
                 if exp.type.lower() == 'fuel':
                     total_fuel += exp.amount
@@ -292,7 +340,14 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
             
         tracking = None
         try:
-            tracking = TrackingEntry.objects.filter(employeeId=employee_id, date=date).first()
+            tracking = TrackingEntry.objects.filter(
+                Q(employeeId=emp_code) | Q(employeeId=emp_uuid)
+            ).filter(date=date).first()
+            if not tracking:
+                # Fall back to latest tracking entry
+                tracking = TrackingEntry.objects.filter(
+                    Q(employeeId=emp_code) | Q(employeeId=emp_uuid)
+                ).order_by('-date').first()
             if tracking:
                 check_in = tracking.checkInTime.strftime('%I:%M %p') if tracking.checkInTime else None
                 check_out = tracking.checkOutTime.strftime('%I:%M %p') if tracking.checkOutTime else None
@@ -312,6 +367,7 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
             idle = 0
             pva = 0
 
+        tasks_list = list(tasks)
         return Response({
             "employee": {
                 "id": employee_id,
@@ -327,12 +383,13 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
             "tasks": task_data,
             "fuelReceipts": fuel_receipts,
             "foodReceipts": food_receipts,
+            "routePath": tracking.routePath if tracking else [],
             "metrics": {
                 "totalDistance": total_distance,
                 "idleTime": idle,
                 "planVsActual": pva,
-                "tasksCompleted": sum(1 for t in tasks if t.status == 'completed'),
-                "totalTasks": len(tasks),
+                "tasksCompleted": sum(1 for t in tasks_list if t.status == 'completed'),
+                "totalTasks": len(tasks_list),
                 "avgTaskDuration": 0,
                 "punctualityScore": 100
             },

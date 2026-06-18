@@ -54,8 +54,8 @@ interface TopNavigationProps {
 
 export const allTabs = [
   { id: "organizations", label: "Organizations", icon: Building2, roles: ["superadmin"] },
-  { id: "superadmin-sites", label: "Sites Management", icon: MapPin, roles: ["superadmin"] },
-  { id: "superadmin-modules", label: "Modules Access", icon: CreditCard, roles: ["superadmin"] },
+  { id: "superadmin-sites", label: "Sites Management", icon: MapPin, roles: ["superadmin", "admin"] },
+  { id: "superadmin-modules", label: "Modules Access", icon: CreditCard, roles: ["superadmin", "admin"] },
   { id: "admin-dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin"] },
   { id: "employee-dashboard", label: "Dashboard", icon: Activity, roles: ["employee"] },
   { id: "product-booking", label: "Product Booking", icon: ShoppingCart, roles: ["employee"] },
@@ -64,7 +64,6 @@ export const allTabs = [
   { id: "employee-portal", label: "Employee Portal", icon: Contact, roles: ["manager", "employee", "WH_MGR"] },
   { id: "inventory-management", label: "Inventory Management", icon: Package, roles: ["admin", "manager", "WH_MGR"] },
   { id: "admin-orders", label: "Admin Orders", icon: ClipboardList, roles: ["admin", "manager"] },
-  { id: "daily-tracking", label: "Daily Tracking", icon: MapPin, roles: ["admin"] },
   { id: "team-tracking", label: "Team Tracking", icon: Users, roles: ["admin", "manager"] },
   { id: "live-tracking", label: "Live Tracking", icon: Navigation, roles: ["admin", "manager", "employee"] },
   { id: "reports", label: "Reports & Analytics", icon: BarChart3, roles: ["admin", "manager", "employee"] },
@@ -107,7 +106,9 @@ export function TopNavigation({
   } catch(e) {}
 
   const { roles, rolePermissions, employees } = useMasterData();
-  const currentRole = roles.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const matchingRoles = roles.filter(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const matchingRoleIds = matchingRoles.map(r => r.id);
+  const currentRole = matchingRoles[0];
 
   let tabs = allTabs.filter(tab => {
     // Superadmin sees Organizations
@@ -115,25 +116,24 @@ export function TopNavigation({
     if (tab.roles.includes("superadmin")) return false;
     
     // Check RBAC database permission
-    const rolePerm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === tab.label);
+    const rolePerm = rolePermissions.find(p => matchingRoleIds.includes(p.roleId) && p.module === tab.label);
     
-    // Strict Role checking: Tenant Admin has implicit access to default modules, 
-    // and can be granted additional access via Role Permissions.
+    // Strict Role checking
     let hasRole = (userRole.toLowerCase() === "admin" && tab.roles.includes("admin")) || !!rolePerm?.view;
     if (!hasRole && rolePermissions) {
       if (tab.id === "inventory-management") {
-        hasRole = rolePermissions.some(p => p.roleId === currentRole?.id && ["Product Setup", "Stock Management", "Sales & Billing", "Inventory Management"].includes(p.module) && p.view);
+        hasRole = rolePermissions.some(p => matchingRoleIds.includes(p.roleId) && ["Product Setup", "Stock Management", "Sales & Billing", "Inventory Management"].includes(p.module) && p.view);
       } else if (tab.id === "sales-executive") {
-        hasRole = rolePermissions.some(p => p.roleId === currentRole?.id && ["Territory Management", "Distributor Linkage", "Sales Monitoring", "Sales Executive"].includes(p.module) && p.view);
+        hasRole = rolePermissions.some(p => matchingRoleIds.includes(p.roleId) && ["Territory Management", "Distributor Linkage", "Sales Monitoring", "Sales Executive"].includes(p.module) && p.view);
       } else if (tab.id === "master-setup") {
-        hasRole = rolePermissions.some(p => p.roleId === currentRole?.id && ["Role Management", "Organization Chart", "Site Master", "Distributor Master"].includes(p.module) && p.view);
+        hasRole = rolePermissions.some(p => matchingRoleIds.includes(p.roleId) && ["Role Management", "Organization Chart", "Site Master", "Distributor Master"].includes(p.module) && p.view);
       }
     }
     
     // If Global Admin or the module is enabled at the organization level
     const effectiveModuleLabel = tab.label;
 
-    const alwaysActiveTabs = ["profile", "approvals", "admin-dashboard", "employee-dashboard", "product-booking", "admin-orders"];
+    const alwaysActiveTabs = ["profile", "approvals", "admin-dashboard", "employee-dashboard", "product-booking", "admin-orders", "superadmin-sites", "superadmin-modules"];
     let moduleId = effectiveModuleLabel;
     if (effectiveModuleLabel === "Master Setup") moduleId = "master_setup";
     if (effectiveModuleLabel === "Inventory Management") moduleId = "inventory_management";
@@ -141,6 +141,11 @@ export function TopNavigation({
 
     const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(effectiveModuleLabel) || modulesEnabled.includes(moduleId) || alwaysActiveTabs.includes(tab.id);
     
+    // Fully Dynamic: If the admin explicitly granted view permission for this role, it MUST be visible.
+    if (rolePerm?.view) {
+      return true;
+    }
+
     // Explicitly grant employee default tabs
     if (userRole === "employee" && (tab.id === "employee-dashboard" || tab.id === "product-booking")) {
       return true;
@@ -150,7 +155,7 @@ export function TopNavigation({
   });
 
   // Dynamically append any additional modules granted via Role Permissions
-  const rolePerms = rolePermissions.filter(rp => rp.roleId === currentRole?.id);
+  const rolePerms = rolePermissions.filter(rp => matchingRoleIds.includes(rp.roleId));
   const dynamicallyEnabledTabs = allTabs.filter(tab => {
     const rolePerm = rolePerms.find(rp => rp.module === tab.label);
     let moduleId = tab.label;
@@ -169,28 +174,36 @@ export function TopNavigation({
     tabs = [
       { id: "admin-dashboard", label: "Dashboard", icon: Activity, roles: ["admin"] },
       { id: "master-setup", label: "Master Setup", icon: Settings, roles: ["admin"] },
+      { id: "superadmin-sites", label: "Sites Management", icon: MapPin, roles: ["admin"] },
+      { id: "superadmin-modules", label: "Modules Access", icon: CreditCard, roles: ["admin"] },
       { id: "sales-executive", label: "Sales Executive Setup", icon: Users, roles: ["admin"] },
       { id: "inventory-management", label: "Inventory Management", icon: Package, roles: ["admin"] },
       { id: "admin-orders", label: "Admin Orders", icon: ClipboardList, roles: ["admin"] },
-      { id: "team-daily-tracking", label: "Daily Tracking Monitoring", icon: ClipboardEdit, roles: ["admin"] },
+      { id: "team-tracking", label: "Team Tracking", icon: ClipboardEdit, roles: ["admin"] },
       { id: "reports", label: "Reports & Analytics", icon: BarChart3, roles: ["admin"] },
       { id: "alerts", label: "Alerts & Escalation", icon: AlertTriangle, roles: ["admin"] },
       { id: "documents", label: "Documents & Logs", icon: FileText, roles: ["admin"] },
       { id: "profile", label: "My Profile", icon: UserCircle, roles: ["admin"] },
     ].filter(tab => {
         let moduleName = tab.label;
+        // Always show these tabs for admin
         if (tab.label === "Dashboard" || tab.id === "profile") return true;
+        if (tab.id === "master-setup") return true;
+        if (tab.id === "admin-orders") return true;
+        if (tab.id === "superadmin-sites" || tab.id === "superadmin-modules") return true;
         if (tab.label === "Sales Executive Setup") moduleName = "Sales Executive";
-        if (tab.label === "Daily Tracking Monitoring") moduleName = "Daily Tracking";
+        if (tab.label === "Team Tracking") moduleName = "Daily Tracking";
         if (tab.label === "Reports & Analytics") moduleName = "Reports";
         if (tab.label === "Alerts & Escalation") moduleName = "Alerts";
         if (tab.label === "Documents & Logs") moduleName = "Documents";
-        if (tab.id === "admin-orders") return true;
         let moduleId = moduleName;
         if (moduleName === "Master Setup") moduleId = "master_setup";
         if (moduleName === "Inventory Management") moduleId = "inventory_management";
         if (moduleName === "Sales Executive") moduleId = "sales_executive";
-        return (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(moduleName) || modulesEnabled.includes(moduleId);
+        // Show if modulesEnabled includes the module OR if explicitly granted via role permissions
+        const hasModuleAccess = modulesEnabled.includes("All") || modulesEnabled.includes(moduleName) || modulesEnabled.includes(moduleId);
+        const hasPermAccess = rolePermissions.some(p => matchingRoleIds.includes(p.roleId) && p.module === moduleName && p.view);
+        return (isGlobalAdmin && !isImpersonating) || hasModuleAccess || hasPermAccess;
     });
     dynamicallyEnabledTabs.forEach(dTab => {
         if (!tabs.find(t => t.id === dTab.id)) tabs.push(dTab);
@@ -412,7 +425,7 @@ export function TopNavigation({
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden xl:flex items-center justify-center gap-2 overflow-x-auto no-scrollbar flex-1 mx-4 px-2 py-1">
+          <nav className="hidden xl:flex items-center justify-start gap-2 overflow-x-auto no-scrollbar flex-1 mx-4 px-2 py-1 min-w-0">
             {/* 1. Dashboard Tab(s) */}
             {tabs.filter(t => t.id.includes('dashboard') || t.label.toLowerCase() === 'dashboard').map((tab) => {
               const Icon = tab.icon;

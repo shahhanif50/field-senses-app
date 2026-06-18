@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Play, Pause, Navigation, Clock, Banknote, MapPin, CheckCircle2, User, Camera, Receipt, Plus, X, Loader2, History } from 'lucide-react';
+import { SiteVisitReportFormModal, SiteVisitReportData } from '@/components/modals/SiteVisitReportFormModal';
 
 // Fix for default marker icons in Leaflet with Webpack/Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -114,6 +115,8 @@ export function LiveTrackingMap() {
   const [checkInModalOpen, setCheckInModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"checkin" | "checkout">("checkin");
   const [checkInPhoto, setCheckInPhoto] = useState<string | null>(null);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Dynamic Route States
   const [hasStartedTrip, setHasStartedTrip] = useState(() => {
@@ -269,6 +272,18 @@ export function LiveTrackingMap() {
               setArrivedSite(siteMatch);
               setIsNearDestination(true);
             }
+            
+            // Sync to backend every 20 ticks (1 second of simulation)
+            if (trackingEntryId && currentPathIndex % 20 === 0) {
+              fetch(`/api/ops/tracking-entries/${trackingEntryId}/sync-route/`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
+                body: JSON.stringify({
+                  routePath: [[nextPoint.lat, nextPoint.lng]]
+                })
+              }).catch(() => {});
+            }
+
           } else {
             setIsPlaying(false);
           }
@@ -309,6 +324,14 @@ export function LiveTrackingMap() {
                     body: JSON.stringify({
                       currentLocation: `${latitude},${longitude}`,
                       status: "online",
+                    })
+                  }).catch(() => {});
+                  
+                  fetch(`/api/ops/tracking-entries/${trackingEntryId}/sync-route/`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    body: JSON.stringify({
+                      routePath: [[latitude, longitude]]
                     })
                   }).catch(() => {});
                 }
@@ -352,13 +375,46 @@ export function LiveTrackingMap() {
     }
   }, [distance, timeSpent, isPlaying, activeSite, isNearDestination]);
 
-  const handleSiteCheckInCheckOut = () => {
+  const handleSiteCheckInCheckOut = async () => {
     if (!checkInPhoto && modalType === "checkin") {
       toast.error("Please capture a site photo as proof before checking in.");
       return;
     }
 
     if (modalType === "checkin") {
+       try {
+         const authHeaders = {
+            'X-User-Id': sessionStorage.getItem("userId") || "",
+            'X-User-Role': (sessionStorage.getItem("userRole") || "").toUpperCase(),
+            'X-Organization-Id': sessionStorage.getItem("organizationId") || ""
+         };
+         
+         const taskRes = await fetch(`/api/ops/employee-tasks/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify({
+              employeeId: sessionStorage.getItem('employeeId'),
+              taskTitle: arrivedSite?.name || "Site Visit",
+              taskType: 'Visit',
+              status: 'in-progress',
+              proofUploaded: true,
+              proofUrl: checkInPhoto,
+              deadline: new Date().toISOString().split('T')[0],
+              assignedDate: new Date().toISOString().split('T')[0],
+              assignedBy: sessionStorage.getItem('employeeId') || "self",
+              startTime: new Date().toTimeString().split(' ')[0],
+              location: arrivedSite?.name,
+              latitude: arrivedSite?.lat,
+              longitude: arrivedSite?.lng,
+              description: "Checked in via Live Tracking"
+            })
+         });
+         const data = await taskRes.json();
+         if (data.id) setCurrentTaskId(data.id);
+       } catch (e) {
+         console.error("Failed to create visit task", e);
+       }
+
        setCheckInModalOpen(false);
        setCheckInPhoto(null);
        setActiveSite(arrivedSite);
@@ -367,17 +423,51 @@ export function LiveTrackingMap() {
        toast.success("Checked in successfully with photo proof!");
     } else if (modalType === "checkout") {
        setCheckInModalOpen(false);
-       if (siteCheckInTime) {
-         const minsSpent = (new Date().getTime() - siteCheckInTime.getTime()) / 60000;
-         setTimeSpent(t => t + minsSpent);
-       }
-       setSiteCheckInTime(null);
-       if (activeSite) setVisitedSites(prev => [...prev, activeSite.id]);
-       setActiveSite(null);
-       setArrivedSite(null);
-       setIsNearDestination(false);
-       setIsPlaying(true);
+       setShowReportModal(true);
     }
+  };
+
+  const handleCheckoutReportSubmit = async (formData: SiteVisitReportData, photoBase64: string | null) => {
+    try {
+      if (currentTaskId) {
+        const authHeaders = {
+           'X-User-Id': sessionStorage.getItem("userId") || "",
+           'X-User-Role': (sessionStorage.getItem("userRole") || "").toUpperCase(),
+           'X-Organization-Id': sessionStorage.getItem("organizationId") || ""
+        };
+        
+        await fetch(`/api/ops/employee-tasks/${currentTaskId}/`, {
+           method: 'PATCH',
+           headers: { 'Content-Type': 'application/json', ...authHeaders },
+           body: JSON.stringify({
+             status: 'completed',
+             endTime: new Date().toTimeString().split(' ')[0],
+             notes: JSON.stringify(formData),
+             proofUrl: photoBase64 || undefined,
+             distance: formData.distance,
+             fuelExpense: formData.fuelCost,
+             foodExpense: formData.foodCost
+           })
+        });
+      }
+    } catch (e) {
+      console.error("Failed to update visit task", e);
+    }
+
+    setShowReportModal(false);
+    setCurrentTaskId(null);
+
+    if (siteCheckInTime) {
+      const minsSpent = (new Date().getTime() - siteCheckInTime.getTime()) / 60000;
+      setTimeSpent(t => t + minsSpent);
+    }
+    setSiteCheckInTime(null);
+    if (activeSite) setVisitedSites(prev => [...prev, activeSite.id]);
+    setActiveSite(null);
+    setArrivedSite(null);
+    setIsNearDestination(false);
+    setIsPlaying(true);
+    toast.success("Checked out successfully with report!");
   };
 
   const generateInterpolatedRoute = (waypoints: any[]) => {
@@ -838,195 +928,192 @@ export function LiveTrackingMap() {
   });
 
   return (
-    <div className="relative w-full h-[600px] md:h-[700px] rounded-xl overflow-hidden shadow-xl border border-border">
-      <MapContainer center={[19.1136, 72.8697]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }}>
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap contributors'
-        />
-        {dynamicDestinations.map(loc => (
-          <Marker 
-            key={loc.id} 
-            position={[loc.lat, loc.lng]}
-            icon={new L.Icon({
-              iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-              shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-              iconSize: [25, 41],
-              iconAnchor: [12, 41],
-              popupAnchor: [1, -34],
-              shadowSize: [41, 41]
-            })}
-          >
-            <Popup>
-              <div className="font-semibold text-red-600">Client Visit</div>
-              <div className="text-sm">{loc.name}</div>
-            </Popup>
-          </Marker>
-        ))}
+    <div className="flex flex-col md:flex-row w-full h-[600px] md:h-[800px] rounded-xl overflow-hidden shadow-xl border border-slate-200 bg-slate-50">
+      <div className="flex-1 relative z-0">
+        <MapContainer center={[19.1136, 72.8697]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; OpenStreetMap contributors'
+          />
+          {dynamicDestinations.map(loc => (
+            <Marker 
+              key={loc.id} 
+              position={[loc.lat, loc.lng]}
+              icon={new L.Icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+              })}
+            >
+              <Popup>
+                <div className="font-semibold text-red-600">Client Visit</div>
+                <div className="text-sm">{loc.name}</div>
+              </Popup>
+            </Marker>
+          ))}
 
-        <Polyline positions={detailedRoute.map(p => [p.lat, p.lng])} color="#3b82f6" weight={5} opacity={0.8} />
-        
-        {currentLocationMarker && (
-          <Marker position={[currentLocationMarker.lat, currentLocationMarker.lng]} icon={customMarkerIcon}>
-            <Popup>
-              <div className="font-semibold">{empName}</div>
-            </Popup>
-          </Marker>
-        )}
-      </MapContainer>
+          <Polyline positions={detailedRoute.map(p => [p.lat, p.lng])} color="#3b82f6" weight={5} opacity={0.8} />
+          
+          {currentLocationMarker && (
+            <Marker position={[currentLocationMarker.lat, currentLocationMarker.lng]} icon={customMarkerIcon}>
+              <Popup>
+                <div className="font-semibold">{empName}</div>
+              </Popup>
+            </Marker>
+          )}
+        </MapContainer>
+      </div>
 
-
-
-      <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-8 md:top-8 md:bottom-auto md:w-80 z-[10]">
-        <Card className="glass-card shadow-2xl border border-white/20 backdrop-blur-md bg-white">
-          <CardContent className="p-5 space-y-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <Navigation className="w-5 h-5 text-blue-600" />
-                Live Tracking
-                <div className="flex items-center space-x-2 ml-4">
-                  <Switch id="sim-mode" checked={simulationMode} onCheckedChange={setSimulationMode} disabled={isPlaying} />
-                  <Label htmlFor="sim-mode" className="text-xs cursor-pointer text-muted-foreground">Demo Mode</Label>
-                </div>
-              </h3>
-              <Badge variant={isPlaying ? "default" : "secondary"} className={isPlaying ? "animate-pulse bg-green-500 text-white" : ""}>
-                {isPlaying ? "Tracking" : "Paused"}
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3 mb-2">
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                  <Navigation className="w-3 h-3" /> Distance
-                </p>
-                <p className="text-sm font-bold">{distance.toFixed(2)} km</p>
+      <div className="w-full md:w-[350px] bg-white border-t md:border-t-0 md:border-l border-slate-200 overflow-y-auto z-10 flex flex-col p-5 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)]">
+        <div className="space-y-4">
+          <div className="flex justify-between items-center mb-2 pb-3 border-b border-slate-100">
+            <h3 className="font-bold text-lg flex items-center gap-2">
+              <Navigation className="w-5 h-5 text-blue-600" />
+              Live Tracking
+              <div className="flex items-center space-x-2 ml-4">
+                <Switch id="sim-mode" checked={simulationMode} onCheckedChange={setSimulationMode} disabled={isPlaying} />
+                <Label htmlFor="sim-mode" className="text-xs cursor-pointer text-muted-foreground">Demo</Label>
               </div>
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                  <Clock className="w-3 h-3" /> Duration
-                </p>
-                <p className="text-sm font-bold">{Math.floor(timeSpent)} mins</p>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100">
+            </h3>
+            <Badge variant={isPlaying ? "default" : "secondary"} className={isPlaying ? "animate-pulse bg-green-500 text-white" : ""}>
+              {isPlaying ? "Tracking" : "Paused"}
+            </Badge>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3 mb-2">
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
               <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                <Banknote className="w-3 h-3 text-green-500" /> Est. Reimbursement (Per-Km Rate)
+                <Navigation className="w-3 h-3" /> Distance
               </p>
-              <p className="text-2xl font-bold text-green-600">
-                ₹{reimbursement}
-              </p>
+              <p className="text-sm font-bold">{distance.toFixed(2)} km</p>
             </div>
+            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                <Clock className="w-3 h-3" /> Duration
+              </p>
+              <p className="text-sm font-bold">{Math.floor(timeSpent)} mins</p>
+            </div>
+          </div>
 
-            {hasStartedTrip && plannedRouteData && (
-              <div className="pt-3 border-t border-slate-100 space-y-2">
-                <p className="text-xs font-bold uppercase text-slate-500 mb-2 flex items-center gap-1">
-                  <Navigation className="w-3 h-3" /> Trip Details
-                </p>
-                <div className="text-xs text-slate-700 bg-blue-50 p-2 rounded border border-blue-100">
-                  <span className="font-bold block mb-1">Purpose of Visit:</span>
-                  {purposeInput || 'No purpose specified'}
-                </div>
-                
-                {routeSummary && routeSummary.length > 0 && (
-                  <div className="mt-2 space-y-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
-                    {routeSummary.map((seg: any, i: number) => (
-                      <div key={i} className="text-xs bg-white border border-slate-100 p-2 rounded shadow-sm relative pl-4 before:content-[''] before:absolute before:-left-1 before:top-2 before:w-2 before:h-2 before:bg-blue-500 before:rounded-full">
-                        <div className="font-bold truncate text-slate-800">{seg.startName} → {seg.endName}</div>
-                        <div className="flex justify-between mt-1 text-slate-500">
-                          <span>{seg.distance.toFixed(1)} km</span>
-                          <span>{seg.eta.toFixed(0)} min ETA</span>
-                        </div>
+          <div className="pt-3 border-t border-slate-100">
+            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+              <Banknote className="w-3 h-3 text-green-500" /> Est. Reimbursement
+            </p>
+            <p className="text-2xl font-bold text-green-600">
+              ₹{reimbursement}
+            </p>
+          </div>
+
+          {hasStartedTrip && plannedRouteData && (
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <p className="text-xs font-bold uppercase text-slate-500 mb-2 flex items-center gap-1">
+                <Navigation className="w-3 h-3" /> Trip Details
+              </p>
+              <div className="text-xs text-slate-700 bg-blue-50 p-2 rounded border border-blue-100">
+                <span className="font-bold block mb-1">Purpose of Visit:</span>
+                {purposeInput || 'No purpose specified'}
+              </div>
+              
+              {routeSummary && routeSummary.length > 0 && (
+                <div className="mt-2 space-y-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                  {routeSummary.map((seg: any, i: number) => (
+                    <div key={i} className="text-xs bg-white border border-slate-100 p-2 rounded shadow-sm relative pl-4 before:content-[''] before:absolute before:-left-1 before:top-2 before:w-2 before:h-2 before:bg-blue-500 before:rounded-full">
+                      <div className="font-bold truncate text-slate-800">{seg.startName} → {seg.endName}</div>
+                      <div className="flex justify-between mt-1 text-slate-500">
+                        <span>{seg.distance.toFixed(1)} km</span>
+                        <span>{seg.eta.toFixed(0)} min ETA</span>
                       </div>
-                    ))}
-                  </div>
-                )}
-                
-                {isNearDestination && !activeSite && !checkInModalOpen && (
-                  <Button 
-                    className="w-full mt-3 shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={() => {
-                      setModalType("checkin");
-                      setCheckInModalOpen(true);
-                    }}
-                  >
-                    <MapPin className="w-4 h-4 mr-2 animate-pulse" />
-                    Check-in at {arrivedSite?.name}
-                  </Button>
-                )}
-
-                {activeSite && !checkInModalOpen && (
-                  <Button 
-                    variant="destructive"
-                    className="w-full mt-3 shadow-sm"
-                    onClick={() => {
-                      setModalType("checkout");
-                      setCheckInModalOpen(true);
-                    }}
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Checkout from {activeSite?.name}
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {hasStartedTrip && (
-              <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {(!activeSite && !checkInModalOpen && (arrivedSite || nextDestination)) && (
                 <Button 
-                  className="w-full bg-slate-800 hover:bg-slate-900 text-white"
-                  onClick={handleDepositEarnings}
+                  className="w-full mt-3 shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => {
+                    const site = arrivedSite || nextDestination;
+                    setArrivedSite(site);
+                    setModalType("checkin");
+                    setCheckInModalOpen(true);
+                  }}
                 >
-                  <Banknote className="w-4 h-4 mr-2" />
-                  Deposit Reimbursement & End Route
+                  <MapPin className="w-4 h-4 mr-2 animate-pulse" />
+                  Check-in at {(arrivedSite || nextDestination).name}
                 </Button>
-                
-              </div>
-            )}
-            
-            {!hasStartedTrip && (
-              <Button 
-                className="w-full gradient-btn mt-2"
-                onClick={() => setShowPreTripModal(true)}
-              >
-                Start New Route
-              </Button>
-            )}
+              )}
 
-            {/* Expenses panel is always visible */}
-            <div className="mt-4 pt-4 border-t border-slate-100">
-              <p className="text-xs font-semibold uppercase text-slate-500 mb-3 tracking-wider">Expenses & Reimbursements</p>
-              <div className="flex gap-3">
+              {activeSite && !checkInModalOpen && (
                 <Button 
-                  className="flex-1 flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors"
-                  variant="outline"
-                  onClick={() => setShowExpenseModal(true)}
+                  variant="destructive"
+                  className="w-full mt-3 shadow-sm"
+                  onClick={() => {
+                    setModalType("checkout");
+                    setCheckInModalOpen(true);
+                  }}
                 >
-                  <Receipt className="w-4 h-4" />
-                  <span>Add Expense</span>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Checkout from {activeSite?.name}
                 </Button>
-                <Button 
-                  className="flex-1 flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors"
-                  variant="outline"
-                  onClick={() => setShowExpenseHistoryModal(true)}
-                >
-                  <History className="w-4 h-4" />
-                  <span>My Expenses</span>
-                </Button>
-              </div>
+              )}
             </div>
+          )}
 
-            {hasStartedTrip && (
+          {hasStartedTrip && (
+            <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
               <Button 
-                variant={isPlaying ? "destructive" : "default"}
-                className={`w-full mt-2 ${isPlaying ? '' : 'bg-green-600 hover:bg-green-700'}`}
-                onClick={handleSimulate}
+                className="w-full bg-slate-800 hover:bg-slate-900 text-white"
+                onClick={handleDepositEarnings}
               >
-                {isPlaying ? (simulationMode ? "Pause Demo" : "Pause Tracking") : (simulationMode ? "Simulate Travel" : "Start Tracking")}
+                <Banknote className="w-4 h-4 mr-2" />
+                Deposit Reimbursement & End Route
               </Button>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+          
+          {!hasStartedTrip && (
+            <Button 
+              className="w-full gradient-btn mt-2"
+              onClick={() => setShowPreTripModal(true)}
+            >
+              Start New Route
+            </Button>
+          )}
+
+          {/* Expenses panel is always visible */}
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <p className="text-xs font-semibold uppercase text-slate-500 mb-3 tracking-wider">Expenses</p>
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1 flex items-center justify-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors text-xs"
+                variant="outline"
+                onClick={() => setShowExpenseModal(true)}
+              >
+                <Receipt className="w-3 h-3" /> Add
+              </Button>
+              <Button 
+                className="flex-1 flex items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors text-xs"
+                variant="outline"
+                onClick={() => setShowExpenseHistoryModal(true)}
+              >
+                <History className="w-3 h-3" /> History
+              </Button>
+            </div>
+          </div>
+
+          {hasStartedTrip && (
+            <Button 
+              variant={isPlaying ? "destructive" : "default"}
+              className={`w-full mt-auto mb-2 ${isPlaying ? '' : 'bg-green-600 hover:bg-green-700'}`}
+              onClick={handleSimulate}
+            >
+              {isPlaying ? (simulationMode ? "Pause Demo" : "Pause Tracking") : (simulationMode ? "Simulate Travel" : "Start Tracking")}
+            </Button>
+          )}
+        </div>
       </div>
 
       <Dialog open={showPreTripModal && !hasStartedTrip} onOpenChange={setShowPreTripModal}>
@@ -1245,7 +1332,7 @@ export function LiveTrackingMap() {
       </Dialog>
 
       {checkInModalOpen && (
-        <div className="absolute inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 transition-all">
+        <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 transition-all">
           <Card className="w-full max-w-sm shadow-2xl border-white/20 glass-card">
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center gap-3 text-primary mb-2">
@@ -1255,7 +1342,7 @@ export function LiveTrackingMap() {
                 </h3>
               </div>
               <p className="text-sm text-muted-foreground">
-                You have reached <strong>{activeSite?.name}</strong>. 
+                You have reached <strong>{modalType === "checkin" ? arrivedSite?.name : activeSite?.name}</strong>. 
                 Please {modalType === "checkin" ? "provide site proof to check in" : "confirm to check out"}.
               </p>
 
@@ -1311,6 +1398,14 @@ export function LiveTrackingMap() {
           </Card>
         </div>
       )}
+
+      <SiteVisitReportFormModal 
+        isOpen={showReportModal} 
+        onClose={() => setShowReportModal(false)}
+        onSubmit={handleCheckoutReportSubmit}
+        siteName={activeSite?.name || "Site"}
+        initialDistance={distance}
+      />
 
       <Dialog open={showExpenseHistoryModal} onOpenChange={setShowExpenseHistoryModal}>
         <DialogContent className="sm:max-w-md">

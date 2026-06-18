@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Navigation, Clock, MapPin, User, Navigation2, Fuel, Calendar, History, Settings, Receipt, CheckCircle2, X, ArrowLeft, AlertTriangle, Banknote } from 'lucide-react';
+import { Navigation, Clock, MapPin, User, Navigation2, Fuel, Calendar, History, Settings, Receipt, CheckCircle2, X, ArrowLeft, AlertTriangle, Banknote, Activity, TrendingUp, BarChart3, Shield } from 'lucide-react';
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { DailyTrackingDetailModal } from "@/components/modals/DailyTrackingDetailModal";
@@ -112,20 +112,11 @@ const [filterDate, setFilterDate] = useState<string>("");
     },
     {
       key: "checkInTime",
-      header: "Check In",
+      header: "Last Update",
       render: (value) => (
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-primary" />
+          <Clock className="w-4 h-4 text-blue-500" />
           <span>{String(value)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "checkOutTime",
-      header: "Check Out",
-      render: (value) => (
-        <div className="flex items-center gap-2 text-muted-foreground italic">
-          {value ? <span>{String(value)}</span> : <span>Active</span>}
         </div>
       ),
     },
@@ -134,17 +125,17 @@ const [filterDate, setFilterDate] = useState<string>("");
       header: "Travel (km)",
       render: (value) => (
         <div className="flex items-center gap-2">
-          <Navigation className="w-4 h-4 text-primary" />
+          <Navigation className="w-4 h-4 text-blue-500" />
           <span className="font-medium">{String(value)} km</span>
         </div>
       ),
     },
     {
-      key: "idleTime",
-      header: "Idle Time",
+      key: "vehicleType",
+      header: "Travel Mode",
       render: (value) => (
-        <div className="flex items-center gap-2">
-          <span className={`${Number(value) > 30 ? 'text-orange-500 font-bold' : 'text-slate-500'}`}>{String(value || 0)} min</span>
+        <div className="flex items-center gap-2 font-medium">
+          {String(value || "Bike")}
         </div>
       ),
     },
@@ -435,409 +426,359 @@ const [filterDate, setFilterDate] = useState<string>("");
 
   return (
     <>
-      <div className="flex flex-col h-[calc(100vh-120px)] bg-slate-50 relative rounded-2xl overflow-hidden border border-slate-200">
-      
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex justify-between items-center z-10 shadow-sm shrink-0">
-        <div className="flex items-center gap-4">
-          <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-            <SelectTrigger className="w-[300px] border-slate-300 font-semibold text-slate-800">
-              <SelectValue placeholder="Search & Select Employee..." />
-            </SelectTrigger>
-            <SelectContent>
-              {employees.map(emp => (
-                <SelectItem key={emp.employeeId} value={emp.employeeId}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
-                      {(emp.fullName || "U").charAt(0)}
-                    </div>
-                    <span>{emp.fullName}</span>
-                    <span className="text-xs text-slate-400 ml-2">({emp.employeeId})</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex h-[calc(100vh-120px)] bg-slate-50 relative rounded-2xl overflow-hidden border border-slate-200 flex-col lg:flex-row">
+        {/* Left Content */}
+        <div className="flex-[6] bg-white overflow-y-auto flex flex-col relative z-10 border-r border-slate-200">
+          <div className="p-6">
+            {/* Headers */}
+            <div className="flex justify-between items-start mb-6 pb-6 border-b border-slate-100">
+              <div className="w-1/2 pr-4">
+                <h2 className="text-2xl font-bold text-slate-800">Daily Operations Log</h2>
+                <p className="text-sm text-slate-500 mt-1">Review check-in/out records, attendance logs, and geofence breach reports.</p>
+              </div>
+              <div className="w-1/2 pl-4 border-l border-slate-100">
+                <h2 className="text-2xl font-bold text-slate-800">Live Tracking & Route History</h2>
+                <p className="text-sm text-slate-500 mt-1">Monitor field operations, calculate distances, and automate travel reimbursements.</p>
+              </div>
+            </div>
 
-          <div className="flex items-center gap-2 border-l pl-4 ml-2 border-slate-200">
-            <Label className="text-slate-500 text-sm whitespace-nowrap">Date:</Label>
-            <Input 
-              type="date" 
-              value={filterDate} 
-              onChange={(e) => setFilterDate(e.target.value)}
-              className="w-auto h-9"
-            />
-            {filterDate && (
-              <Button variant="ghost" size="sm" onClick={() => setFilterDate("")} className="h-8 px-2 text-xs">Clear</Button>
-            )}
-          </div>
-
-
-          {selectedEmployeeId && (
-            <Badge className={`ml-4 ${displayStatus === "Traveling" ? "animate-pulse bg-green-500 text-white" : displayStatus === "Completed" ? "bg-green-600 text-white" : displayStatus === "Offline" ? "bg-slate-500" : "bg-blue-500"}`}>
-              {displayStatus}
-            </Badge>
-          )}
-        </div>
-            <div className="flex items-center gap-3">
-              <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm" onClick={() => setIsMapModalOpen(true)}>
-                <MapPin className="w-4 h-4 mr-2" /> View Live Map
-              </Button>
-              {canEdit && (
-                <Button variant="outline" size="sm" onClick={() => setShowSettings(true)}>
-                  <Settings className="w-4 h-4 mr-2" /> Penalty Config
-                </Button>
-              )}
-              {canApprove && (
-                <Button variant="outline" size="sm" className="border-orange-200 text-orange-600 hover:bg-orange-50 relative" onClick={() => setShowExpenseQueue(true)}>
-                  <Receipt className="w-4 h-4 mr-2" /> Approvals
-                  {pendingExpenses.length > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      {pendingExpenses.length}
-                    </span>
+            {/* Tabs & Content */}
+            <Tabs defaultValue="tracking" className="w-full">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <TabsList className="bg-slate-100 p-1 rounded-xl">
+                  <TabsTrigger value="tracking" className="rounded-lg px-4 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all"><Navigation className="w-4 h-4 mr-2"/> Live Tracking / Route History</TabsTrigger>
+                  <TabsTrigger value="analytics" className="rounded-lg px-4 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all"><BarChart3 className="w-4 h-4 mr-2"/> Tracking Analytics & Settings</TabsTrigger>
+                </TabsList>
+                
+                <div className="flex items-center gap-3">
+                  <div className="text-sm text-slate-500 font-medium">Date:</div>
+                  <Input 
+                    type="date" 
+                    value={filterDate} 
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="w-[150px] bg-slate-50 border-slate-200 h-9"
+                  />
+                  {filterDate && (
+                    <Button variant="ghost" size="sm" onClick={() => setFilterDate('')} className="h-8 px-2 text-xs">Clear</Button>
                   )}
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-1 overflow-hidden flex-col lg:flex-row-reverse relative border-b">
-            
-            {/* Map Section */}
-            <div className="w-full lg:w-[40%] h-[400px] lg:h-auto relative z-0 border-b lg:border-b-0 lg:border-l border-slate-200 bg-slate-100">
-              <MapContainer 
-                center={displayRoute.length > 0 ? displayRoute[displayRoute.length - 1] : { lat: 19.0596, lng: 72.8295 }} 
-                zoom={12} 
-                className="w-full h-full z-0"
-                zoomControl={false}
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; OpenStreetMap contributors'
-                />
-
-                <Polyline positions={displayRoute} color={viewMode === "history" ? "#64748b" : "#2563eb"} weight={5} dashArray={viewMode === "history" ? "10, 10" : undefined} />
-
-                {sites.filter(s => s.latitude && s.longitude).map((site) => (
-                  <Marker key={site.id} position={[site.latitude!, site.longitude!]}>
-                    <Popup className="font-sans">
-                      <div className="font-bold text-slate-800 mb-1">{site.name}</div>
-                      <div className="text-xs text-slate-500">Designated Site</div>
-                    </Popup>
-                  </Marker>
-                ))}
-
-                {/* Show specific selected employee's current location */}
-                {selectedEmployeeId && currentLocation && (
-                  <Marker 
-                    position={[currentLocation.lat, currentLocation.lng]} 
-                    icon={currentLocationIcon}
-                  >
-                    <Popup>
-                      <div className="font-bold mb-1">{selectedEmployeeData?.fullName || "Employee"}</div>
-                      <div className="text-xs text-slate-500">Current Location</div>
-                    </Popup>
-                  </Marker>
-                )}
-
-                {/* Show ALL active employees if no specific employee is selected */}
-                {!selectedEmployeeId && filteredTrackingData.map((entry, idx) => {
-                  if (!entry.currentLocation || entry.status !== "online") return null;
-                  try {
-                    const loc = typeof entry.currentLocation === 'string' 
-                      ? JSON.parse(entry.currentLocation) 
-                      : entry.currentLocation;
-                    
-                    if (loc && loc.lat && loc.lng) {
-                      return (
-                        <Marker 
-                          key={entry.id || idx}
-                          position={[loc.lat, loc.lng]} 
-                          icon={currentLocationIcon}
-                        >
-                          <Popup>
-                            <div className="font-bold mb-1">{entry.employeeName}</div>
-                            <div className="text-xs text-slate-500">{entry.role}</div>
-                            <div className="text-xs font-bold text-green-600 mt-1">Live Tracking</div>
-                          </Popup>
-                        </Marker>
-                      );
-                    }
-                  } catch (e) {}
-                  return null;
-                })}
-              </MapContainer>
-            </div>
-
-            {/* Left Content (Table & Analytics) */}
-            <div className="flex-[6] bg-white overflow-y-auto flex flex-col relative z-10">
-              
-              {/* The Tracking List */}
-              <div className="w-full p-6 border-b border-slate-200 shadow-sm shrink-0">
-                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-blue-600" />
-                  Employee Tracking List
-                </h3>
-                <DataTable
-                  data={filteredTrackingData}
-                  columns={liveTrackingColumns}
-                  onView={(entry) => {
-                    setModalEmployeeId(entry.employeeId);
-                    setIsDetailModalOpen(true);
-                  }}
-                  searchPlaceholder="Search tracking entries..."
-                />
+                </div>
               </div>
 
-              {/* Analytics Dashboard Section */}
-              <Tabs defaultValue="analytics" className="w-full flex-1 flex flex-col shrink-0">
-                <div className="p-4 border-b shrink-0">
-                  <TabsList className="w-full grid grid-cols-2">
-                    <TabsTrigger value="analytics" onClick={() => { setViewMode("live"); setSelectedHistoryDate(""); }}>Trip Analytics</TabsTrigger>
-                    <TabsTrigger value="history">Route History</TabsTrigger>
-                  </TabsList>
-                </div>
-                
-                <TabsContent value="analytics" className="p-6 m-0 flex-1 overflow-y-auto">
-                  <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                    <Navigation className="w-5 h-5 text-blue-600" />
-                    {viewMode === "history" ? "Historical Trip Data" : "Live Trip Analytics"}
-                  </h3>
+              <TabsContent value="tracking" className="mt-0 space-y-6">
+                {/* Live Tracking KPI Cards */}
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800 mb-4">Live Tracking / Route History</h3>
+                  <p className="text-slate-500 text-sm mb-4">Real-time location monitoring and historical route data</p>
                   
-                  <div className="grid grid-cols-2 gap-4 mb-8">
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                        <MapPin className="w-3 h-3" /> Distance
-                      </p>
-                      <p className="font-bold text-xl">{displayDistance.toFixed(2)} km</p>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                        <Clock className="w-3 h-3" /> Duration
-                      </p>
-                      <p className="font-bold text-xl">{displayTime.toFixed(0)} mins</p>
-                    </div>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                        <User className="w-3 h-3" /> Vehicle Type
-                      </p>
-                      <p className="font-bold text-xl">{currentTripInfo?.vehicleType || 'Bike'}</p>
-                    </div>
-                    <div className="bg-green-50 p-4 rounded-xl border border-green-100">
-                      <p className="text-xs text-green-700 flex items-center gap-1 mb-1">
-                        <Banknote className="w-3 h-3" /> Est. Reimbursement
-                      </p>
-                      <p className="font-bold text-xl text-green-700">₹{(displayDistance * (currentTripInfo?.vehicleType === 'Car' ? parseFloat(vehicleRateCar) : parseFloat(vehicleRateBike))).toFixed(2)}</p>
-                    </div>
-                  </div>
-
-              {(() => {
-                const expectedTime = dynamicEta !== null ? dynamicEta : (displayDistance / 30) * 60;
-                const excessMins = displayTime - expectedTime;
-                const thresh = parseInt(penaltyThreshold.toString(), 10) || 30;
-                const amt = parseFloat(penaltyAmount.toString()) || 50;
-                const isOverdue = excessMins > 0;
-                const isPenalized = excessMins > thresh;
-                
-                return (
-                  <div className="mb-8 p-5 rounded-xl border shadow-sm bg-white">
-                    <h4 className="text-sm font-bold uppercase text-slate-500 mb-4 flex items-center gap-2">
-                      <Clock className="w-4 h-4" /> Live Time Tracker
-                    </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <Card className="border-slate-200 shadow-sm rounded-xl">
+                      <CardContent className="p-4 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-2 bg-green-50 rounded-lg"><Activity className="w-4 h-4 text-green-600" /></div>
+                          <span className="text-xs font-semibold text-slate-500">Active Now</span>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-800">
+                          {filteredTrackingData.filter(d => d.status === 'online').length}/{filteredTrackingData.length}
+                        </div>
+                      </CardContent>
+                    </Card>
                     
-                    <div className="flex flex-col gap-4">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-500">Estimated Due Time</span>
-                        <span className="font-bold text-slate-800">{expectedTime.toFixed(0)} mins</span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-500">Time Elapsed</span>
-                        <span className="font-bold text-slate-800">{displayTime.toFixed(0)} mins</span>
-                      </div>
-
-                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${isOverdue ? 'bg-red-500' : 'bg-green-500'}`}
-                          style={{ width: `${Math.min(100, (displayTime / expectedTime) * 100)}%` }}
-                        />
-                      </div>
-
-                      <div className={`p-3 rounded-lg border flex justify-between items-center ${isOverdue ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
-                        <span className="font-semibold text-sm">
-                          {isOverdue ? 'Time Overdue' : 'Time Remaining'}
-                        </span>
-                        <span className="font-bold text-lg">
-                          {Math.abs(excessMins).toFixed(0)} mins {isOverdue ? 'Late' : 'Left'}
-                        </span>
-                      </div>
-                      
-                      {isPenalized && (
-                        <div className="mt-2 p-3 rounded-lg bg-red-100 border border-red-300">
-                          <p className="text-sm text-red-800 font-bold mb-1 flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4" /> Penalty Applied!
-                          </p>
-                          <p className="text-xs text-red-600 mb-2">Exceeded grace period by {(excessMins - thresh).toFixed(0)}m</p>
-                          <div className="flex justify-between items-center font-bold text-sm text-red-800">
-                            <span>Deduction:</span>
-                            <span>-₹{((excessMins - thresh) * amt).toFixed(2)}</span>
-                          </div>
+                    <Card className="border-slate-200 shadow-sm rounded-xl">
+                      <CardContent className="p-4 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-2 bg-blue-50 rounded-lg"><TrendingUp className="w-4 h-4 text-blue-600" /></div>
+                          <span className="text-xs font-semibold text-slate-500">Avg Performance</span>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {hasTripDetails && (
-                <div className="pt-3 border-t border-slate-100 space-y-2 mb-6">
-                  <p className="text-xs font-bold uppercase text-slate-500 mb-2 flex items-center gap-1">
-                    <Navigation2 className="w-3 h-3" /> Trip Details
-                  </p>
-                  
-                  <div className="text-xs text-slate-700 bg-blue-50 p-2 rounded border border-blue-100">
-                    <span className="font-bold block mb-1">Purpose of Visit:</span>
-                    {displayPurpose || 'No purpose specified'}
-                  </div>
-                  
-                  {displayPlannedRoute && displayPlannedRoute.length > 0 && (
-                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
-                      {displayPlannedRoute.map((seg: any, i: number) => (
-                        <div key={i} className="text-xs bg-white border border-slate-100 p-2 rounded shadow-sm relative pl-4 before:content-[''] before:absolute before:-left-1 before:top-2 before:w-2 before:h-2 before:bg-blue-500 before:rounded-full">
-                          <div className="font-bold truncate text-slate-800">{seg.startName} → {seg.endName}</div>
-                          <div className="flex justify-between mt-1 text-slate-500">
-                            <span>{seg.distance.toFixed(1)} km</span>
-                            <span>{seg.eta.toFixed(0)} min ETA</span>
-                          </div>
+                        <div className="text-2xl font-bold text-slate-800">
+                          {filteredTrackingData.length > 0 
+                            ? Math.round(filteredTrackingData.reduce((acc, curr) => acc + Number(curr.planVsActual || 0), 0) / filteredTrackingData.length) 
+                            : 0}%
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </CardContent>
+                    </Card>
 
-                  {activeSite && (
-                    <div className="w-full mt-3 shadow-sm bg-green-50 text-green-700 border border-green-200 p-2 rounded text-center text-xs font-bold flex items-center justify-center gap-1 animate-pulse">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Checked-in at {activeSite.name}
-                    </div>
-                  )}
+                    <Card className="border-slate-200 shadow-sm rounded-xl">
+                      <CardContent className="p-4 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-2 bg-indigo-50 rounded-lg"><Navigation2 className="w-4 h-4 text-indigo-600" /></div>
+                          <span className="text-xs font-semibold text-slate-500">Total Distance</span>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-800">
+                          {filteredTrackingData.reduce((acc, curr) => acc + Number(curr.travelDistance || 0), 0).toFixed(1)} <span className="text-sm text-slate-500">km</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-slate-200 shadow-sm rounded-xl">
+                      <CardContent className="p-4 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-2 bg-orange-50 rounded-lg"><Fuel className="w-4 h-4 text-orange-600" /></div>
+                          <span className="text-xs font-semibold text-slate-500">Total Fuel Cost</span>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-800">
+                          ₹{(filteredTrackingData.reduce((acc, curr) => acc + Number(curr.travelDistance || 0), 0) * 3).toFixed(0)}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-slate-200 shadow-sm rounded-xl">
+                      <CardContent className="p-4 flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-2 bg-red-50 rounded-lg"><AlertTriangle className="w-4 h-4 text-red-600" /></div>
+                          <span className="text-xs font-semibold text-slate-500">Alerts Today</span>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-800">
+                          {filteredTrackingData.filter(d => Number(d.idleTime || 0) > 30).length}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
-              )}
+
+                {/* Data Table */}
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                  <DataTable
+                    data={filteredTrackingData}
+                    columns={liveTrackingColumns}
+                    onView={(entry) => {
+                      setModalEmployeeId(entry.employeeId);
+                      setIsDetailModalOpen(true);
+                    }}
+                    searchPlaceholder="Search employees..."
+                    showExport={true}
+                  />
+                </div>
               </TabsContent>
 
-                <TabsContent value="history" className="p-0 m-0 flex-1 overflow-y-auto bg-slate-50">
-                  <div className="p-4 border-b bg-white flex justify-between items-center sticky top-0 z-10">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                      <History className="w-4 h-4 text-blue-600" />
-                      Trip History
-                    </h3>
-                  </div>
+              <TabsContent value="analytics" className="mt-0 space-y-6">
+                {/* Analytics KPI Cards */}
+                <div>
+                  <h3 className="text-xl font-bold text-slate-800 mb-4">Tracking Analytics & Settings</h3>
+                  <p className="text-slate-500 text-sm mb-4">Configure tracking rules and analyze performance trends</p>
                   
-                  <div className="p-4 space-y-4">
-                    {trackingHistory.length === 0 ? (
-                      <div className="text-center p-8 bg-white rounded-xl border border-dashed border-slate-300">
-                        <History className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="text-sm text-slate-500">No historical trips found.</p>
-                      </div>
-                    ) : (
-                      <>
-                        <h4 className="text-xs font-bold uppercase text-slate-500 mb-2">Past Trips</h4>
-                        <div className="space-y-3">
-                          {trackingHistory.map((trip) => {
-                            const dateObj = new Date(trip.checkInTime);
-                            const isToday = new Date().toDateString() === dateObj.toDateString();
-                            
-                            return (
-                              <div 
-                                key={trip.id} 
-                                onClick={() => {
-                                  setSelectedHistoryDate(trip.id);
-                                  setViewMode("history");
-                                }}
-                                className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                                  selectedHistoryDate === trip.id 
-                                    ? "bg-blue-50 border-blue-200 shadow-sm" 
-                                    : "bg-white border-slate-200 hover:border-blue-300 hover:shadow-sm"
-                                }`}
-                              >
-                                <div className="flex justify-between items-start mb-2">
-                                  <div className="font-bold text-slate-800">
-                                    {isToday ? "Today" : dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                  </div>
-                                  <Badge variant="outline" className={trip.status === "online" ? "bg-green-50 text-green-700" : "bg-slate-50 text-slate-600"}>
-                                    {trip.status === "online" ? "Active" : "Completed"}
-                                  </Badge>
-                                </div>
-                                
-                                <div className="space-y-2 mt-3">
-                                  <div className="flex items-center justify-between text-xs text-slate-500">
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="w-3 h-3 text-slate-400" />
-                                      <span className="font-medium">Check-In:</span> {dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                                    </div>
-                                    {trip.checkOutTime && (
-                                      <div className="flex items-center gap-1">
-                                        <span className="font-medium">Out:</span> {new Date(trip.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 bg-slate-50 p-2 rounded-md border border-slate-100">
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3 text-slate-400" />
-                                      <span className="font-medium">Dist:</span> {trip.travelDistance || 0} km
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <User className="w-3 h-3 text-slate-400" />
-                                      <span className="font-medium">Vehicle:</span> {trip.vehicleType || "N/A"}
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <Navigation2 className="w-3 h-3 text-slate-400" />
-                                      <span className="font-medium">Idle:</span> {trip.idleTime || 0} min
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-1 text-orange-600">
-                                      <Fuel className="w-3 h-3" />
-                                      <span className="font-medium">Fuel:</span> {((trip.travelDistance || 0) / 40).toFixed(1)} L
-                                    </div>
-                                    <div className="flex items-center gap-1 text-green-600">
-                                      <Banknote className="w-3 h-3" />
-                                      <span className="font-medium">Reimb:</span> ₹{(trip.reimbursementAmount || 0).toFixed(2)}
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="w-3 h-3 text-slate-400" />
-                                      <span className="font-medium">Site Time:</span> {trip.timeSpentOnSite || 0} hrs
-                                    </div>
-                                    <div className="flex items-center gap-1 text-blue-600">
-                                      <CheckCircle2 className="w-3 h-3" />
-                                      <span className="font-medium">Plan vs Act:</span> {trip.planVsActual || 0}%
-                                    </div>
-                                  </div>
-
-                                  {trip.purpose && (
-                                    <div className="text-xs text-slate-600 pt-1">
-                                      <span className="font-medium text-slate-700">Purpose: </span> 
-                                      <span className="italic">{trip.purpose}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="border-slate-200 shadow-sm rounded-xl">
+                      <CardContent className="p-6 flex flex-col justify-center">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="p-3 bg-blue-50 rounded-xl"><Navigation className="w-5 h-5 text-blue-600" /></div>
+                          <span className="text-sm font-semibold text-slate-500">Avg Distance/Employee</span>
                         </div>
-                      </>
-                    )}
+                        <div className="text-3xl font-bold text-slate-800 mt-2">
+                          {filteredTrackingData.length > 0 
+                            ? (filteredTrackingData.reduce((acc, curr) => acc + Number(curr.travelDistance || 0), 0) / filteredTrackingData.length).toFixed(1) 
+                            : "0.0"} <span className="text-lg text-slate-500">km</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-slate-200 shadow-sm rounded-xl">
+                      <CardContent className="p-6 flex flex-col justify-center">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="p-3 bg-orange-50 rounded-xl"><Clock className="w-5 h-5 text-orange-600" /></div>
+                          <span className="text-sm font-semibold text-slate-500">Avg Idle Time</span>
+                        </div>
+                        <div className="text-3xl font-bold text-slate-800 mt-2">
+                          {filteredTrackingData.length > 0 
+                            ? Math.round(filteredTrackingData.reduce((acc, curr) => acc + Number(curr.idleTime || 0), 0) / filteredTrackingData.length) 
+                            : 0} <span className="text-lg text-slate-500">min</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-slate-200 shadow-sm rounded-xl">
+                      <CardContent className="p-6 flex flex-col justify-center">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="p-3 bg-red-50 rounded-xl"><Shield className="w-5 h-5 text-red-600" /></div>
+                          <span className="text-sm font-semibold text-slate-500">Geo-Fence Breaches</span>
+                        </div>
+                        <div className="text-3xl font-bold text-slate-800 mt-2">0</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+
+                {/* Configuration Sub-tabs */}
+                <Tabs defaultValue="settings" className="w-full">
+                  <TabsList className="bg-transparent border-b border-slate-200 w-full justify-start rounded-none h-auto p-0 mb-6">
+                    <TabsTrigger value="settings" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent px-6 py-3"><Settings className="w-4 h-4 mr-2"/> Settings</TabsTrigger>
+                    <TabsTrigger value="reports" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent px-6 py-3"><BarChart3 className="w-4 h-4 mr-2"/> Analytics Reports</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="settings" className="mt-0">
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                      <h4 className="text-lg font-bold flex items-center gap-2 mb-6">
+                        <Settings className="w-5 h-5 text-slate-700"/> Tracking Configuration
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-6">
+                          <div>
+                            <Label className="text-base font-semibold text-slate-800">Idle Threshold (minutes)</Label>
+                            <Input type="number" value="30" className="mt-2 bg-slate-50" readOnly/>
+                            <p className="text-xs text-slate-500 mt-1">Alert when employee is idle beyond this duration</p>
+                          </div>
+                          <div>
+                            <Label className="text-base font-semibold text-slate-800">Alert Severity Levels</Label>
+                            <Select defaultValue="medium">
+                              <SelectTrigger className="mt-2 bg-slate-50">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="medium">Medium</SelectItem>
+                                <SelectItem value="low">Low</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-slate-500 mt-1">Default severity for new alerts</p>
+                          </div>
+                        </div>
+                        <div className="space-y-6">
+                          <div>
+                            <Label className="text-base font-semibold text-slate-800">Geo-Fence Radius (meters)</Label>
+                            <Input type="number" value="500" className="mt-2 bg-slate-50" readOnly/>
+                            <p className="text-xs text-slate-500 mt-1">Default boundary radius for geo-fence zones</p>
+                          </div>
+                          <div className="pt-2 space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label className="text-base font-semibold text-slate-800">Approval Workflow for Adjustments</Label>
+                                <p className="text-xs text-slate-500">Enable manager approval for time adjustments</p>
+                              </div>
+                              <div className="w-10 h-6 bg-blue-600 rounded-full relative cursor-pointer"><div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div></div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <Label className="text-base font-semibold text-slate-800">Audit Trail Enabled</Label>
+                                <p className="text-xs text-slate-500">Track all changes with user/timestamp</p>
+                              </div>
+                              <div className="w-10 h-6 bg-blue-600 rounded-full relative cursor-pointer"><div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-100">
+                        <Button variant="outline">Reset to Defaults</Button>
+                        <Button className="bg-blue-600 text-white">Save Settings</Button>
+                      </div>
+                    </div>
+                  </TabsContent>
                   
-
+                  <TabsContent value="reports">
+                    <div className="py-12 text-center text-slate-500">Analytics reports will be visualized here.</div>
+                  </TabsContent>
+                </Tabs>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
+        {/* Right Content (Map & Live Tracking Card) */}
+        <div className="w-full lg:w-[40%] flex flex-col h-[400px] lg:h-auto relative z-0 bg-slate-100">
+          <div className="flex-1 relative">
+            <MapContainer 
+              center={displayRoute.length > 0 ? displayRoute[displayRoute.length - 1] : { lat: 19.0596, lng: 72.8295 }} 
+              zoom={12} 
+              className="w-full h-full z-0"
+              zoomControl={false}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; OpenStreetMap contributors'
+              />
 
-                </TabsContent>
-              </Tabs>
+              <Polyline positions={displayRoute} color={viewMode === "history" ? "#64748b" : "#2563eb"} weight={5} dashArray={viewMode === "history" ? "10, 10" : undefined} />
+
+              {sites.filter(s => s.latitude && s.longitude).map((site) => (
+                <Marker key={site.id} position={[site.latitude, site.longitude]}>
+                  <Popup className="font-sans">
+                    <div className="font-bold text-slate-800 mb-1">{site.name}</div>
+                    <div className="text-xs text-slate-500">Designated Site</div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              {/* Show specific selected employee's current location */}
+              {selectedEmployeeId && currentLocation && (
+                <Marker 
+                  position={[currentLocation.lat, currentLocation.lng]} 
+                  icon={currentLocationIcon}
+                >
+                  <Popup>
+                    <div className="font-bold mb-1">{selectedEmployeeData?.fullName || "Employee"}</div>
+                    <div className="text-xs text-slate-500">Current Location</div>
+                  </Popup>
+                </Marker>
+              )}
+
+              {/* Show ALL active employees if no specific employee is selected */}
+              {!selectedEmployeeId && filteredTrackingData.map((entry, idx) => {
+                if (!entry.currentLocation || entry.status !== "online") return null;
+                try {
+                  const loc = typeof entry.currentLocation === 'string' 
+                    ? JSON.parse(entry.currentLocation) 
+                    : entry.currentLocation;
+                  
+                  if (loc && loc.lat && loc.lng) {
+                    return (
+                      <Marker 
+                        key={entry.id || idx}
+                        position={[loc.lat, loc.lng]} 
+                        icon={currentLocationIcon}
+                      >
+                        <Popup>
+                          <div className="font-bold mb-1">{entry.employeeName}</div>
+                          <div className="text-xs text-slate-500">{entry.role}</div>
+                          <div className="text-xs font-bold text-green-600 mt-1">Live Tracking</div>
+                        </Popup>
+                      </Marker>
+                    );
+                  }
+                } catch (e) {}
+                return null;
+              })}
+            </MapContainer>
+          </div>
+          
+          {/* Live Tracking Controls Card */}
+          <div className="p-4 bg-white border-t border-slate-200 shrink-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Navigation className="w-5 h-5 text-blue-600" /> Live Tracking
+            </h4>
+            
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <Label className="text-slate-500 text-sm">Select Date</Label>
+                <Input 
+                  type="date" 
+                  value={filterDate} 
+                  onChange={(e) => setFilterDate(e.target.value)}
+                  className="w-full bg-slate-50 border-slate-200"
+                />
+              </div>
+              
+              <div className="space-y-1">
+                <Label className="text-slate-500 text-sm">Select Employee to Track</Label>
+                <Select value={selectedEmployeeId || "none"} onValueChange={(val) => setSelectedEmployeeId(val === "none" ? "" : val)}>
+                  <SelectTrigger className="w-full border-slate-200 bg-slate-50">
+                    <SelectValue placeholder="None (Stop Tracking)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (Stop Tracking)</SelectItem>
+                    {employees.map(emp => (
+                      <SelectItem key={emp.employeeId} value={emp.employeeId}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold">
+                            {(emp.fullName || "U").charAt(0)}
+                          </div>
+                          <span>{emp.fullName}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
-
-      
-
+      </div>
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

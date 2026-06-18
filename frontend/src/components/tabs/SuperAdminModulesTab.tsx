@@ -1,208 +1,348 @@
 import { useState, useEffect } from "react";
-import { Search, Plus, Upload, Building2, MapPin, ShieldAlert } from "lucide-react";
+import { ShieldAlert, Settings, CheckCircle2, XCircle, MapPin, Save, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { RolePermissionsTable, PermissionsMap } from "@/components/shared/RolePermissionsTable";
+import { useMasterData } from "@/contexts/MasterDataContext";
 
-interface Organization {
-  id: string;
-  name: string;
-}
-
-interface Site {
-  id: string;
-  orgId: string;
-  name: string;
-}
-
-// Dummy sites
-const DUMMY_SITES: Site[] = [
-  { id: "s1", orgId: "1", name: "Corporate HQ" },
-  { id: "s2", orgId: "1", name: "North Branch" },
-  { id: "s3", orgId: "2", name: "Main Campus" },
-  { id: "s4", orgId: "3", name: "Downtown Office" },
+const MODULES_HIERARCHY = [
+  {
+    id: "master_setup", label: "Master Setup",
+    subModules: [
+      { id: "employees", label: "Employees" },
+      { id: "roles", label: "Roles" },
+      { id: "role_permissions", label: "Role Permissions" },
+      { id: "reporting_manager", label: "Reporting Manager" },
+      { id: "departments", label: "Departments" },
+      { id: "status_master", label: "Status Master" },
+      { id: "distributor_master", label: "Distributor Master" },
+      { id: "sites", label: "Sites" },
+    ]
+  },
+  {
+    id: "inventory_management", label: "Inventory Management",
+    subModules: [
+      { id: "product_setup", label: "Product Setup" },
+      { id: "stock_transfer", label: "Stock Transfer" },
+      { id: "stock_adjustment", label: "Stock Adjustment" },
+      { id: "warehouse", label: "Warehouse Management" },
+    ]
+  },
+  {
+    id: "sales_executive", label: "Sales Executive",
+    subModules: [
+      { id: "territory_management", label: "Territory Management" },
+      { id: "distributor_linkage", label: "Distributor Linkage" },
+      { id: "sales_monitoring", label: "Sales Monitoring" },
+    ]
+  },
+  {
+    id: "tracking_operations", label: "Tracking & Operations",
+    subModules: [
+      { id: "daily_tracking", label: "Daily Tracking" },
+      { id: "team_tracking", label: "Team Tracking" },
+      { id: "live_tracking", label: "Live Tracking" },
+      { id: "projects_tasks", label: "Projects & Tasks" },
+    ]
+  },
+  {
+    id: "admin_reporting", label: "Admin & Reporting",
+    subModules: [
+      { id: "reports", label: "Reports" },
+      { id: "alerts", label: "Alerts" },
+      { id: "communication", label: "Communication & Meetings" },
+      { id: "documents", label: "Documents" },
+    ]
+  }
 ];
 
 export function SuperAdminModulesTab() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const [selectedOrgId, setSelectedOrgId] = useState<string | "">("");
-  const [selectedSiteId, setSelectedSiteId] = useState<string | "">("");
-  
-  const [permissions, setPermissions] = useState<PermissionsMap>({});
-  const [isSaving, setIsSaving] = useState(false);
+  const { sites } = useMasterData();
 
-  const fetchOrganizations = async () => {
-    try {
-      const res = await fetch("/api/organizations/");
-      if (res.ok) {
-        const data = await res.json();
-        setOrganizations(data);
-      } else {
-        setOrganizations([
-          {id: '1', name: 'infodesk computer education'},
-          {id: '2', name: 'Infodesk Solutions'},
-          {id: '3', name: 'abc'}
-        ]);
-      }
-    } catch (e) {
-      setOrganizations([
-        {id: '1', name: 'infodesk computer education'},
-        {id: '2', name: 'Infodesk Solutions'},
-        {id: '3', name: 'abc'}
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
+  const currentOrgId = sessionStorage.getItem("organizationId");
+  const isImpersonating = isGlobalAdmin && currentOrgId && currentOrgId !== "null";
+  const isSuperAdmin = isGlobalAdmin && !isImpersonating;
+
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(isSuperAdmin ? "" : (currentOrgId || ""));
+  const [selectedSiteId, setSelectedSiteId] = useState<string>("");
+  const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    fetchOrganizations();
+    fetch("/api/organizations/")
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setOrganizations(data);
+        else if (data?.results) setOrganizations(data.results);
+      })
+      .catch(() => {});
   }, []);
 
-  const handleOrgChange = (orgId: string) => {
-    setSelectedOrgId(orgId);
-    setSelectedSiteId(""); // Reset site when org changes
-    setPermissions({}); // Reset permissions
+  // Filter sites by org
+  const availableSites = isSuperAdmin
+    ? sites.filter(s => s.organization === selectedOrgId || s.orgId === selectedOrgId)
+    : sites.filter(s => s.organization === currentOrgId || s.orgId === currentOrgId);
+
+  const selectedSite = availableSites.find(s => s.id === selectedSiteId);
+
+  // When site is selected, load its current modules
+  useEffect(() => {
+    if (selectedSiteId && selectedSite) {
+      setSelectedModules(selectedSite.modulesEnabled || []);
+    }
+  }, [selectedSiteId]);
+
+  const toggleModule = (moduleId: string, subModuleIds: string[]) => {
+    setSelectedModules(prev => {
+      const allSelected = prev.includes(moduleId);
+      if (allSelected) {
+        // Remove parent and all children
+        return prev.filter(m => m !== moduleId && !subModuleIds.includes(m));
+      } else {
+        // Add parent and all children
+        const toAdd = [moduleId, ...subModuleIds].filter(m => !prev.includes(m));
+        return [...prev, ...toAdd];
+      }
+    });
   };
 
-  const handleSiteChange = (siteId: string) => {
-    setSelectedSiteId(siteId);
-    // Simulate loading permissions for this specific site or org
-    setPermissions({});
+  const toggleSubModule = (subId: string, parentId: string, allSubIds: string[]) => {
+    setSelectedModules(prev => {
+      const isSelected = prev.includes(subId);
+      let next = isSelected ? prev.filter(m => m !== subId) : [...prev, subId];
+      
+      // Auto add/remove parent
+      const anySubSelected = allSubIds.some(s => next.includes(s));
+      if (anySubSelected && !next.includes(parentId)) next = [...next, parentId];
+      if (!anySubSelected) next = next.filter(m => m !== parentId);
+      
+      return next;
+    });
   };
 
-  const handleSaveModules = async () => {
-    if (!selectedOrgId) return;
+  const handleSave = async () => {
+    if (!selectedSiteId) {
+      toast.error("Please select a site first.");
+      return;
+    }
     setIsSaving(true);
     try {
-      // Send the complex permissions object to backend
-      toast.success("Role permissions have been successfully updated.");
-    } catch (e) {
-      toast.error("Failed to update role permissions.");
+      const res = await fetch(`/api/sites/${selectedSiteId}/`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Organization-Id": selectedOrgId || currentOrgId || ""
+        },
+        body: JSON.stringify({ modulesEnabled: selectedModules })
+      });
+
+      if (res.ok) {
+        toast.success("Modules updated successfully! Changes take effect on next login.");
+        // Update session if this is the user's own site
+        const siteOrgId = selectedSite?.organization || selectedSite?.orgId;
+        if (siteOrgId === currentOrgId) {
+          sessionStorage.setItem("modulesEnabled", JSON.stringify(selectedModules));
+        }
+      } else {
+        toast.error("Failed to save modules.");
+      }
+    } catch {
+      toast.error("Network error.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const availableSites = DUMMY_SITES.filter(s => s.orgId === selectedOrgId);
-  const selectedOrg = organizations.find(o => o.id === selectedOrgId);
-  const selectedSite = selectedSiteId === "all" ? "All Sites (Global)" : availableSites.find(s => s.id === selectedSiteId)?.name;
+  const selectAll = () => {
+    const all: string[] = [];
+    MODULES_HIERARCHY.forEach(m => {
+      all.push(m.id);
+      m.subModules.forEach(s => all.push(s.id));
+    });
+    setSelectedModules(all);
+  };
+
+  const clearAll = () => setSelectedModules([]);
 
   return (
-    <div className="space-y-8 pb-10 animate-in fade-in duration-500 max-w-[1400px] mx-auto">
-      
-      {/* Premium Header */}
-      <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-          <ShieldAlert className="w-8 h-8 text-[#2563eb] p-1.5 bg-[#2563eb]/10 rounded-lg" />
-          Access Management
-        </h2>
-        <p className="text-muted-foreground text-lg max-w-2xl">
-          Configure module availability and granular permissions for your tenant organizations and their respective sites.
+    <div className="space-y-6 pb-10 animate-in fade-in duration-500 max-w-[1200px] mx-auto">
+
+      {/* Header */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+          <Settings className="w-8 h-8 text-[#2563eb] p-1.5 bg-[#2563eb]/10 rounded-lg" />
+          Module Configuration
+        </h1>
+        <p className="text-muted-foreground text-base">
+          Control which modules are available for each site / project in your organization.
         </p>
       </div>
 
-      {/* Scope Selection Card - Premium Glassmorphism styling */}
-      <Card className="border-border/60 shadow-md bg-gradient-to-br from-card to-muted/20 backdrop-blur-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-[#2563eb]/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-        <CardContent className="p-6 md:p-8 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-3">
-              <Label className="text-sm font-bold text-foreground flex items-center gap-2 uppercase tracking-wider">
-                 <Building2 className="w-4 h-4 text-[#2563eb]" /> 1. Select Organization
+      {/* Scope Selection */}
+      <Card className="border-border shadow-sm">
+        <CardContent className="p-6">
+          <div className={`grid grid-cols-1 gap-6 ${isSuperAdmin ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+            {isSuperAdmin && (
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-[#2563eb]" /> Organization
+                </Label>
+                <Select value={selectedOrgId} onValueChange={v => { setSelectedOrgId(v); setSelectedSiteId(""); setSelectedModules([]); }}>
+                  <SelectTrigger className="bg-background h-11">
+                    <SelectValue placeholder="Select an organization..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations.map(org => (
+                      <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#2563eb]" /> Site / Project
               </Label>
-              <Select value={selectedOrgId} onValueChange={handleOrgChange}>
-                <SelectTrigger className="w-full h-12 text-base bg-background shadow-sm border-border/80 focus:ring-[#2563eb]/20">
-                  <SelectValue placeholder="Choose an organization..." />
+              <Select
+                value={selectedSiteId}
+                onValueChange={v => setSelectedSiteId(v)}
+                disabled={isSuperAdmin && !selectedOrgId}
+              >
+                <SelectTrigger className="bg-background h-11 disabled:opacity-50">
+                  <SelectValue placeholder={isSuperAdmin && !selectedOrgId ? "Select org first" : "Choose a site..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {organizations.map(org => (
-                    <SelectItem key={org.id} value={org.id} className="py-3 cursor-pointer">
+                  {availableSites.map(site => (
+                    <SelectItem key={site.id} value={site.id}>
                       <div className="flex flex-col">
-                        <span className="font-semibold">{org.name}</span>
+                        <span className="font-medium">{site.name}</span>
+                        {site.siteCode && <span className="text-xs text-muted-foreground">{site.siteCode}</span>}
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            
-            <div className="space-y-3">
-              <Label className={`text-sm font-bold flex items-center gap-2 uppercase tracking-wider ${!selectedOrgId ? 'text-muted-foreground' : 'text-foreground'}`}>
-                 <MapPin className={`w-4 h-4 ${!selectedOrgId ? 'text-muted-foreground' : 'text-[#2563eb]'}`} /> 2. Select Site / Project
-              </Label>
-              <Select value={selectedSiteId} onValueChange={handleSiteChange} disabled={!selectedOrgId}>
-                <SelectTrigger className="w-full h-12 text-base bg-background shadow-sm border-border/80 focus:ring-[#2563eb]/20 disabled:opacity-50">
-                  <SelectValue placeholder={!selectedOrgId ? "Select organization first" : "Choose a site..."} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="py-3 font-semibold text-[#2563eb] cursor-pointer">Global Access (All Sites)</SelectItem>
-                  {availableSites.map(site => (
-                    <SelectItem key={site.id} value={site.id} className="py-3 cursor-pointer">
-                      <span className="font-medium">{site.name}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            <div className="space-y-2 flex flex-col justify-end">
+              <Label className="text-sm font-semibold opacity-0">Actions</Label>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-1 h-11" onClick={selectAll} disabled={!selectedSiteId}>
+                  <CheckCircle2 className="w-4 h-4 text-green-500" /> Select All
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1 h-11" onClick={clearAll} disabled={!selectedSiteId}>
+                  <XCircle className="w-4 h-4 text-red-400" /> Clear All
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Module Configuration UI - Only visible when a site is selected */}
-      {selectedSiteId && selectedOrg && (
-        <div className="animate-in slide-in-from-bottom-8 duration-700 fade-in fill-mode-both">
-          <Card className="border-border/60 shadow-lg bg-card">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 md:p-8 border-b border-border/60 bg-muted/10">
-              <div>
-                <h3 className="text-xl font-bold text-foreground">Role Permissions Configuration</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Configuring permissions for <span className="font-bold text-[#2563eb] bg-[#2563eb]/10 px-2 py-0.5 rounded-md ml-1">{selectedOrg.name}</span> 
-                  <span className="mx-2 text-border">&rarr;</span> 
-                  <span className="font-bold text-[#2563eb] bg-[#2563eb]/10 px-2 py-0.5 rounded-md">{selectedSite}</span>
-                </p>
-              </div>
-              <Button onClick={handleSaveModules} disabled={isSaving} className="mt-4 md:mt-0 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-md hover:shadow-lg transition-all px-8 h-12 text-base font-semibold">
-                {isSaving ? "Saving..." : "Save Configuration"}
-              </Button>
+      {/* Module Toggles */}
+      {selectedSiteId ? (
+        <div className="animate-in slide-in-from-bottom-4 duration-500 fade-in space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-foreground">
+                Modules for: <span className="text-[#2563eb]">{selectedSite?.name || "Selected Site"}</span>
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {selectedModules.length} module{selectedModules.length !== 1 ? "s" : ""} enabled
+              </p>
             </div>
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white gap-2 h-11 px-6 font-semibold shadow-md"
+            >
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
 
-            <CardContent className="p-6 md:p-8">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
-                <div className="relative w-full md:max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input placeholder="Search modules..." className="pl-10 h-12 bg-muted/30 border-border/60 focus-visible:ring-[#2563eb]/20" />
-                </div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {MODULES_HIERARCHY.map(mod => {
+              const subIds = mod.subModules.map(s => s.id);
+              const isParentChecked = selectedModules.includes(mod.id);
+              const someSubChecked = subIds.some(s => selectedModules.includes(s));
 
-              <div className="flex flex-col md:flex-row items-center justify-between gap-6 py-5 border-y border-border/60 mb-8 bg-muted/5 px-4 rounded-xl">
-                <Button variant="outline" className="w-full md:w-auto gap-2 bg-background border-border/80 hover:bg-muted h-11">
-                  <Upload className="w-4 h-4" /> Bulk Import (CSV)
-                </Button>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto">
-                  <Label className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Assign to Role:</Label>
-                  <Select defaultValue="admin">
-                    <SelectTrigger className="w-full sm:w-[180px] bg-background h-11"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="employee">Employee</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              return (
+                <Card key={mod.id} className={`border transition-all duration-200 ${isParentChecked ? "border-[#2563eb]/40 bg-[#2563eb]/[0.02] shadow-sm" : "border-border"}`}>
+                  <CardContent className="p-5">
+                    {/* Parent Module */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <Checkbox
+                        id={`mod-${mod.id}`}
+                        checked={isParentChecked}
+                        className={isParentChecked ? "border-[#2563eb] data-[state=checked]:bg-[#2563eb]" : ""}
+                        onCheckedChange={() => toggleModule(mod.id, subIds)}
+                      />
+                      <label htmlFor={`mod-${mod.id}`} className="font-bold text-base cursor-pointer flex items-center gap-2">
+                        {mod.label}
+                        {isParentChecked && (
+                          <Badge className="bg-[#2563eb]/10 text-[#2563eb] border-none text-xs font-medium">Active</Badge>
+                        )}
+                      </label>
+                    </div>
 
-              <RolePermissionsTable permissions={permissions} onChange={setPermissions} />
+                    {/* Sub Modules */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 ml-7">
+                      {mod.subModules.map(sub => {
+                        const isSubChecked = selectedModules.includes(sub.id);
+                        return (
+                          <div key={sub.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`sub-${sub.id}`}
+                              checked={isSubChecked}
+                              className={isSubChecked ? "border-[#2563eb] data-[state=checked]:bg-[#2563eb]" : ""}
+                              onCheckedChange={() => toggleSubModule(sub.id, mod.id, subIds)}
+                            />
+                            <label
+                              htmlFor={`sub-${sub.id}`}
+                              className={`text-sm cursor-pointer transition-colors ${isSubChecked ? "text-foreground font-medium" : "text-muted-foreground"}`}
+                            >
+                              {sub.label}
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
-            </CardContent>
-          </Card>
+          <div className="flex justify-end pt-2">
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white gap-2 h-12 px-8 font-semibold shadow-md"
+            >
+              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {isSaving ? "Saving..." : "Save Module Configuration"}
+            </Button>
+          </div>
         </div>
+      ) : (
+        <Card className="border-dashed border-2 border-border">
+          <CardContent className="py-16 flex flex-col items-center justify-center text-center gap-3">
+            <Settings className="w-12 h-12 text-muted-foreground/40" />
+            <h3 className="font-semibold text-lg text-muted-foreground">Select a site to configure modules</h3>
+            <p className="text-sm text-muted-foreground/70 max-w-sm">
+              Choose a site from the dropdown above to see and manage which modules are available for that site's users.
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
