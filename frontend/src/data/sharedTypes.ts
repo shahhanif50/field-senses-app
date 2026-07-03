@@ -58,6 +58,7 @@ export interface Distributor {
   
   // Basic Details
   firmName: string;
+  name?: string;
   proprietorName: string;
   mobileNumber: string;
   emailAddress: string;
@@ -74,6 +75,7 @@ export interface Distributor {
   district: string;
   state: string;
   pincode: string;
+  region?: string;
   
   // Business Profile
   typeOfFirm: "Sole Proprietor" | "Partnership" | "Pvt Ltd" | "Co-Op Society";
@@ -130,6 +132,7 @@ export interface Distributor {
   // Government Documents
   governmentDocuments: GovernmentDocument[];
   
+  status?: string;
   activeStatus: boolean;
 }
 
@@ -390,6 +393,7 @@ export interface TrackingEntry {
   timeSpentOnSite?: number;
   status: "online" | "offline" | "idle" | "completed";
   date: string;
+  employeeCode?: string;
 }
 
 // ============= EMPLOYEE PORTAL TYPES =============
@@ -412,11 +416,12 @@ export interface PortalEmployee {
 export interface EmployeeTask {
   id: string;
   employeeId: string; // Links to Employee.id
+  assignedTo?: string;
   taskTitle: string;
   description: string;
   assignedDate: string;
   deadline: string;
-  status: "pending" | "in-progress" | "completed" | "overdue";
+  status: "pending" | "in-progress" | "completed" | "overdue" | "active";
   completionPercent: number;
   proofUploaded: boolean;
   notes: string;

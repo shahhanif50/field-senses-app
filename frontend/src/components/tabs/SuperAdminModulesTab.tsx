@@ -33,6 +33,12 @@ const MODULES_HIERARCHY = [
     ]
   },
   {
+    id: "product_catalog_module", label: "Product Catalog",
+    subModules: [
+      { id: "product_catalog", label: "Product Catalog" }
+    ]
+  },
+  {
     id: "sales_executive", label: "Sales Executive",
     subModules: [
       { id: "territory_management", label: "Territory Management" },

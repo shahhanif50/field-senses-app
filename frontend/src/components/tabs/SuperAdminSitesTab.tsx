@@ -25,10 +25,11 @@ export function SuperAdminSitesTab() {
   const isImpersonating = isGlobalAdmin && currentOrgId && currentOrgId !== "null";
   // If not superadmin, scope to current org
   const isSuperAdmin = isGlobalAdmin && !isImpersonating;
+  const filteredOrgId = sessionStorage.getItem("viewOrganizationIdForSites");
 
   // Form State
   const [siteDetails, setSiteDetails] = useState({
-    name: "", code: "", product: "", country: "", address: "", date: "", status: true, orgId: isSuperAdmin ? "" : (currentOrgId || "")
+    name: "", code: "", product: "", country: "", address: "", date: "", status: true, orgId: isSuperAdmin ? (filteredOrgId || "") : (currentOrgId || "")
   });
   const [organizations, setOrganizations] = useState<any[]>([]);
 
@@ -49,7 +50,9 @@ export function SuperAdminSitesTab() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Filter sites based on role - admin only sees their org's sites
-  const visibleSites = isSuperAdmin ? sites : sites.filter(s => s.organization === currentOrgId || s.orgId === currentOrgId);
+  const visibleSites = isSuperAdmin 
+    ? (filteredOrgId ? sites.filter(s => s.organization === filteredOrgId || s.orgId === filteredOrgId) : sites)
+    : sites.filter(s => s.organization === currentOrgId || s.orgId === currentOrgId);
 
 
   const handleManageSite = (site: any) => {
@@ -297,7 +300,19 @@ export function SuperAdminSitesTab() {
   return (
     <div className="space-y-6 pb-10 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <h2 className="text-3xl font-bold text-foreground tracking-tight">Sites List</h2>
+        <div className="flex items-center gap-4">
+          {filteredOrgId && (
+            <Button variant="ghost" size="icon" onClick={() => {
+              sessionStorage.removeItem("viewOrganizationIdForSites");
+              window.dispatchEvent(new CustomEvent("changeTab", { detail: "organizations" }));
+            }}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          )}
+          <h2 className="text-3xl font-bold text-foreground tracking-tight">
+            {filteredOrgId ? `Sites for Organization` : "Sites List"}
+          </h2>
+        </div>
         <Button onClick={() => setView("add")} className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white gap-2">
           <Plus className="w-4 h-4" /> Add Site
         </Button>

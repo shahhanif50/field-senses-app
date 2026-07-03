@@ -463,9 +463,39 @@ class LoginView(APIView):
             return Response({"error": "Your organization is currently inactive. Please contact support."}, status=status.HTTP_403_FORBIDDEN)
             
         roleCode = employee.roleId.roleCode if employee.roleId else "NONE"
-        modulesEnabled = employee.organization.modulesEnabled if employee.organization else []
-        if employee.siteId and employee.siteId.modulesEnabled:
-            modulesEnabled = employee.siteId.modulesEnabled
+        org_modules = employee.organization.modulesEnabled if employee.organization and employee.organization.modulesEnabled else []
+        if isinstance(org_modules, str):
+            import json
+            try:
+                org_modules = json.loads(org_modules)
+            except:
+                org_modules = []
+        modulesEnabled = list(org_modules) if isinstance(org_modules, list) else []
+        
+        if roleCode.lower() == 'admin' and employee.organization:
+            sites = Site.objects.filter(organization=employee.organization)
+            for site in sites:
+                s_mod = site.modulesEnabled
+                if s_mod:
+                    if isinstance(s_mod, str):
+                        import json
+                        try:
+                            s_mod = json.loads(s_mod)
+                        except:
+                            s_mod = []
+                    if isinstance(s_mod, list):
+                        modulesEnabled.extend(s_mod)
+            # Add parent modules if any submodules are present, just in case
+            modulesEnabled = list(set(modulesEnabled))
+        elif employee.siteId and employee.siteId.modulesEnabled:
+            s_mod = employee.siteId.modulesEnabled
+            if isinstance(s_mod, str):
+                import json
+                try:
+                    s_mod = json.loads(s_mod)
+                except:
+                    s_mod = []
+            modulesEnabled = list(s_mod) if isinstance(s_mod, list) else []
         isGlobalAdmin = (roleCode == "ADMIN" and employee.organization is None)
         
         return Response({
@@ -512,9 +542,38 @@ class MeView(APIView):
             return Response({"error": "Account is disabled"}, status=status.HTTP_403_FORBIDDEN)
             
         roleCode = employee.roleId.roleCode if employee.roleId else "NONE"
-        modulesEnabled = employee.organization.modulesEnabled if employee.organization else []
-        if employee.siteId and employee.siteId.modulesEnabled:
-            modulesEnabled = employee.siteId.modulesEnabled
+        org_modules = employee.organization.modulesEnabled if employee.organization and employee.organization.modulesEnabled else []
+        if isinstance(org_modules, str):
+            import json
+            try:
+                org_modules = json.loads(org_modules)
+            except:
+                org_modules = []
+        modulesEnabled = list(org_modules) if isinstance(org_modules, list) else []
+        
+        if roleCode.lower() == 'admin' and employee.organization:
+            sites = Site.objects.filter(organization=employee.organization)
+            for site in sites:
+                s_mod = site.modulesEnabled
+                if s_mod:
+                    if isinstance(s_mod, str):
+                        import json
+                        try:
+                            s_mod = json.loads(s_mod)
+                        except:
+                            s_mod = []
+                    if isinstance(s_mod, list):
+                        modulesEnabled.extend(s_mod)
+            modulesEnabled = list(set(modulesEnabled))
+        elif employee.siteId and employee.siteId.modulesEnabled:
+            s_mod = employee.siteId.modulesEnabled
+            if isinstance(s_mod, str):
+                import json
+                try:
+                    s_mod = json.loads(s_mod)
+                except:
+                    s_mod = []
+            modulesEnabled = list(s_mod) if isinstance(s_mod, list) else []
         isGlobalAdmin = (roleCode == "ADMIN" and employee.organization is None)
         
         return Response({

@@ -23,6 +23,7 @@ export interface Employee {
   siteId?: string;
   accessibleSites?: string[];
   region?: string;
+  role?: string;
 }
 
 export interface Role {

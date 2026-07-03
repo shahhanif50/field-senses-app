@@ -192,12 +192,10 @@ export function NotificationBell({ onNotificationClick, isMuted, onToggleMute }:
       onNotificationClick("communication");
     } else {
       const msg = alert.message.toLowerCase();
-      if (msg.includes("leave")) {
-        onNotificationClick("attendance-leaves");
-      } else if (msg.includes("payout") || msg.includes("order")) {
+      if (msg.includes("leave") || msg.includes("payout") || msg.includes("order")) {
         onNotificationClick("approvals");
       } else if (msg.includes("employee") || msg.includes("leaver")) {
-        onNotificationClick("employees");
+        onNotificationClick("master-setup");
       } else {
         onNotificationClick("alerts");
       }

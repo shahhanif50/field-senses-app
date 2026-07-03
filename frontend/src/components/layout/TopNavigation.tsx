@@ -54,11 +54,10 @@ interface TopNavigationProps {
 
 export const allTabs = [
   { id: "organizations", label: "Organizations", icon: Building2, roles: ["superadmin"] },
-  { id: "superadmin-sites", label: "Sites Management", icon: MapPin, roles: ["superadmin", "admin"] },
-  { id: "superadmin-modules", label: "Modules Access", icon: CreditCard, roles: ["superadmin", "admin"] },
+  { id: "superadmin-sites", label: "Sites Management", icon: MapPin, roles: ["admin"] },
   { id: "admin-dashboard", label: "Dashboard", icon: BarChart3, roles: ["admin"] },
   { id: "employee-dashboard", label: "Dashboard", icon: Activity, roles: ["employee"] },
-  { id: "product-booking", label: "Product Booking", icon: ShoppingCart, roles: ["employee"] },
+  { id: "product-booking", label: "Product Catalog", icon: ShoppingCart, roles: ["admin", "manager", "employee"] },
   { id: "master-setup", label: "Master Setup", icon: Settings, roles: ["admin"] },
   { id: "sales-executive", label: "Sales Executive", icon: Users, roles: ["admin", "manager"] },
   { id: "employee-portal", label: "Employee Portal", icon: Contact, roles: ["manager", "employee", "WH_MGR"] },
@@ -69,7 +68,7 @@ export const allTabs = [
   { id: "reports", label: "Reports & Analytics", icon: BarChart3, roles: ["admin", "manager", "employee"] },
   { id: "alerts", label: "Alerts", icon: AlertTriangle, roles: ["admin", "manager"] },
   { id: "projects", label: "Projects & Tasks", icon: FolderKanban, roles: ["manager", "employee"] },
-  { id: "communication", label: "Communication & Meetings", icon: MessageSquare, roles: ["manager", "employee", "WH_MGR"] },
+  { id: "communication", label: "Communication & Meetings", icon: MessageSquare, roles: ["admin", "manager", "employee", "WH_MGR"] },
   { id: "documents", label: "Documents", icon: FileText, roles: ["admin", "manager", "employee"] },
   { id: "permissions", label: "Permission Requests", icon: CheckCircle2, roles: ["manager", "employee"] },
   { id: "profile", label: "My Profile", icon: UserCircle, roles: ["admin", "manager", "WH_MGR", "employee"] },
@@ -133,13 +132,21 @@ export function TopNavigation({
     // If Global Admin or the module is enabled at the organization level
     const effectiveModuleLabel = tab.label;
 
-    const alwaysActiveTabs = ["profile", "approvals", "admin-dashboard", "employee-dashboard", "product-booking", "admin-orders", "superadmin-sites", "superadmin-modules"];
+    const alwaysActiveTabs = ["profile", "approvals", "admin-dashboard", "employee-dashboard", "product-booking", "admin-orders", "superadmin-sites"];
     let moduleId = effectiveModuleLabel;
     if (effectiveModuleLabel === "Master Setup") moduleId = "master_setup";
     if (effectiveModuleLabel === "Inventory Management") moduleId = "inventory_management";
+    if (effectiveModuleLabel === "Product Catalog") moduleId = "product_catalog_module";
     if (effectiveModuleLabel === "Sales Executive") moduleId = "sales_executive";
-
-    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(effectiveModuleLabel) || modulesEnabled.includes(moduleId) || alwaysActiveTabs.includes(tab.id);
+    if (effectiveModuleLabel === "Team Tracking") moduleId = "team_tracking";
+    if (effectiveModuleLabel === "Live Tracking") moduleId = "live_tracking";
+    if (effectiveModuleLabel === "Reports & Analytics") moduleId = "reports";
+    if (effectiveModuleLabel === "Alerts") moduleId = "alerts";
+    if (effectiveModuleLabel === "Projects & Tasks") moduleId = "projects_tasks";
+    if (effectiveModuleLabel === "Communication & Meetings") moduleId = "communication";
+    if (effectiveModuleLabel === "Documents") moduleId = "documents";
+    const isProductCatalogAllowed = effectiveModuleLabel === "Product Catalog" && (modulesEnabled.includes("product_catalog") || modulesEnabled.includes("Inventory Management") || modulesEnabled.includes("inventory_management"));
+    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(effectiveModuleLabel) || modulesEnabled.includes(moduleId) || isProductCatalogAllowed || alwaysActiveTabs.includes(tab.id);
     
     // Fully Dynamic: If the admin explicitly granted view permission for this role, it MUST be visible.
     if (rolePerm?.view) {
@@ -161,9 +168,18 @@ export function TopNavigation({
     let moduleId = tab.label;
     if (tab.label === "Master Setup") moduleId = "master_setup";
     if (tab.label === "Inventory Management") moduleId = "inventory_management";
+    if (tab.label === "Product Catalog") moduleId = "product_catalog_module";
     if (tab.label === "Sales Executive") moduleId = "sales_executive";
+    if (tab.label === "Team Tracking") moduleId = "team_tracking";
+    if (tab.label === "Live Tracking") moduleId = "live_tracking";
+    if (tab.label === "Reports & Analytics") moduleId = "reports";
+    if (tab.label === "Alerts") moduleId = "alerts";
+    if (tab.label === "Projects & Tasks") moduleId = "projects_tasks";
+    if (tab.label === "Communication & Meetings") moduleId = "communication";
+    if (tab.label === "Documents") moduleId = "documents";
 
-    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(tab.label) || modulesEnabled.includes(moduleId) || ["master-setup", "profile", "approvals"].includes(tab.id);
+    const isProductCatalogAllowed = tab.label === "Product Catalog" && (modulesEnabled.includes("product_catalog") || modulesEnabled.includes("Inventory Management") || modulesEnabled.includes("inventory_management"));
+    const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(tab.label) || modulesEnabled.includes(moduleId) || isProductCatalogAllowed || ["master-setup", "profile", "approvals"].includes(tab.id);
     return rolePerm?.view && moduleActive;
   });
 
@@ -175,9 +191,9 @@ export function TopNavigation({
       { id: "admin-dashboard", label: "Dashboard", icon: Activity, roles: ["admin"] },
       { id: "master-setup", label: "Master Setup", icon: Settings, roles: ["admin"] },
       { id: "superadmin-sites", label: "Sites Management", icon: MapPin, roles: ["admin"] },
-      { id: "superadmin-modules", label: "Modules Access", icon: CreditCard, roles: ["admin"] },
       { id: "sales-executive", label: "Sales Executive Setup", icon: Users, roles: ["admin"] },
       { id: "inventory-management", label: "Inventory Management", icon: Package, roles: ["admin"] },
+      { id: "product-booking", label: "Product Catalog", icon: ShoppingCart, roles: ["admin"] },
       { id: "admin-orders", label: "Admin Orders", icon: ClipboardList, roles: ["admin"] },
       { id: "team-tracking", label: "Team Tracking", icon: ClipboardEdit, roles: ["admin"] },
       { id: "reports", label: "Reports & Analytics", icon: BarChart3, roles: ["admin"] },
@@ -190,7 +206,7 @@ export function TopNavigation({
         if (tab.label === "Dashboard" || tab.id === "profile") return true;
         if (tab.id === "master-setup") return true;
         if (tab.id === "admin-orders") return true;
-        if (tab.id === "superadmin-sites" || tab.id === "superadmin-modules") return true;
+        if (tab.id === "superadmin-sites") return true;
         if (tab.label === "Sales Executive Setup") moduleName = "Sales Executive";
         if (tab.label === "Team Tracking") moduleName = "Daily Tracking";
         if (tab.label === "Reports & Analytics") moduleName = "Reports";
@@ -199,7 +215,12 @@ export function TopNavigation({
         let moduleId = moduleName;
         if (moduleName === "Master Setup") moduleId = "master_setup";
         if (moduleName === "Inventory Management") moduleId = "inventory_management";
+        if (moduleName === "Product Catalog") moduleId = "product_catalog";
         if (moduleName === "Sales Executive") moduleId = "sales_executive";
+        if (moduleName === "Daily Tracking") moduleId = "daily_tracking";
+        if (moduleName === "Reports") moduleId = "reports";
+        if (moduleName === "Alerts") moduleId = "alerts";
+        if (moduleName === "Documents") moduleId = "documents";
         // Show if modulesEnabled includes the module OR if explicitly granted via role permissions
         const hasModuleAccess = modulesEnabled.includes("All") || modulesEnabled.includes(moduleName) || modulesEnabled.includes(moduleId);
         const hasPermAccess = rolePermissions.some(p => matchingRoleIds.includes(p.roleId) && p.module === moduleName && p.view);
@@ -419,13 +440,13 @@ export function TopNavigation({
             <div className="hidden sm:block">
               <h1 className="font-display font-bold text-lg gradient-text">Field Senses</h1>
               <p className="text-xs text-muted-foreground capitalize">
-                {userName === "Superadmin" || userName === "System Admin" ? "Superadmin" : `${userName} • ${rawRole.toLowerCase()}`}
+                {isGlobalAdmin && !isImpersonating ? "Superadmin" : `${userName} • ${rawRole.toLowerCase()}`}
               </p>
             </div>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden xl:flex items-center justify-center gap-2 overflow-x-auto no-scrollbar flex-1 mx-4 px-2 py-1 min-w-0">
+          <nav className={`hidden xl:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 mx-4 px-2 py-1 min-w-0 ${tabs.length <= 5 ? "justify-center" : "justify-start"}`}>
             {/* 1. Dashboard Tab(s) */}
             {tabs.filter(t => t.id.includes('dashboard') || t.label.toLowerCase() === 'dashboard').map((tab) => {
               const Icon = tab.icon;

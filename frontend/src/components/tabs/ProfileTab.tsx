@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Mail, Phone, Building, Briefcase, Calendar, Upload, Loader2, CheckCircle2, Building2, MapPin, Map } from "lucide-react";
+import { User, Mail, Phone, Building, Briefcase, Calendar, Upload, Loader2, CheckCircle2, Building2, MapPin, Map, AlertCircle } from "lucide-react";
 import { useMasterData } from "@/contexts/MasterDataContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -126,133 +126,122 @@ export function ProfileTab() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <h2 className="text-2xl font-bold">My Profile</h2>
+    <div className="max-w-4xl mx-auto flex flex-col pb-10 mt-8">
+      <div className="mb-10">
+        <h2 className="text-3xl font-light tracking-tight text-foreground mb-2">Profile Settings</h2>
+        <p className="text-muted-foreground text-sm">View and manage your personal information</p>
+      </div>
       
-      {error && <div className="bg-destructive/10 text-destructive p-3 rounded-lg text-sm">{error}</div>}
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-5 py-4 rounded-xl text-sm mb-6 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0" /> {error}
+        </div>
+      )}
       
-      <Card>
-        <CardContent className="p-8">
-          <div className="flex flex-col md:flex-row gap-8 items-start">
-            
-            {/* Photo Section */}
-            <div className="flex flex-col items-center gap-4">
-              <div className="relative group">
-                <div className="w-40 h-40 rounded-full border-4 border-muted overflow-hidden bg-muted flex items-center justify-center shadow-lg">
-                  {profile.profilePhoto ? (
-                    <img src={profile.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-16 h-16 text-muted-foreground" />
-                  )}
-                </div>
-                
-                {/* Upload Overlay */}
-                <label className="absolute inset-0 bg-black/50 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                  {uploading ? (
-                    <Loader2 className="w-8 h-8 text-white animate-spin" />
-                  ) : (
-                    <>
-                      <Upload className="w-8 h-8 text-white mb-1" />
-                      <span className="text-white text-xs font-medium">Change Photo</span>
-                    </>
-                  )}
-                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading || profile.isVirtual} />
-                </label>
-              </div>
-              {profile.isVirtual && <span className="text-xs text-muted-foreground text-center">Virtual Profile<br/>(Photo upload disabled)</span>}
+      <div className="flex flex-col md:flex-row gap-12 lg:gap-20">
+        
+        {/* Left Column: Avatar & Basic Info */}
+        <div className="flex flex-col items-center md:items-start w-full md:w-64 shrink-0">
+          <div className="relative group mb-6">
+            <div className="w-40 h-40 rounded-full overflow-hidden bg-muted flex items-center justify-center border-4 border-background shadow-sm relative">
+              {profile.profilePhoto ? (
+                <img src={profile.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-16 h-16 text-muted-foreground/50" />
+              )}
+              
+              {/* Upload Overlay */}
+              <label className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer">
+                {uploading ? (
+                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="w-6 h-6 text-foreground mb-1" />
+                    <span className="text-foreground text-xs font-medium">Change Photo</span>
+                  </>
+                )}
+                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading || profile.isVirtual} />
+              </label>
             </div>
-
-            {/* Details Section */}
-            <div className="flex-1 space-y-6 w-full">
-              <div>
-                <h1 className="text-3xl font-bold">{profile.fullName}</h1>
-                <p className="text-primary font-medium text-lg">{profile.designation}</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Mail className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{profile.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Phone className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Mobile</p>
-                    <p className="font-medium">{profile.mobileNumber}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Briefcase className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Employment</p>
-                    <p className="font-medium">{profile.employmentType || "Full-time"}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Building className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Work Mode</p>
-                    <p className="font-medium">{profile.workMode || "Office"}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Building2 className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Organization</p>
-                    <p className="font-medium">{currentOrgName}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <MapPin className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Assigned Sites</p>
-                    <p className="font-medium max-w-[200px] truncate" title={
-                      profile?.accessibleSites?.length > 0
-                        ? sites.filter(s => profile.accessibleSites.includes(s.id)).map(s => s.name).join(", ")
-                        : "All Sites"
-                    }>
-                      {profile?.accessibleSites?.length > 0
-                        ? sites.filter(s => profile.accessibleSites.includes(s.id)).map(s => s.name).join(", ")
-                        : "All Sites"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Map className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Region</p>
-                    <p className="font-medium">{profile.region || "Global"}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
           </div>
-        </CardContent>
-      </Card>
+          
+          <h1 className="text-2xl font-semibold text-foreground text-center md:text-left">{profile.fullName}</h1>
+          <p className="text-muted-foreground text-sm mt-1 text-center md:text-left">{profile.designation}</p>
+          
+          <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+            {profile.employmentType || "Employee"}
+          </div>
+
+          {profile.isVirtual && (
+            <div className="mt-6 text-muted-foreground text-xs text-center md:text-left bg-muted/50 p-3 rounded-lg w-full">
+              Virtual Profile<br/>(Photo upload disabled)
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Detailed Info List */}
+        <div className="flex-1 w-full space-y-10">
+          
+          {/* Contact Info */}
+          <section>
+            <h3 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase mb-4 border-b border-border/50 pb-2">Contact Information</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between py-2 group">
+                <span className="text-sm text-muted-foreground flex items-center gap-3">
+                  <Mail className="w-4 h-4 text-muted-foreground/70" /> Email
+                </span>
+                <span className="text-sm font-medium text-foreground">{profile.email}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 group">
+                <span className="text-sm text-muted-foreground flex items-center gap-3">
+                  <Phone className="w-4 h-4 text-muted-foreground/70" /> Mobile
+                </span>
+                <span className="text-sm font-medium text-foreground">{profile.mobileNumber}</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Work Details */}
+          <section>
+            <h3 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase mb-4 border-b border-border/50 pb-2">Work Details</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between py-2 group">
+                <span className="text-sm text-muted-foreground flex items-center gap-3">
+                  <Building2 className="w-4 h-4 text-muted-foreground/70" /> Organization
+                </span>
+                <span className="text-sm font-medium text-foreground text-right">{currentOrgName}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 group">
+                <span className="text-sm text-muted-foreground flex items-center gap-3">
+                  <Briefcase className="w-4 h-4 text-muted-foreground/70" /> Work Mode
+                </span>
+                <span className="text-sm font-medium text-foreground">{profile.workMode || "Office"}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 group">
+                <span className="text-sm text-muted-foreground flex items-center gap-3">
+                  <MapPin className="w-4 h-4 text-muted-foreground/70" /> Assigned Sites
+                </span>
+                <span className="text-sm font-medium text-foreground text-right max-w-[220px] sm:max-w-xs truncate" title={
+                  profile?.accessibleSites?.length > 0
+                    ? sites.filter(s => profile.accessibleSites.includes(s.id)).map(s => s.name).join(", ")
+                    : "All Sites"
+                }>
+                  {profile?.accessibleSites?.length > 0
+                    ? sites.filter(s => profile.accessibleSites.includes(s.id)).map(s => s.name).join(", ")
+                    : "All Sites"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-2 group">
+                <span className="text-sm text-muted-foreground flex items-center gap-3">
+                  <Map className="w-4 h-4 text-muted-foreground/70" /> Region
+                </span>
+                <span className="text-sm font-medium text-foreground">{profile.region || "Global"}</span>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
     </div>
   );
 }

@@ -56,9 +56,7 @@ const Index = () => {
       storedDashboard = storedDashboard.substring(1);
   }
   const initialTab = userRole === "superadmin" ? "organizations"
-                   : storedDashboard && storedDashboard !== "admin" ? storedDashboard 
                    : userRole === "admin" ? "admin-dashboard" 
-                   : userRole === "wh_mgr" ? "inventory-management"
                    : (userRole === "manager" || userRole === "regional_manager" || rawRole?.toLowerCase() === "regional manager") ? "rm-dashboard"
                    : "employee-dashboard";
                    
@@ -170,7 +168,7 @@ const Index = () => {
                 <p className="text-muted-foreground">Monitor your field operations, distances, and reimbursements.</p>
               </div>
             </div>
-            {isAdmin ? <AdminLiveTracking /> : <LiveTrackingMap />}
+            <LiveTrackingMap />
           </div>
         );
       case "reports":

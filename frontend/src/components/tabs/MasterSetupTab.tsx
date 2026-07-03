@@ -73,7 +73,6 @@ const masterTabs = [
   { id: "departments", label: "Departments", icon: Building },
   { id: "status", label: "Status Master", icon: FileText },
   { id: "distributors", label: "Distributor Master", icon: Store },
-  { id: "sites", label: "Sites", icon: MapPin },
 ];
 
 type PermissionModuleConfig = {
@@ -93,8 +92,7 @@ const permissionModulesHierarchy: PermissionModuleConfig[] = [
       { id: "Reporting Manager", label: "Reporting Manager" },
       { id: "Departments", label: "Departments" },
       { id: "Status Master", label: "Status Master" },
-      { id: "Distributor Master", label: "Distributor Master" },
-      { id: "Sites", label: "Sites" }
+      { id: "Distributor Master", label: "Distributor Master" }
     ]
   },
   {
@@ -104,6 +102,13 @@ const permissionModulesHierarchy: PermissionModuleConfig[] = [
       { id: "Product Setup", label: "Product Setup" },
       { id: "Stock Management", label: "Stock Management" },
       { id: "Sales & Billing", label: "Sales & Billing" }
+    ]
+  },
+  {
+    id: "Product Catalog",
+    label: "Product Catalog",
+    subModules: [
+      { id: "Product Catalog View", label: "Product Catalog View" }
     ]
   },
   {
@@ -756,7 +761,7 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
         </span>
       ),
     },
-    { key: "defaultDashboard", header: "Default Dashboard" },
+
     {
       key: "rolePriority",
       header: "Priority",
@@ -1958,7 +1963,7 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
               <div>
                 <h2 className="text-2xl font-display font-bold">Role Master</h2>
                 <p className="text-muted-foreground">
-                  Manage roles, their priorities, and default dashboards
+                  Manage roles and their priorities
                 </p>
               </div>
               {canCreate && (
@@ -2956,32 +2961,7 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Default Dashboard</Label>
-              <Select
-                value={roleForm.defaultDashboard || ""}
-                onValueChange={(value) => setRoleForm({ ...roleForm, defaultDashboard: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select dashboard" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableDropdownModules.includes("Employee Portal") && <SelectItem value="employee-portal">Employee Portal</SelectItem>}
-                  {availableDropdownModules.includes("Master Setup") && <SelectItem value="master-setup">Master Setup</SelectItem>}
-                  {availableDropdownModules.includes("Inventory Management") && <SelectItem value="inventory-management">Inventory Management</SelectItem>}
-                  {availableDropdownModules.includes("Sales Executive") && <SelectItem value="sales-executive">Sales Executive</SelectItem>}
-                  {availableDropdownModules.includes("Daily Tracking") && <SelectItem value="my-daily-tracking">Daily Tracking</SelectItem>}
-                  {availableDropdownModules.includes("Live Tracking") && <SelectItem value="my-live-tracking">Live Tracking</SelectItem>}
-                  {availableDropdownModules.includes("Team Tracking") && <SelectItem value="team-tracking">Team Tracking</SelectItem>}
-                  {availableDropdownModules.includes("Reports") && <SelectItem value="reports">Reports</SelectItem>}
-                  {availableDropdownModules.includes("Alerts") && <SelectItem value="alerts">Alerts</SelectItem>}
-                  {availableDropdownModules.includes("Attendance & Leaves") && <SelectItem value="attendance-leaves">Attendance & Leaves</SelectItem>}
-                  {availableDropdownModules.includes("Projects & Tasks") && <SelectItem value="projects">Projects & Tasks</SelectItem>}
-                  {availableDropdownModules.includes("Communication & Meetings") && <SelectItem value="communication">Communication & Meetings</SelectItem>}
-                  {availableDropdownModules.includes("Documents") && <SelectItem value="documents">Documents</SelectItem>}
-                </SelectContent>
-              </Select>
-            </div>
+
             <div className="space-y-2">
               <Label>Role Priority</Label>
               <Input
@@ -3003,40 +2983,6 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
               />
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <Label>Visible Dashboard KPI Cards</Label>
-              <p className="text-xs text-muted-foreground mb-2">Select which top-level KPI cards this role is allowed to see.</p>
-              <div className="flex flex-wrap gap-4">
-                {[
-                  "Employees Online",
-                  "Active Projects",
-                  "Today's Site Visits",
-                  "Pending Alerts",
-                  "Total Distance Today",
-                  "Delayed Projects",
-                  "Pending Reimbursements",
-                  "Pending Leave Requests"
-                ].map((kpi) => (
-                  <div key={kpi} className="flex items-center space-x-2 bg-muted/50 p-2 rounded-md border">
-                    <Checkbox
-                      id={`kpi-${kpi}`}
-                      checked={(roleForm.visibleKpis || []).includes(kpi)}
-                      onCheckedChange={(checked) => {
-                        const currentKpis = roleForm.visibleKpis || [];
-                        if (checked) {
-                          setRoleForm({ ...roleForm, visibleKpis: [...currentKpis, kpi] });
-                        } else {
-                          setRoleForm({ ...roleForm, visibleKpis: currentKpis.filter(k => k !== kpi) });
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`kpi-${kpi}`} className="cursor-pointer font-normal">
-                      {kpi}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
 
           </div>
         )}
@@ -3048,7 +2994,7 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
               { label: "Role Name", value: selectedRole.roleName },
               { label: "Role Code", value: selectedRole.roleCode },
               { label: "Role Type", value: selectedRole.roleType },
-              { label: "Default Dashboard", value: selectedRole.defaultDashboard },
+
               { label: "Priority", value: String(selectedRole.rolePriority) },
               { label: "Status", value: selectedRole.activeStatus ? "Active" : "Inactive" },
             ].map((item, i) => (

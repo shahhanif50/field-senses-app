@@ -55,7 +55,7 @@ const [filterDate, setFilterDate] = useState<string>("");
          ...entry,
          employeeName: emp ? emp.fullName : "Unknown Employee",
          employeeCode: emp ? emp.employeeId : entry.employeeId,
-         role: emp?.roleId?.roleName || emp?.roleId?.roleCode || "Employee",
+         role: (emp?.roleId as any)?.roleName || (emp?.roleId as any)?.roleCode || "Employee",
        };
     })
     .sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime());

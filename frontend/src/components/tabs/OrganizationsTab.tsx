@@ -80,6 +80,8 @@ export function OrganizationsTab() {
   useEffect(() => {
     if (isSitesModalOpen && selectedOrgIdForSites) {
       fetchSitesForOrg(selectedOrgIdForSites);
+    } else {
+      setNewSite({ id: "", name: "", siteCode: "", productType: "", country: "", address: "", activateDate: "", status: "Active", contactName: "", contactPhone: "", contactEmail: "", modulesEnabled: [] });
     }
   }, [isSitesModalOpen, selectedOrgIdForSites]);
 
@@ -106,17 +108,19 @@ export function OrganizationsTab() {
   const handleCreateSite = async () => {
     if (!newSite.name) return toast.error("Site name is required");
     try {
-      const res = await fetch(`/api/sites/`, {
-        method: "POST",
+      const isUpdate = !!newSite.id;
+      const url = isUpdate ? `/api/sites/${newSite.id}/` : `/api/sites/`;
+      const res = await fetch(url, {
+        method: isUpdate ? "PUT" : "POST",
         headers: { "Content-Type": "application/json", "X-Organization-Id": selectedOrgIdForSites || "" },
         body: JSON.stringify({ ...newSite, organization: selectedOrgIdForSites })
       });
       if (res.ok) {
-        toast.success("Site added successfully");
-        setNewSite({ name: "", siteCode: "", productType: "", country: "", address: "", activateDate: "", status: "Active", contactName: "", contactPhone: "", contactEmail: "", modulesEnabled: [] });
+        toast.success(isUpdate ? "Site updated successfully" : "Site added successfully");
+        setNewSite({ id: "", name: "", siteCode: "", productType: "", country: "", address: "", activateDate: "", status: "Active", contactName: "", contactPhone: "", contactEmail: "", modulesEnabled: [] });
         fetchSitesForOrg(selectedOrgIdForSites!);
       } else {
-        toast.error("Failed to add site");
+        toast.error(isUpdate ? "Failed to update site" : "Failed to add site");
       }
     } catch(e) {
       toast.error("Network error");
@@ -171,7 +175,7 @@ export function OrganizationsTab() {
         toast.success("Organization created successfully");
         setIsNewModalOpen(false);
         fetchOrganizations();
-        setNewOrg({ name: "", domain: "", modulesEnabled: ["Master Setup", "Employee Portal"] });
+        setNewOrg({ name: "", domain: "", modulesEnabled: ["Master Setup", "Employee Portal"] } as any);
       }
     } catch (e) {
       toast.error("Failed to create organization");
@@ -338,7 +342,11 @@ export function OrganizationsTab() {
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => setIsSitesModalOpen(false)}>Back to Organizations</Button>
-            <Button onClick={handleCreateSite} className="gradient-btn">Save New Site</Button>
+            <Button variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20" onClick={() => {
+              setNewSite({ id: "", name: "", siteCode: "", productType: "", country: "", address: "", activateDate: "", status: "Active", contactName: "", contactPhone: "", contactEmail: "", modulesEnabled: [] });
+              document.getElementById('site-form')?.scrollIntoView({ behavior: 'smooth' });
+            }}><Plus className="w-4 h-4 mr-1"/> Add Site</Button>
+            <Button onClick={handleCreateSite} className="gradient-btn">{newSite.id ? "Update Site" : "Save New Site"}</Button>
           </div>
         </div>
 
@@ -356,9 +364,14 @@ export function OrganizationsTab() {
                     </div>
                     <p className="text-xs text-muted-foreground">{site.address || "No address provided"}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteSite(site.id)} title="Delete Site">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10" onClick={() => setNewSite(site)} title="Edit Site">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteSite(site.id)} title="Delete Site">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -366,8 +379,11 @@ export function OrganizationsTab() {
         </div>
 
         {/* New Site Form */}
-        <div className="bg-muted/50 p-6 rounded-xl space-y-6 shadow-inner border border-border">
-          <h3 className="text-lg font-bold text-foreground border-b pb-2">Add New Site / Project</h3>
+        <div id="site-form" className="bg-muted/50 p-6 rounded-xl space-y-6 shadow-inner border border-border">
+          <div className="flex justify-between items-center border-b pb-2">
+            <h3 className="text-lg font-bold text-foreground">{newSite.id ? "Edit Site / Project" : "Add New Site / Project"}</h3>
+            {newSite.id && <Button variant="ghost" size="sm" onClick={() => setNewSite({ id: "", name: "", siteCode: "", productType: "", country: "", address: "", activateDate: "", status: "Active", contactName: "", contactPhone: "", contactEmail: "", modulesEnabled: [] })}>Cancel Edit</Button>}
+          </div>
           {/* Site Details Section */}
           <div className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-6">
             <h3 className="text-base font-bold text-foreground">Site Details</h3>
@@ -463,7 +479,7 @@ export function OrganizationsTab() {
                    Sales & Inventory
                 </h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pl-2">
-                  {["Sales Executive", "Inventory Management"].map(mod => (
+                  {["Sales Executive", "Inventory Management", "Product Catalog"].map(mod => (
                     <label key={mod} className={`flex items-center gap-2 text-xs cursor-pointer`}>
                       <input type="checkbox" className="rounded border-input text-blue-600" checked={(newSite.modulesEnabled || []).includes(mod)} onChange={(e) => {
                         const current = newSite.modulesEnabled || [];
@@ -896,8 +912,8 @@ export function OrganizationsTab() {
                     <div className="pt-4 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="h-8 text-xs bg-background/50 hover:bg-muted" onClick={() => {
-                          setSelectedOrgIdForSites(org.id);
-                          setIsSitesModalOpen(true);
+                          sessionStorage.setItem("viewOrganizationIdForSites", org.id);
+                          window.dispatchEvent(new CustomEvent("changeTab", { detail: "superadmin-sites" }));
                         }}>
                           <MapPin className="w-3.5 h-3.5 mr-1.5" />
                           Sites
@@ -914,7 +930,7 @@ export function OrganizationsTab() {
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10" onClick={() => {
                           setEditingOrg(org);
-                          setEditOrgForm({ name: org.name, domain: org.domain || "", modulesEnabled: org.modulesEnabled || [] });
+                          setEditOrgForm({ name: org.name, domain: org.domain || "", modulesEnabled: org.modulesEnabled || [] } as any);
                           setIsEditModalOpen(true);
                         }} title="Edit Organization">
                           <Settings className="w-4 h-4" />
@@ -1021,7 +1037,7 @@ export function OrganizationsTab() {
                           <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800" onClick={() => { sessionStorage.setItem("viewOrganizationId", org.id); window.dispatchEvent(new CustomEvent("changeTab", { detail: "organization-details" })); }}>
                             View
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { setSelectedOrgIdForSites(org.id); setIsSitesModalOpen(true); }} title="Sites"><MapPin className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => { sessionStorage.setItem("viewOrganizationIdForSites", org.id); window.dispatchEvent(new CustomEvent("changeTab", { detail: "superadmin-sites" })); }} title="Sites"><MapPin className="w-4 h-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10" onClick={() => { setEditingOrg(org); setEditOrgForm({ name: org.name, domain: org.domain || "", companyName: org.companyName || "", entityName: org.entityName || "", site: org.site || "", country: org.country || "", region: org.region || "", state: org.state || "", city: org.city || "", zone: org.zone || "", whiteLabel: org.whiteLabel || false, subDomain: org.subDomain || "", solutionType: org.solutionType || "", solutionFor: org.solutionFor || "", billingTerm: org.billingTerm || "", modulesEnabled: org.modulesEnabled || [] }); setIsEditModalOpen(true); }} title="Edit"><Settings className="w-4 h-4" /></Button>
                         </div>
                       </TableCell>

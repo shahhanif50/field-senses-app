@@ -31,6 +31,8 @@ interface Product {
   serialBatchTracking: boolean;
   expiryTracking: boolean;
   status: "Active" | "Inactive";
+  productImage?: string;
+  brochure?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -387,7 +389,7 @@ export default function InventoryManagementTab() {
       
       // Module access check for Admins
       if (isGlobalAdmin) return true;
-      if (modulesEnabled.includes("All") || modulesEnabled.includes("Inventory Management") || modulesEnabled.includes("inventory_management")) return true;
+      if (modulesEnabled.includes("All")) return true;
       
       const requiredModules = sectionToModuleIds[section.id] || [];
       return requiredModules.some(m => modulesEnabled.includes(m));
@@ -414,12 +416,6 @@ export default function InventoryManagementTab() {
   const canExport = !!(isAdmin || activePerms.some(p => p.export));
   const canApprove = !isRegionalManager && (isAdmin || activePerms.some(p => p.approve));
 
-  // Enforce strictly that only Admins can add/edit/delete Product Master items
-  if (activeModule === "product-master") {
-    canCreate = isAdmin;
-    canEdit = isAdmin;
-    canDelete = isAdmin;
-  }
   // -----------------------
 
   const handleAdd = () => {

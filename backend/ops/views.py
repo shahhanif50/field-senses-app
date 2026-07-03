@@ -469,12 +469,18 @@ class EmployeeTaskViewSet(viewsets.ModelViewSet):
         return Response({"status": "expense rejected"})
 
 class AlertViewSet(viewsets.ModelViewSet):
-    queryset = Alert.objects.all()
+    queryset = Alert.objects.all().order_by('-timestamp')
     serializer_class = AlertSerializer
 
     def get_queryset(self):
         queryset = super().get_queryset()
         org_id = self.request.headers.get('X-Organization-Id')
+        user_id = self.request.headers.get('X-User-Id')
+        user_role = self.request.headers.get('X-User-Role')
+        
+        if user_role:
+            user_role = user_role.upper()
+            
         from django.db.models import Q
         
         if org_id and org_id != 'null':
@@ -488,6 +494,39 @@ class AlertViewSet(viewsets.ModelViewSet):
         else:
             queryset = queryset.filter(Q(relatedEntityId__isnull=True) | Q(relatedEntityId=""))
             
+        if user_role == 'ADMIN' or user_id == 'admin':
+            pass
+        else:
+            allowed_site_emp_codes = get_site_restricted_employee_codes(user_id, user_role)
+            allowed_ids = []
+            
+            if user_role in ['SR_MGR', 'HEAD']:
+                if allowed_site_emp_codes is not None:
+                    allowed_ids = allowed_site_emp_codes
+            elif user_role == 'MANAGER':
+                team_codes = list(Employee.objects.filter(reportingManager=user_id).values_list('employeeId', flat=True))
+                if allowed_site_emp_codes is not None:
+                    team_codes = [c for c in team_codes if c in allowed_site_emp_codes]
+                try:
+                    emp = Employee.objects.get(id=user_id)
+                    allowed_ids = team_codes + [emp.employeeId]
+                except Employee.DoesNotExist:
+                    pass
+            elif (user_role == 'SITE_ADMIN' or allowed_site_emp_codes is not None) and user_id:
+                if allowed_site_emp_codes is not None:
+                    allowed_ids = allowed_site_emp_codes
+            elif user_id:
+                try:
+                    emp = Employee.objects.get(id=user_id)
+                    allowed_ids = [emp.employeeId]
+                except Employee.DoesNotExist:
+                    pass
+                    
+            if allowed_ids:
+                queryset = queryset.filter(Q(relatedEntityId__in=allowed_ids) | Q(relatedEntityId__isnull=True) | Q(relatedEntityId=""))
+            else:
+                queryset = queryset.filter(Q(relatedEntityId__isnull=True) | Q(relatedEntityId=""))
+                
         return queryset
 
 class AttendanceEntryViewSet(viewsets.ModelViewSet):
@@ -761,9 +800,23 @@ class MessageViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
+        user_role = self.request.headers.get('X-User-Role')
+        
+        if user_role:
+            user_role = user_role.upper()
+        
+        from django.db.models import Q
         
         if user_id and user_id != 'admin':
-            queryset = queryset.filter(Q(senderId=user_id) | Q(receiverId=user_id) | Q(receiverId__isnull=True))
+            role_groups = ['all']
+            if user_role:
+                role_groups.append(user_role.lower())
+                
+            queryset = queryset.filter(
+                Q(senderId=user_id) | 
+                Q(receiverId=user_id) | 
+                Q(groupName__in=role_groups)
+            )
             
         group = self.request.query_params.get('groupName')
         if group:

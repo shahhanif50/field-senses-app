@@ -69,7 +69,7 @@ export function AdminDashboard() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Organization Dashboard</h2>
+          <h2 className="text-2xl font-bold">Dashboard</h2>
           <p className="text-muted-foreground">Welcome back, {userName}. Here's the high-level overview of your operations.</p>
         </div>
       </div>

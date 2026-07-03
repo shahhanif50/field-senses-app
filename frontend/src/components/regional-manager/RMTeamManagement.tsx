@@ -8,7 +8,7 @@ export default function RMTeamManagement() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Filter out admins/managers to only show field executives
-  const executives = employees.filter(e => e.roleId?.roleCode === "EMPLOYEE");
+  const executives = employees.filter(e => (e.roleId as any)?.roleCode === "EMPLOYEE");
 
   const filteredExecutives = executives.filter(e => 
     e.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
