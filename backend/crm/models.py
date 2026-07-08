@@ -84,6 +84,7 @@ class Territory(models.Model):
     linkedDistributorIds = models.JSONField(default=list) # Array of strings
     coverageArea = models.CharField(max_length=100)
     geoFencing = models.BooleanField(default=False)
+    geoFencingRadius = models.IntegerField(default=500)
     STATUS_CHOICES = (('Active', 'Active'), ('Inactive', 'Inactive'))
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Active')
 

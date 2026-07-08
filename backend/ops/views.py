@@ -344,25 +344,42 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
                 Q(employeeId=emp_code) | Q(employeeId=emp_uuid)
             ).filter(date=date).first()
             if not tracking:
-                # Fall back to latest tracking entry
                 tracking = TrackingEntry.objects.filter(
                     Q(employeeId=emp_code) | Q(employeeId=emp_uuid)
                 ).order_by('-date').first()
-            if tracking:
+                
+            attendance = AttendanceEntry.objects.filter(
+                Q(employeeCode=emp_code) | Q(employeeCode=emp_uuid)
+            ).filter(date=date).first()
+            
+            check_in_loc = None
+            check_out_loc = None
+            
+            if attendance:
+                check_in = attendance.actualCheckIn
+                check_out = attendance.actualCheckOut
+                curr_status = "Completed" if check_out else tracking.status.title() if tracking and tracking.status else "Offline"
+                if attendance.checkInLocationLat and attendance.checkInLocationLng:
+                    check_in_loc = f"{attendance.checkInLocationLat},{attendance.checkInLocationLng}"
+                if attendance.checkOutLocationLat and attendance.checkOutLocationLng:
+                    check_out_loc = f"{attendance.checkOutLocationLat},{attendance.checkOutLocationLng}"
+            elif tracking:
                 check_in = tracking.checkInTime.strftime('%I:%M %p') if tracking.checkInTime else None
                 check_out = tracking.checkOutTime.strftime('%I:%M %p') if tracking.checkOutTime else None
                 curr_status = tracking.status.title() if tracking.status else "Offline"
-                idle = tracking.idleTime
-                pva = tracking.planVsActual
             else:
                 check_in = None
                 check_out = None
                 curr_status = "Offline"
-                idle = 0
-                pva = 0
+                
+            idle = tracking.idleTime if tracking else 0
+            pva = tracking.planVsActual if tracking else 0
+            
         except Exception:
             check_in = None
             check_out = None
+            check_in_loc = None
+            check_out_loc = None
             curr_status = "Offline"
             idle = 0
             pva = 0
@@ -376,6 +393,8 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
                 "department": emp_dept,
                 "checkInTime": check_in,
                 "checkOutTime": check_out,
+                "checkInLocation": check_in_loc,
+                "checkOutLocation": check_out_loc,
                 "workMode": "Field",
                 "currentStatus": curr_status,
                 "currentLocation": {"lat": 22.7196, "lng": 75.8577, "address": "Current Location"} 
@@ -533,6 +552,28 @@ class AttendanceEntryViewSet(viewsets.ModelViewSet):
     queryset = AttendanceEntry.objects.all().order_by('-date')
     serializer_class = AttendanceEntrySerializer
 
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        from .models import Alert
+        Alert.objects.create(
+            type='tracking_update',
+            message=f"Employee {instance.employeeName} checked in.",
+            severity='medium',
+            relatedEntityId=instance.employeeCode,
+            relatedEntityType='employee'
+        )
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        from .models import Alert
+        Alert.objects.create(
+            type='tracking_update',
+            message=f"Employee {instance.employeeName} checked out.",
+            severity='low',
+            relatedEntityId=instance.employeeCode,
+            relatedEntityType='employee'
+        )
+
     def get_queryset(self):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
@@ -550,7 +591,7 @@ class AttendanceEntryViewSet(viewsets.ModelViewSet):
         if user_role == 'ADMIN' or user_id == 'admin':
             if org_id and org_id != 'null':
                 emp_ids = Employee.objects.filter(organization_id=org_id).values_list('employeeId', flat=True)
-                queryset = queryset.filter(employeeId__in=emp_ids)
+                queryset = queryset.filter(employeeCode__in=emp_ids)
         elif user_role in ['SR_MGR', 'HEAD']:
             if org_id and org_id != 'null':
                 emp_codes = Employee.objects.filter(organization_id=org_id)
@@ -746,6 +787,28 @@ class WithdrawalRequestViewSet(viewsets.ModelViewSet):
 class LeaveRequestViewSet(viewsets.ModelViewSet):
     queryset = LeaveRequest.objects.all().order_by('-requestDate')
     serializer_class = LeaveRequestSerializer
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        from .models import Alert
+        Alert.objects.create(
+            type='pending_approval',
+            message=f"Leave request submitted by {instance.employeeName}.",
+            severity='medium',
+            relatedEntityId=instance.employeeId,
+            relatedEntityType='employee'
+        )
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        from .models import Alert
+        Alert.objects.create(
+            type='tracking_update',
+            message=f"Leave request for {instance.employeeName} was {instance.status}.",
+            severity='low',
+            relatedEntityId=instance.employeeId,
+            relatedEntityType='employee'
+        )
 
     def get_queryset(self):
         queryset = super().get_queryset()

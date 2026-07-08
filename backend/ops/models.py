@@ -55,6 +55,10 @@ class TrackingEntry(models.Model):
     STATUS_CHOICES = (('online', 'online'), ('offline', 'offline'), ('idle', 'idle'), ('completed', 'completed'))
     status = models.CharField(max_length=50, choices=STATUS_CHOICES)
     date = models.DateField()
+    
+    # New Fields for Camera
+    checkInPhoto = models.TextField(blank=True, null=True)
+    checkOutPhoto = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.employeeName} - {self.date}"
@@ -130,6 +134,14 @@ class AttendanceEntry(models.Model):
     totalHoursWorked = models.FloatField(default=0)
     STATUS_CHOICES = (('present', 'present'), ('absent', 'absent'), ('on-leave', 'on-leave'), ('half-day', 'half-day'))
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='present')
+    
+    # New Fields for Camera and Location
+    checkInPhoto = models.TextField(blank=True, null=True)
+    checkOutPhoto = models.TextField(blank=True, null=True)
+    checkInLocationLat = models.FloatField(blank=True, null=True)
+    checkInLocationLng = models.FloatField(blank=True, null=True)
+    checkOutLocationLat = models.FloatField(blank=True, null=True)
+    checkOutLocationLng = models.FloatField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.employeeName} - {self.date}"

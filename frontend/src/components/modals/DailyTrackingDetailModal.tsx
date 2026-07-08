@@ -138,6 +138,67 @@ interface VendorContact {
   isVerified: boolean;
 }
 
+const LocationCell = ({ value, status }: { value: string, status: string }) => {
+  const [address, setAddress] = useState<string | null>(null);
+  const isCoords = value && value.match(/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/);
+  
+  useEffect(() => {
+    if (isCoords) {
+      const [lat, lng] = value.split(',').map(s => s.trim());
+      const cacheKey = `geocode_${lat}_${lng}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        setAddress(cached);
+        return;
+      }
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+        headers: { 'Accept-Language': 'en-US,en;q=0.9' }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.address) {
+          const parts = [];
+          if (data.address.suburb) parts.push(data.address.suburb);
+          if (data.address.city || data.address.town || data.address.village) parts.push(data.address.city || data.address.town || data.address.village);
+          if (data.address.state) parts.push(data.address.state);
+          const shortAddress = parts.join(', ') || data.display_name;
+          setAddress(shortAddress);
+          sessionStorage.setItem(cacheKey, shortAddress);
+        } else {
+          setAddress("Unknown Location");
+        }
+      })
+      .catch(() => setAddress("Unknown Location"));
+    } else {
+      setAddress(value);
+    }
+  }, [value, isCoords]);
+
+  const displayLocation = address || (isCoords ? "Loading..." : value);
+
+  return (
+    <div className="flex flex-col gap-0.5 mt-1">
+      <div className="flex items-center gap-2">
+        <MapPin className={`w-3.5 h-3.5 ${status === "online" ? "text-success" : "text-muted-foreground"}`} />
+        {isCoords ? (
+          <a 
+            href={`https://www.google.com/maps?q=${value.replace(/\s+/g, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs max-w-[150px] truncate text-primary hover:underline"
+            title="View on Maps"
+          >
+            {displayLocation}
+          </a>
+        ) : (
+          <span className="text-xs max-w-[150px] truncate text-muted-foreground">{displayLocation}</span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 
 
 interface TaskEntry {
@@ -346,13 +407,55 @@ export function DailyTrackingDetailModal({
 
 }: DailyTrackingDetailModalProps) {
 
+  const [modalDate, setModalDate] = useState(date);
+
+  
+  useEffect(() => {
+    if (isOpen && date) {
+      setModalDate(date);
+    }
+  }, [isOpen, date]);
+
   const [searchQuery, setSearchQuery] = useState("");
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const [selectedTask, setSelectedTask] = useState<TaskEntry | null>(null);
 
-  
+  const calculateTotalTime = (checkInStr: string, checkOutStr: string) => {
+    if (!checkInStr) return "N/A";
+    
+    const parseTime = (timeStr: string) => {
+      if (!timeStr) return new Date();
+      if (timeStr.includes('T')) return new Date(timeStr);
+      
+      const d = new Date();
+      d.setSeconds(0);
+      d.setMilliseconds(0);
+      
+      if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
+        const [time, modifier] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':');
+        if (hours === '12') hours = '00';
+        if (modifier.toLowerCase() === 'pm') hours = (parseInt(hours, 10) + 12).toString();
+        d.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+      } else {
+        const [hours, minutes] = timeStr.split(':');
+        d.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+      }
+      return d;
+    };
+    
+    const start = parseTime(checkInStr);
+    const end = checkOutStr && checkOutStr !== "Active" ? parseTime(checkOutStr) : new Date();
+    
+    const diffMs = end.getTime() - start.getTime();
+    if (diffMs < 0) return "0h 0m";
+    
+    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `${diffHrs}h ${diffMins}m`;
+  };
 
   // Receipt preview state (admin view-only mode)
 
@@ -385,17 +488,17 @@ export function DailyTrackingDetailModal({
 
   const { data: trackingData, isLoading, refetch } = useQuery({
 
-    queryKey: ["dailyTracking", employeeId, date],
+    queryKey: ["dailyTracking", employeeId, modalDate],
 
     queryFn: async () => {
 
-      const response = await api.get(`/api/ops/tracking-entries/daily-tracking/${employeeId}/?date=${date}`);
+      const response = await api.get(`/api/ops/tracking-entries/daily-tracking/${employeeId}/?date=${modalDate}`);
 
       return response.data;
 
     },
 
-    enabled: isOpen && !!employeeId && !!date,
+    enabled: isOpen && !!employeeId && !!modalDate,
 
   });
 
@@ -415,11 +518,17 @@ export function DailyTrackingDetailModal({
 
     checkOutTime: apiEmployee.checkOutTime || "",
 
+    checkInLocation: apiEmployee.checkInLocation || null,
+
+    checkOutLocation: apiEmployee.checkOutLocation || null,
+
     workMode: apiEmployee.workMode || "Field",
 
     currentStatus: apiEmployee.currentStatus || "Offline",
 
     currentLocation: apiEmployee.currentLocation || null,
+
+    totalWorkingTime: calculateTotalTime(apiEmployee.checkInTime || "", apiEmployee.checkOutTime || ""),
 
     vehicleType: apiEmployee.vehicleType || "Bike"
 
@@ -849,15 +958,20 @@ export function DailyTrackingDetailModal({
 
                         <span>{employee.role}</span>
 
-                        <span>•</span>
+                        <span></span>
 
-                        <span className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
 
                           <Calendar className="w-3.5 h-3.5" />
 
-                          {date}
+                          <Input 
+                            type="date"
+                            value={modalDate}
+                            onChange={(e) => setModalDate(e.target.value)}
+                            className="w-auto h-7 text-xs px-2 py-0"
+                          />
 
-                        </span>
+                        </div>
 
                       </div>
 
@@ -957,62 +1071,45 @@ export function DailyTrackingDetailModal({
 
                     <Card className="bg-card/50">
 
-                      <CardContent className="p-3 flex items-center gap-3">
-
-                        <div className="w-9 h-9 rounded-lg bg-success/10 flex items-center justify-center">
-
+                      <CardContent className="p-3 flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
                           <Clock className="w-4 h-4 text-success" />
-
                         </div>
-
-                        <div>
-
-                          <p className="text-xs text-muted-foreground">
-
-                            Check-in
-
-                          </p>
-
-                          <p className="text-sm font-medium">
-
-                            {employee.checkInTime}
-
-                          </p>
-
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Check-in</p>
+                          <p className="text-sm font-medium">{employee.checkInTime}</p>
+                          {employee.checkInLocation && (
+                             <LocationCell value={employee.checkInLocation} status="offline" />
+                          )}
                         </div>
-
                       </CardContent>
-
                     </Card>
 
                     <Card className="bg-card/50">
-
-                      <CardContent className="p-3 flex items-center gap-3">
-
-                        <div className="w-9 h-9 rounded-lg bg-warning/10 flex items-center justify-center">
-
+                      <CardContent className="p-3 flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
                           <Clock className="w-4 h-4 text-warning" />
-
                         </div>
-
-                        <div>
-
-                          <p className="text-xs text-muted-foreground">
-
-                            Check-out
-
-                          </p>
-
-                          <p className="text-sm font-medium">
-
-                            {employee.checkOutTime || "Active"}
-
-                          </p>
-
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Check-out</p>
+                          <p className="text-sm font-medium">{employee.checkOutTime || "Active"}</p>
+                          {employee.checkOutLocation && (
+                             <LocationCell value={employee.checkOutLocation} status="offline" />
+                          )}
                         </div>
-
                       </CardContent>
+                    </Card>
 
+                    <Card className="bg-card/50">
+                      <CardContent className="p-3 flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Briefcase className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Total Working Time</p>
+                          <p className="text-sm font-medium">{employee.totalWorkingTime}</p>
+                        </div>
+                      </CardContent>
                     </Card>
 
                     <Card className="bg-card/50">

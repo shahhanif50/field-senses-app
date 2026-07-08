@@ -63,12 +63,14 @@ export const allTabs = [
   { id: "employee-portal", label: "Employee Portal", icon: Contact, roles: ["manager", "employee", "WH_MGR"] },
   { id: "inventory-management", label: "Inventory Management", icon: Package, roles: ["admin", "manager", "WH_MGR"] },
   { id: "admin-orders", label: "Admin Orders", icon: ClipboardList, roles: ["admin", "manager"] },
+  { id: "daily-tracking", label: "Daily Tracking", icon: Activity, roles: ["admin", "manager", "employee"] },
   { id: "team-tracking", label: "Team Tracking", icon: Users, roles: ["admin", "manager"] },
   { id: "live-tracking", label: "Live Tracking", icon: Navigation, roles: ["admin", "manager", "employee"] },
   { id: "reports", label: "Reports & Analytics", icon: BarChart3, roles: ["admin", "manager", "employee"] },
   { id: "alerts", label: "Alerts", icon: AlertTriangle, roles: ["admin", "manager"] },
   { id: "projects", label: "Projects & Tasks", icon: FolderKanban, roles: ["manager", "employee"] },
   { id: "communication", label: "Communication & Meetings", icon: MessageSquare, roles: ["admin", "manager", "employee", "WH_MGR"] },
+  { id: "meetings", label: "Meeting Scheduler", icon: Users, roles: ["admin", "manager", "employee", "WH_MGR"] },
   { id: "documents", label: "Documents", icon: FileText, roles: ["admin", "manager", "employee"] },
   { id: "permissions", label: "Permission Requests", icon: CheckCircle2, roles: ["manager", "employee"] },
   { id: "profile", label: "My Profile", icon: UserCircle, roles: ["admin", "manager", "WH_MGR", "employee"] },
@@ -138,12 +140,14 @@ export function TopNavigation({
     if (effectiveModuleLabel === "Inventory Management") moduleId = "inventory_management";
     if (effectiveModuleLabel === "Product Catalog") moduleId = "product_catalog_module";
     if (effectiveModuleLabel === "Sales Executive") moduleId = "sales_executive";
+    if (effectiveModuleLabel === "Daily Tracking") moduleId = "daily_tracking";
     if (effectiveModuleLabel === "Team Tracking") moduleId = "team_tracking";
     if (effectiveModuleLabel === "Live Tracking") moduleId = "live_tracking";
     if (effectiveModuleLabel === "Reports & Analytics") moduleId = "reports";
     if (effectiveModuleLabel === "Alerts") moduleId = "alerts";
     if (effectiveModuleLabel === "Projects & Tasks") moduleId = "projects_tasks";
     if (effectiveModuleLabel === "Communication & Meetings") moduleId = "communication";
+    if (effectiveModuleLabel === "Meeting Scheduler") moduleId = "meetings";
     if (effectiveModuleLabel === "Documents") moduleId = "documents";
     const isProductCatalogAllowed = effectiveModuleLabel === "Product Catalog" && (modulesEnabled.includes("product_catalog") || modulesEnabled.includes("Inventory Management") || modulesEnabled.includes("inventory_management"));
     const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(effectiveModuleLabel) || modulesEnabled.includes(moduleId) || isProductCatalogAllowed || alwaysActiveTabs.includes(tab.id);
@@ -170,12 +174,14 @@ export function TopNavigation({
     if (tab.label === "Inventory Management") moduleId = "inventory_management";
     if (tab.label === "Product Catalog") moduleId = "product_catalog_module";
     if (tab.label === "Sales Executive") moduleId = "sales_executive";
+    if (tab.label === "Daily Tracking") moduleId = "daily_tracking";
     if (tab.label === "Team Tracking") moduleId = "team_tracking";
     if (tab.label === "Live Tracking") moduleId = "live_tracking";
     if (tab.label === "Reports & Analytics") moduleId = "reports";
     if (tab.label === "Alerts") moduleId = "alerts";
     if (tab.label === "Projects & Tasks") moduleId = "projects_tasks";
     if (tab.label === "Communication & Meetings") moduleId = "communication";
+    if (tab.label === "Meeting Scheduler") moduleId = "meetings";
     if (tab.label === "Documents") moduleId = "documents";
 
     const isProductCatalogAllowed = tab.label === "Product Catalog" && (modulesEnabled.includes("product_catalog") || modulesEnabled.includes("Inventory Management") || modulesEnabled.includes("inventory_management"));
@@ -195,6 +201,7 @@ export function TopNavigation({
       { id: "inventory-management", label: "Inventory Management", icon: Package, roles: ["admin"] },
       { id: "product-booking", label: "Product Catalog", icon: ShoppingCart, roles: ["admin"] },
       { id: "admin-orders", label: "Admin Orders", icon: ClipboardList, roles: ["admin"] },
+      { id: "daily-tracking", label: "Daily Tracking", icon: Activity, roles: ["admin"] },
       { id: "team-tracking", label: "Team Tracking", icon: ClipboardEdit, roles: ["admin"] },
       { id: "reports", label: "Reports & Analytics", icon: BarChart3, roles: ["admin"] },
       { id: "alerts", label: "Alerts & Escalation", icon: AlertTriangle, roles: ["admin"] },
@@ -208,7 +215,7 @@ export function TopNavigation({
         if (tab.id === "admin-orders") return true;
         if (tab.id === "superadmin-sites") return true;
         if (tab.label === "Sales Executive Setup") moduleName = "Sales Executive";
-        if (tab.label === "Team Tracking") moduleName = "Daily Tracking";
+        if (tab.label === "Team Tracking") moduleName = "Team Tracking";
         if (tab.label === "Reports & Analytics") moduleName = "Reports";
         if (tab.label === "Alerts & Escalation") moduleName = "Alerts";
         if (tab.label === "Documents & Logs") moduleName = "Documents";
@@ -218,6 +225,7 @@ export function TopNavigation({
         if (moduleName === "Product Catalog") moduleId = "product_catalog";
         if (moduleName === "Sales Executive") moduleId = "sales_executive";
         if (moduleName === "Daily Tracking") moduleId = "daily_tracking";
+        if (moduleName === "Team Tracking") moduleId = "team_tracking";
         if (moduleName === "Reports") moduleId = "reports";
         if (moduleName === "Alerts") moduleId = "alerts";
         if (moduleName === "Documents") moduleId = "documents";

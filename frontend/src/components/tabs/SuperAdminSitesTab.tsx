@@ -29,7 +29,7 @@ export function SuperAdminSitesTab() {
 
   // Form State
   const [siteDetails, setSiteDetails] = useState({
-    name: "", code: "", product: "", country: "", address: "", date: "", status: true, orgId: isSuperAdmin ? (filteredOrgId || "") : (currentOrgId || "")
+    name: "", code: "", product: "", country: "", address: "", date: "", status: true, orgId: isSuperAdmin ? (filteredOrgId || "") : (currentOrgId || ""), region: ""
   });
   const [organizations, setOrganizations] = useState<any[]>([]);
 
@@ -64,7 +64,8 @@ export function SuperAdminSitesTab() {
       address: site.address || "",
       date: site.activateDate || "",
       status: site.status !== "Inactive",
-      orgId: site.organization || ""
+      orgId: site.organization || "",
+      region: site.region || ""
     });
     setContactPerson({
       name: site.contactName || "",
@@ -118,6 +119,7 @@ export function SuperAdminSitesTab() {
           contactEmail: contactPerson.email,
           contactPhone: contactPerson.phone,
           modulesEnabled: selectedModules,
+          region: siteDetails.region,
         })
       });
 
@@ -131,7 +133,7 @@ export function SuperAdminSitesTab() {
           toast.success("Site created successfully");
         }
         setView("list");
-        setSiteDetails({ name: "", code: "", product: "", country: "", address: "", date: "", status: true, orgId: "" });
+        setSiteDetails({ name: "", code: "", product: "", country: "", address: "", date: "", status: true, orgId: "", region: "" });
         setContactPerson({ name: "", phone: "", email: "" });
         setSelectedModules([]);
       } else {
@@ -252,9 +254,13 @@ export function SuperAdminSitesTab() {
                   </div>
                 </div>
               )}
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 md:col-span-1">
                 <Label>Country</Label>
                 <Input placeholder="Select or type country" value={siteDetails.country} onChange={e => setSiteDetails({...siteDetails, country: e.target.value})} />
+              </div>
+              <div className="space-y-2 md:col-span-1">
+                <Label>Region</Label>
+                <Input placeholder="Select or type region" value={siteDetails.region} onChange={e => setSiteDetails({...siteDetails, region: e.target.value})} />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Location Address</Label>

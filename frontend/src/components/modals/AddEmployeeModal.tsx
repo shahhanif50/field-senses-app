@@ -225,47 +225,7 @@ export function AddEmployeeModal({ onClose, onSuccess, initialData, requestId }:
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            <div>
-              <label className={labelCls}>Assigned Site (Primary)</label>
-              {loadingMeta ? (
-                <div className={`${inputCls} text-muted-foreground`}>Loading sites...</div>
-              ) : (
-                <select name="siteId" value={formData.siteId} onChange={handleChange} className={inputCls}>
-                  <option value="">— No Specific Site —</option>
-                  {sites.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div>
-              <label className={labelCls}>Accessible Sites (For Admins)</label>
-              {loadingMeta ? (
-                <div className={`${inputCls} text-muted-foreground`}>Loading sites...</div>
-              ) : (
-                <div className="flex flex-col gap-2 max-h-32 overflow-y-auto border border-input rounded-md p-2 bg-background">
-                  {sites.map(s => (
-                    <label key={s.id} className="flex items-center gap-2 text-sm">
-                      <input 
-                        type="checkbox" 
-                        checked={formData.accessibleSites.includes(s.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData(prev => ({ ...prev, accessibleSites: [...prev.accessibleSites, s.id] }));
-                          } else {
-                            setFormData(prev => ({ ...prev, accessibleSites: prev.accessibleSites.filter(id => id !== s.id) }));
-                          }
-                        }}
-                      />
-                      {s.name}
-                    </label>
-                  ))}
-                  {sites.length === 0 && <span className="text-xs text-muted-foreground">No sites available</span>}
-                </div>
-              )}
-            </div>
-          </div>
+
 
           {/* Work Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

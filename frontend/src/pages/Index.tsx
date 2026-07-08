@@ -22,6 +22,7 @@ import { DailyTrackingTab } from "@/components/tabs/DailyTrackingTab";
 import { AlertsTab } from "@/components/tabs/AlertsTab";
 import { ApprovalsTab } from "@/components/tabs/ApprovalsTab";
 import { CommunicationTab } from "@/components/tabs/CommunicationTab";
+import { MeetingsTab } from "@/components/tabs/MeetingsTab";
 import { ProfileTab } from "@/components/tabs/ProfileTab";
 import { ReportsTab } from "@/components/tabs/ReportsTab";
 import { MasterDataProvider } from "@/contexts/MasterDataContext";
@@ -135,17 +136,9 @@ const Index = () => {
       case "team-daily-tracking":
         return <DailyTrackingTab viewMode="team" />;
       case "daily-tracking":
-        return isAdmin ? (
-          <div className="space-y-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold">Daily Tracking Management</h2>
-                <p className="text-muted-foreground">Monitor team field operations, analytics, distances, and reimbursements.</p>
-              </div>
-            </div>
-            <AdminLiveTracking />
-          </div>
-        ) : <DailyTrackingTab viewMode="self" />;
+        return <DailyTrackingTab viewMode={isAdmin ? "team" : "self"} />;
+      case "meetings":
+        return <MeetingsTab />;
       case "team-tracking":
         return (
           <div className="space-y-6">

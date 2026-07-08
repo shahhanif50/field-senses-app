@@ -598,8 +598,18 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
       if (Array.isArray(etData)) setEmployeeTasks(etData);
     });
 
-    // Auto-refresh removed as per user request to avoid real-time tracking costs
-    // Data will only be loaded on mount or manual refresh
+    // Auto-refresh for live tracking and attendance data every 30 seconds
+    const intervalId = setInterval(() => {
+      Promise.all([
+        get(`${BASE}/ops/attendance/`),
+        get(`${BASE}/ops/tracking-entries/`),
+      ]).then(([attData, teData]) => {
+        if (Array.isArray(attData)) setAttendanceEntries(attData);
+        if (Array.isArray(teData)) setTrackingEntries(teData);
+      });
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   // Extended state

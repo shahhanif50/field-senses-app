@@ -240,6 +240,47 @@ export function ProfileTab() {
             </div>
           </section>
 
+          {/* Security / Password */}
+          <section>
+            <h3 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase mb-4 border-b border-border/50 pb-2">Security</h3>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const form = e.target as HTMLFormElement;
+              const newPassword = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
+              const confirmPassword = (form.elements.namedItem('confirmPassword') as HTMLInputElement).value;
+              if (newPassword !== confirmPassword) {
+                setError("Passwords do not match");
+                return;
+              }
+              try {
+                const response = await fetch(`${API}/api/employees/${profile.id}/change_password/`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ new_password: newPassword })
+                });
+                if (response.ok) {
+                  alert("Password changed successfully");
+                  form.reset();
+                  setError("");
+                } else {
+                  setError("Failed to change password");
+                }
+              } catch (err) {
+                setError("Network error");
+              }
+            }} className="space-y-4 max-w-sm">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-foreground">New Password</label>
+                <input name="newPassword" type="password" required minLength={6} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-foreground">Confirm Password</label>
+                <input name="confirmPassword" type="password" required minLength={6} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" />
+              </div>
+              <Button type="submit" disabled={profile.isVirtual}>Change Password</Button>
+            </form>
+          </section>
+
         </div>
       </div>
     </div>

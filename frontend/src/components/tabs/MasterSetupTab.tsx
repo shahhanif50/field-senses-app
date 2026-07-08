@@ -2817,48 +2817,7 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Assigned Site (Optional)</Label>
-                  <Select
-                    value={employeeForm.siteId || "none"}
-                    onValueChange={(value) => setEmployeeForm({ ...employeeForm, siteId: value === "none" ? undefined : value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select site" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No specific site</SelectItem>
-                      {sites.map((site) => (
-                        <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Accessible Sites (For Admins)</Label>
-                  <div className="flex flex-col gap-2 max-h-32 overflow-y-auto border border-input rounded-md p-2 bg-background">
-                    {sites.map(s => {
-                      const accessibleSites = employeeForm.accessibleSites || [];
-                      return (
-                        <label key={s.id} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={accessibleSites.includes(s.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setEmployeeForm(prev => ({ ...prev, accessibleSites: [...(prev.accessibleSites || []), s.id] }));
-                              } else {
-                                setEmployeeForm(prev => ({ ...prev, accessibleSites: (prev.accessibleSites || []).filter(id => id !== s.id) }));
-                              }
-                            }}
-                          />
-                          {s.name}
-                        </label>
-                      );
-                    })}
-                    {sites.length === 0 && <span className="text-xs text-muted-foreground">No sites available</span>}
-                  </div>
-                </div>
+
                 <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
                   <div>
                     <Label>Account Status</Label>

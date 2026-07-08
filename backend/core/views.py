@@ -83,7 +83,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             f"Role: Organization Administrator\n"
             f"Login ID (Email): {email}\n"
             f"Password: {password}\n\n"
-            f"Please log in and change your password as soon as possible.\n\n"
+            f"Please log in at https://fieldsense.vibecopilot.ai/login and change your password as soon as possible.\n\n"
             f"Best regards,\n"
             f"The Ops Hub Team"
         )
@@ -244,7 +244,7 @@ class EmployeeViewSet(BaseTenantViewSet):
                     f"Here are your login credentials:\n"
                     f"Email: {emp.email}\n"
                     f"Temporary Password: {password}\n\n"
-                    f"Please log in and change your password as soon as possible.\n\n"
+                    f"Please log in at https://fieldsense.vibecopilot.ai/login and change your password as soon as possible.\n\n"
                     f"Best regards,\n"
                     f"The Field Senses Team"
                 )
@@ -328,7 +328,7 @@ class EmployeeViewSet(BaseTenantViewSet):
                     f"Your login credentials are as follows:\n"
                     f"Login ID (Email): {email}\n"
                     f"Password: {password}\n\n"
-                    f"Please log in at your earliest convenience and make sure to change your password for security purposes.\n\n"
+                    f"Please log in at https://fieldsense.vibecopilot.ai/login at your earliest convenience and make sure to change your password for security purposes.\n\n"
                     f"We're excited to have you on the team!\n\n"
                     f"Best regards,\n"
                     f"Ops Hub Administration"
@@ -345,6 +345,17 @@ class EmployeeViewSet(BaseTenantViewSet):
                     print(f"Failed to send employee creation email: {e}")
                     
         return response
+
+    @action(detail=True, methods=['post'])
+    def change_password(self, request, pk=None):
+        emp = self.get_object()
+        new_password = request.data.get('new_password')
+        if not new_password:
+            return Response({'error': 'New password is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        emp.password = new_password
+        emp.save()
+        return Response({'status': 'password updated'})
 
 class RolePermissionViewSet(BaseTenantViewSet):
     queryset = RolePermission.objects.all()
@@ -620,11 +631,20 @@ class RegistrationRequestViewSet(BaseTenantViewSet):
         if org_id and org_id != 'null':
             try:
                 org = Organization.objects.get(id=org_id)
-                serializer.save(organization=org)
+                instance = serializer.save(organization=org)
             except Organization.DoesNotExist:
-                serializer.save()
+                instance = serializer.save()
         else:
-            serializer.save()
+            instance = serializer.save()
+            
+        from ops.models import Alert
+        Alert.objects.create(
+            type='pending_approval',
+            message=f"New registration request from {instance.email}.",
+            severity='medium',
+            relatedEntityId=str(instance.id),
+            relatedEntityType='registration'
+        )
 
 class ProjectViewSet(BaseTenantViewSet):
     queryset = Project.objects.all()
@@ -679,6 +699,28 @@ class TaskViewSet(BaseTenantViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
 
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        from ops.models import Alert
+        Alert.objects.create(
+            type='tracking_update',
+            message=f"New task '{instance.title}' created.",
+            severity='medium',
+            relatedEntityId=str(instance.id),
+            relatedEntityType='task'
+        )
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        from ops.models import Alert
+        Alert.objects.create(
+            type='tracking_update',
+            message=f"Task '{instance.title}' updated.",
+            severity='low',
+            relatedEntityId=str(instance.id),
+            relatedEntityType='task'
+        )
+
     def get_queryset(self):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
@@ -732,6 +774,18 @@ class TaskViewSet(BaseTenantViewSet):
 class DocumentViewSet(BaseTenantViewSet):
     queryset = Document.objects.all()
     serializer_class = DocumentSerializer
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        from ops.models import Alert
+        emp_name = instance.uploadedBy.fullName if instance.uploadedBy else "unknown"
+        Alert.objects.create(
+            type='compliance',
+            message=f"New document '{instance.documentType}' uploaded by {emp_name}.",
+            severity='low',
+            relatedEntityId=str(instance.id),
+            relatedEntityType='document'
+        )
 
     def get_queryset(self):
         queryset = super().get_queryset()

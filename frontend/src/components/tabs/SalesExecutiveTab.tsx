@@ -193,7 +193,7 @@ export function SalesExecutiveTab({ defaultSubTab }: { defaultSubTab?: string })
       if (activeSubTab === "sales-assignment") {
         setFormData({ id: generateId("se", salesExecutives), gpsTracking: true, status: "Active" });
       } else if (activeSubTab === "territory-setup") {
-        setFormData({ id: generateId("t", territories), geoFencing: true, linkedDistributorIds: [] });
+        setFormData({ id: generateId("t", territories), geoFencing: true, geoFencingRadius: 500, linkedDistributorIds: [] });
       } else if (activeSubTab === "distributor-linkage") {
         setFormData({ id: generateId("dl", distributorLinks) });
       } else if (activeSubTab === "targets-performance") {

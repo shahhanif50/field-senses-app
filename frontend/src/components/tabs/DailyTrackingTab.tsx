@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   MapPin, Clock, Navigation, User, Activity, AlertTriangle, Map, BarChart3, Settings,
   CheckCircle, XCircle, Timer, TrendingUp, Shield, Bell, Zap, Target, Gauge, FileText,
-  UserCheck, UserX, AlarmClock, LogOut, Hourglass, Eye, Edit, Download
+  UserCheck, UserX, AlarmClock, LogOut, Hourglass, Eye, Edit, Download, Camera
 } from "lucide-react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { format } from "date-fns";
@@ -40,9 +40,73 @@ const allSubTabs = [
   { id: "analytics-settings", label: "Tracking Analytics & Settings", icon: BarChart3, adminOnly: true },
 ];
 
+const LocationCell = ({ value, status }: { value: string, status: string }) => {
+  const [address, setAddress] = useState<string | null>(null);
+  const isCoords = value && value.match(/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/);
+  
+  useEffect(() => {
+    if (isCoords) {
+      const [lat, lng] = value.split(',').map(s => s.trim());
+      const cacheKey = `geocode_${lat}_${lng}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        setAddress(cached);
+        return;
+      }
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+        headers: { 'Accept-Language': 'en-US,en;q=0.9' }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.address) {
+          const parts = [];
+          if (data.address.suburb) parts.push(data.address.suburb);
+          if (data.address.city || data.address.town || data.address.village) parts.push(data.address.city || data.address.town || data.address.village);
+          if (data.address.state) parts.push(data.address.state);
+          const shortAddress = parts.join(', ') || data.display_name;
+          setAddress(shortAddress);
+          sessionStorage.setItem(cacheKey, shortAddress);
+        } else {
+          setAddress("Unknown Location");
+        }
+      })
+      .catch(() => setAddress("Unknown Location"));
+    } else {
+      setAddress(value);
+    }
+  }, [value, isCoords]);
+
+  const displayLocation = address || (isCoords ? "Loading..." : value);
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-2">
+        <MapPin className={`w-4 h-4 ${status === "online" ? "text-success" : "text-muted-foreground"}`} />
+        {isCoords ? (
+          <a 
+            href={`https://www.google.com/maps?q=${value.replace(/\s+/g, '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm max-w-[200px] truncate text-primary hover:underline"
+            title="View on Maps"
+          >
+            {displayLocation}
+          </a>
+        ) : (
+          <span className="text-sm max-w-[200px] truncate">{displayLocation}</span>
+        )}
+      </div>
+      {isCoords && address && (
+        <span className="text-[10px] text-muted-foreground ml-6">({value})</span>
+      )}
+    </div>
+  );
+};
+
 export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "team" }) {
-  const { trackingEntries, attendanceEntries, geoFenceAlerts, roles, rolePermissions } = useMasterData();
+  const { trackingEntries, attendanceEntries, geoFenceAlerts, roles, rolePermissions, employees } = useMasterData();
   const rawRole = sessionStorage.getItem("userRole") || "EMPLOYEE";
+  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   
   // --- PERMISSION CHECKS ---
   const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
@@ -63,13 +127,50 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
 
   const subTabs = allSubTabs.filter(tab => !tab.adminOnly || isManager);
 
-  const trackingData = [...trackingEntries]
-    .filter(entry => viewMode === "team" || entry.employeeId === employeeId)
-    .sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime());
-    
   const attendanceData = [...attendanceEntries]
-    .filter(entry => viewMode === "team" || entry.employeeCode === employeeId || entry.employeeName === userName)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    .filter(entry => {
+      if (entry.date !== selectedDate) return false;
+      return viewMode === "team" || 
+        entry.employeeCode === employeeId || 
+        entry.employeeName.toLowerCase() === userName.toLowerCase() ||
+        entry.employeeName.toLowerCase().split(' ').sort().join(' ') === userName.toLowerCase().split(' ').sort().join(' ');
+    })
+    .sort((a, b) => {
+      const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      const timeA = a.actualCheckIn || "";
+      const timeB = b.actualCheckIn || "";
+      return timeB.localeCompare(timeA);
+    });
+
+  const trackingData = [...trackingEntries]
+    .filter(entry => {
+      const entryDate = entry.checkInTime ? entry.checkInTime.split('T')[0] : "";
+      if (entryDate !== selectedDate) return false;
+      return viewMode === "team" || 
+        entry.employeeId === employeeId || 
+        entry.employeeId === sessionStorage.getItem("userId") || 
+        entry.employeeName.toLowerCase() === userName.toLowerCase() ||
+        entry.employeeName.toLowerCase().split(' ').sort().join(' ') === userName.toLowerCase().split(' ').sort().join(' ');
+    })
+    .sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime())
+    .map(tracking => {
+      const matchingAttendance = attendanceData.find(a => a.employeeCode === tracking.employeeId);
+      return {
+        ...tracking,
+        checkInTime: matchingAttendance?.actualCheckIn || tracking.checkInTime,
+        checkOutTime: matchingAttendance?.actualCheckOut || tracking.checkOutTime,
+        status: matchingAttendance?.actualCheckOut ? 'completed' : tracking.status,
+        checkInLocation: matchingAttendance?.checkInLocationLat && matchingAttendance?.checkInLocationLng 
+          ? `${matchingAttendance.checkInLocationLat},${matchingAttendance.checkInLocationLng}` 
+          : null,
+        checkOutLocation: matchingAttendance?.checkOutLocationLat && matchingAttendance?.checkOutLocationLng 
+          ? `${matchingAttendance.checkOutLocationLat},${matchingAttendance.checkOutLocationLng}` 
+          : null,
+        checkInPhoto: matchingAttendance?.checkInPhoto || (tracking as any).checkInPhoto,
+        checkOutPhoto: matchingAttendance?.checkOutPhoto || (tracking as any).checkOutPhoto,
+      };
+    });
 
   const [selectedEmployee, setSelectedEmployee] = useState<TrackingEntry | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -86,8 +187,8 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
   });
 
   const handleViewDetails = (entry: TrackingEntry) => {
-    sessionStorage.setItem("preSelectedAdminEmployeeId", entry.employeeId);
-    window.dispatchEvent(new CustomEvent("changeTab", { detail: "live-tracking" }));
+    setSelectedEmployee(entry);
+    setIsDetailModalOpen(true);
   };
 
   // ============= LIVE TRACKING COLUMNS =============
@@ -121,42 +222,35 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
     {
       key: "currentLocation",
       header: "Route / Location",
-      render: (value, row) => {
-        // Mock reverse geocoding for coordinates
-        let displayLocation = String(value);
-        if (displayLocation === "19.1136,72.8697" || displayLocation === "19.1136, 72.8697") {
-          displayLocation = "Mumbai, Maharashtra";
-        } else if (displayLocation === "28.7041,77.1025" || displayLocation === "28.7041, 77.1025") {
-          displayLocation = "New Delhi, Delhi";
-        } else if (displayLocation.match(/^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$/)) {
-          displayLocation = "Current Location Area";
-        }
-
-        return (
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <MapPin className={`w-4 h-4 ${row.status === "online" ? "text-success" : "text-muted-foreground"}`} />
-              <span className="text-sm max-w-[200px] truncate">{displayLocation}</span>
-            </div>
-            {displayLocation !== String(value) && (
-              <span className="text-[10px] text-muted-foreground ml-6">({String(value)})</span>
-            )}
-          </div>
-        );
-      },
+      render: (value, row) => <LocationCell value={String(value)} status={row.status} />
     },
     {
       key: "checkInTime",
       header: "Check In",
-      render: (value) => {
+      render: (value, row) => {
         let formattedTime = String(value);
         try {
-          if (value) formattedTime = format(new Date(String(value)), "dd MMM yy, hh:mm a");
+          // Sometimes time string is just HH:mm instead of ISO datetime
+          if (value && !String(value).includes('T') && String(value).includes(':')) {
+            formattedTime = String(value);
+          } else if (value) {
+            formattedTime = format(new Date(String(value)), "dd MMM yy, hh:mm a");
+          }
         } catch (e) {}
         return (
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-primary" />
-            <span className="text-sm">{formattedTime}</span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary" />
+              <span className="text-sm">{formattedTime}</span>
+            </div>
+            {(row as any).checkInLocation && (
+              <LocationCell value={(row as any).checkInLocation} status={row.status} />
+            )}
+            {(row as any).checkInPhoto && (
+              <div className="flex items-center gap-2 mt-1">
+                <img src={(row as any).checkInPhoto} alt="Check In Proof" className="w-10 h-10 object-cover rounded-md border" />
+              </div>
+            )}
           </div>
         );
       }
@@ -164,76 +258,36 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
     {
       key: "checkOutTime",
       header: "Check Out",
-      render: (value) => {
+      render: (value, row) => {
         let formattedTime = String(value);
         try {
-          if (value) formattedTime = format(new Date(String(value)), "dd MMM yy, hh:mm a");
+          if (value && !String(value).includes('T') && String(value).includes(':')) {
+            formattedTime = String(value);
+          } else if (value) {
+            formattedTime = format(new Date(String(value)), "dd MMM yy, hh:mm a");
+          }
         } catch (e) {}
         return (
-          <span className={value ? "text-sm" : "text-muted-foreground italic text-sm"}>
-            {value ? formattedTime : "Active"}
-          </span>
-        );
-      }
-    },
-    {
-      key: "travelDistance",
-      header: "Travel (km)",
-      render: (value) => (
-        <div className="flex items-center gap-2">
-          <Navigation className="w-4 h-4 text-primary" />
-          <span className="font-medium">{String(value)} km</span>
-        </div>
-      ),
-    },
-    {
-      key: "vehicleType",
-      header: "Vehicle",
-      render: (_, row) => (
-        <span className="text-sm">{row.vehicleType || "Bike"}</span>
-      ),
-    },
-    {
-      key: "reimbursementAmount",
-      header: "Reimbursement",
-      render: (_, row) => (
-        <span className="text-sm font-medium text-green-600">₹{row.reimbursementAmount?.toFixed(2) || "0.00"}</span>
-      ),
-    },
-    {
-      key: "idleTime",
-      header: "Idle Time",
-      render: (value) => (
-        <span className={Number(value) > 30 ? "text-warning font-medium" : "text-muted-foreground"}>
-          {String(value)} min
-        </span>
-      ),
-    },
-    {
-      key: "planVsActual",
-      header: "Plan vs Actual",
-      render: (value) => {
-        const percentage = Number(value);
-        const color =
-          percentage >= 100 ? "text-success" : percentage >= 80 ? "text-warning" : "text-destructive";
-        return (
-          <div className="flex items-center gap-2">
-            <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  percentage >= 100
-                    ? "bg-success"
-                    : percentage >= 80
-                    ? "bg-warning"
-                    : "bg-destructive"
-                }`}
-                style={{ width: `${Math.min(percentage, 100)}%` }}
-              />
-            </div>
-            <span className={`font-medium ${color}`}>{percentage}%</span>
+          <div className="flex flex-col gap-2">
+            <span className={value ? "text-sm" : "text-muted-foreground italic text-sm"}>
+              {value ? (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span>{formattedTime}</span>
+                </div>
+              ) : "Active"}
+            </span>
+            {value && (row as any).checkOutLocation && (
+              <LocationCell value={(row as any).checkOutLocation} status="completed" />
+            )}
+            {value && (row as any).checkOutPhoto && (
+              <div className="flex items-center gap-2 mt-1">
+                <img src={(row as any).checkOutPhoto} alt="Check Out Proof" className="w-10 h-10 object-cover rounded-md border" />
+              </div>
+            )}
           </div>
         );
-      },
+      }
     },
     {
       key: "status",
@@ -322,6 +376,26 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
         <div className="flex items-center gap-2">
           <Hourglass className="w-4 h-4 text-primary" />
           <span className="font-medium">{String(value)} hrs</span>
+        </div>
+      ),
+    },
+    {
+      key: "proof",
+      header: "Proof",
+      render: (_, row) => (
+        <div className="flex gap-2">
+          {row.checkInPhoto && (
+            <div className="flex flex-col items-center gap-1" title={`Check In: ${row.checkInLocationLat}, ${row.checkInLocationLng}`}>
+              <img src={row.checkInPhoto} alt="Check In" className="w-10 h-10 object-cover rounded-md border" />
+              <span className="text-[10px] text-muted-foreground font-medium">In</span>
+            </div>
+          )}
+          {row.checkOutPhoto && (
+            <div className="flex flex-col items-center gap-1" title={`Check Out: ${row.checkOutLocationLat}, ${row.checkOutLocationLng}`}>
+              <img src={row.checkOutPhoto} alt="Check Out" className="w-10 h-10 object-cover rounded-md border" />
+              <span className="text-[10px] text-muted-foreground font-medium">Out</span>
+            </div>
+          )}
         </div>
       ),
     },
@@ -523,12 +597,18 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
   // ============= RENDER DASHBOARD CARDS =============
   const renderDashboardCards = () => {
     if (activeSubTab === "live-tracking") {
+      const completedCount = attendanceData.filter(a => a.actualCheckOut !== null).length;
+      
+      // Calculate team size using `employees` or fallback to attendance records if employees not populated yet
+      const teamSize = employees && employees.length > 0 ? employees.length : attendanceData.length;
+      const forgotCheckInCount = Math.max(0, teamSize - attendanceData.length);
+
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Active Now", value: `${onlineCount}/${trackingData.length}`, icon: User, color: "text-success" },
-            { label: "Avg Performance", value: `${avgPlanVsActual}%`, icon: Activity, color: "text-primary" },
-            { label: "Total Distance", value: `${totalDistance} km`, icon: Navigation, color: "text-accent" },
+            { label: "Active Now", value: `${onlineCount}/${teamSize}`, icon: User, color: "text-success" },
+            { label: "Completed", value: String(completedCount), icon: CheckCircle, color: "text-primary" },
+            { label: "Forgot Check In", value: String(forgotCheckInCount), icon: UserX, color: "text-destructive" },
             { label: "Alerts Today", value: String(totalAlerts), icon: AlertTriangle, color: "text-warning" },
           ].map((stat, index) => (
             <motion.div
@@ -860,8 +940,8 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
 
   return (
     <div className="space-y-6">
-      {/* Sub Tabs */}
-      <div className="bg-card/50 border border-border/50 rounded-xl p-2">
+      {/* Sub Tabs and Date Filter */}
+      <div className="bg-card/50 border border-border/50 rounded-xl p-2 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div className="flex flex-wrap gap-2">
           {subTabs.map((tab) => {
             const Icon = tab.icon;
@@ -883,6 +963,16 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
               </motion.button>
             );
           })}
+        </div>
+        <div className="flex items-center gap-2 px-2">
+          <Label htmlFor="date-filter" className="text-sm font-medium text-muted-foreground whitespace-nowrap">Date:</Label>
+          <Input 
+            id="date-filter" 
+            type="date" 
+            value={selectedDate} 
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="w-auto h-9"
+          />
         </div>
       </div>
 

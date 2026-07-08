@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend
 } from 'recharts';
+import { AttendanceWidget } from './AttendanceWidget';
 
 function EmployeeKPICard({ title, value, icon, colorClass, bgClass }: { title: React.ReactNode, value: string, icon: React.ReactNode, colorClass: string, bgClass: string }) {
   return (
@@ -131,6 +132,8 @@ export function EmployeeDashboard() {
           bgClass="bg-rose-50 dark:bg-rose-500/10"
         />
       </div>
+
+      <AttendanceWidget />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div

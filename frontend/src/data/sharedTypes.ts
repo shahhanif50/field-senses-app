@@ -394,6 +394,8 @@ export interface TrackingEntry {
   status: "online" | "offline" | "idle" | "completed";
   date: string;
   employeeCode?: string;
+  checkInPhoto?: string;
+  checkOutPhoto?: string;
 }
 
 // ============= EMPLOYEE PORTAL TYPES =============
@@ -507,6 +509,12 @@ export interface AttendanceEntry {
   earlyExit: number;
   totalHoursWorked: number;
   status: "present" | "absent" | "on-leave" | "half-day";
+  checkInPhoto?: string;
+  checkOutPhoto?: string;
+  checkInLocationLat?: number;
+  checkInLocationLng?: number;
+  checkOutLocationLat?: number;
+  checkOutLocationLng?: number;
 }
 
 export interface GeoFenceAlert {

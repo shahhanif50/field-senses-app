@@ -20,6 +20,19 @@ interface Organization {
   is_deleted: boolean;
   createdAt: string;
   admins?: {id: string, name: string, email: string}[];
+  companyName?: string;
+  entityName?: string;
+  site?: string;
+  country?: string;
+  region?: string;
+  state?: string;
+  city?: string;
+  zone?: string;
+  whiteLabel?: boolean;
+  subDomain?: string;
+  solutionType?: string;
+  solutionFor?: string;
+  billingTerm?: string;
 }
 
 const AVAILABLE_MODULES = [
@@ -514,6 +527,21 @@ export function OrganizationsTab() {
       </div>
     );
   }
+  const filteredOrganizations = organizations.filter(org => {
+    if (orgFilters.search && !org.name.toLowerCase().includes(orgFilters.search.toLowerCase())) return false;
+    if (orgFilters.region && org.region !== orgFilters.region) return false;
+    if (orgFilters.country && org.country !== orgFilters.country) return false;
+    if (orgFilters.state && org.state !== orgFilters.state) return false;
+    if (orgFilters.city && org.city !== orgFilters.city) return false;
+    if (orgFilters.zone && org.zone !== orgFilters.zone) return false;
+    return true;
+  });
+
+  const uniqueRegions = Array.from(new Set(organizations.map(o => o.region).filter(Boolean)));
+  const uniqueCountries = Array.from(new Set(organizations.map(o => o.country).filter(Boolean)));
+  const uniqueStates = Array.from(new Set(organizations.map(o => o.state).filter(Boolean)));
+  const uniqueCities = Array.from(new Set(organizations.map(o => o.city).filter(Boolean)));
+  const uniqueZones = Array.from(new Set(organizations.map(o => o.zone).filter(Boolean)));
 
   return (
     <div className="space-y-6">
@@ -846,10 +874,10 @@ export function OrganizationsTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {loading ? (
             <p>Loading organizations...</p>
-          ) : organizations.length === 0 ? (
+          ) : filteredOrganizations.length === 0 ? (
             <p className="text-muted-foreground col-span-3">No organizations found. Create your first tenant above.</p>
           ) : (
-            organizations.map((org) => (
+            filteredOrganizations.map((org) => (
               <Card key={org.id} className="relative overflow-hidden group border-border/40 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 bg-card/50 backdrop-blur-sm">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-primary/40 opacity-50 group-hover:opacity-100 transition-opacity" />
                 <CardHeader className="pb-3 px-5 pt-5">
@@ -966,23 +994,33 @@ export function OrganizationsTab() {
               <Input placeholder="Search organizations..." className="w-48 h-9 text-sm" value={orgFilters.search} onChange={e => setOrgFilters({...orgFilters, search: e.target.value})} />
               <Select value={orgFilters.region} onValueChange={v => setOrgFilters({...orgFilters, region: v})}>
                 <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="Region" /></SelectTrigger>
-                <SelectContent><SelectItem value="North America">North America</SelectItem><SelectItem value="Europe">Europe</SelectItem></SelectContent>
+                <SelectContent>
+                  {uniqueRegions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
               </Select>
               <Select value={orgFilters.country} onValueChange={v => setOrgFilters({...orgFilters, country: v})}>
                 <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="Country" /></SelectTrigger>
-                <SelectContent><SelectItem value="US">US</SelectItem><SelectItem value="UK">UK</SelectItem></SelectContent>
+                <SelectContent>
+                  {uniqueCountries.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
               </Select>
               <Select value={orgFilters.state} onValueChange={v => setOrgFilters({...orgFilters, state: v})}>
                 <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="State" /></SelectTrigger>
-                <SelectContent><SelectItem value="CA">California</SelectItem><SelectItem value="NY">New York</SelectItem></SelectContent>
+                <SelectContent>
+                  {uniqueStates.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
               </Select>
               <Select value={orgFilters.city} onValueChange={v => setOrgFilters({...orgFilters, city: v})}>
                 <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="City" /></SelectTrigger>
-                <SelectContent><SelectItem value="SF">San Francisco</SelectItem><SelectItem value="London">London</SelectItem></SelectContent>
+                <SelectContent>
+                  {uniqueCities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
               </Select>
               <Select value={orgFilters.zone} onValueChange={v => setOrgFilters({...orgFilters, zone: v})}>
                 <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="Zone" /></SelectTrigger>
-                <SelectContent><SelectItem value="Z1">Zone 1</SelectItem></SelectContent>
+                <SelectContent>
+                  {uniqueZones.map(z => <SelectItem key={z} value={z}>{z}</SelectItem>)}
+                </SelectContent>
               </Select>
               <Button variant="outline" className="h-9 text-sm" onClick={() => setOrgFilters({search: "", region: "", country: "", state: "", city: "", zone: ""})}>Clear Filters</Button>
             </div>
@@ -1011,10 +1049,10 @@ export function OrganizationsTab() {
               <TableBody>
                 {loading ? (
                   <TableRow><TableCell colSpan={13} className="text-center py-8">Loading organizations...</TableCell></TableRow>
-                ) : organizations.length === 0 ? (
+                ) : filteredOrganizations.length === 0 ? (
                   <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No organizations found. Create your first tenant above.</TableCell></TableRow>
                 ) : (
-                  organizations.map((org: any) => (
+                  filteredOrganizations.map((org: any) => (
                     <TableRow key={org.id} className="group hover:bg-muted/30">
                       <TableCell className="font-semibold">{org.name}</TableCell>
                       <TableCell>{org.companyName || "-"}</TableCell>
