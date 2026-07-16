@@ -175,15 +175,13 @@ export function AttendanceWidget() {
           
           let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
           try {
-            const res = await fetch(`https://photon.komoot.io/reverse?lon=${lng}&lat=${lat}`);
+            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
             const data = await res.json();
-            if (data.features && data.features.length > 0) {
-              const p = data.features[0].properties;
+            if (data.city || data.locality || data.principalSubdivision) {
               const addressParts = [
-                p.name,
-                p.street,
-                p.city || p.town || p.village || p.county,
-                p.state
+                data.locality || data.city,
+                data.principalSubdivision,
+                data.countryName
               ].filter(Boolean);
               if (addressParts.length > 0) {
                 address = addressParts.join(', ');
