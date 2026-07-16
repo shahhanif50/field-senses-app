@@ -195,7 +195,7 @@ const Index = () => {
           onThemeToggle={handleThemeToggle}
         />
 
-        <main className="flex-1 overflow-y-auto pt-24 px-4 pb-6 w-full">
+        <main className="flex-1 overflow-y-auto pt-20 px-2 md:px-4 md:pt-24 pb-6 w-full overflow-x-hidden">
           <div className="max-w-7xl mx-auto h-full">
             {activeTab === "master-setup" && <KPICards />}
 

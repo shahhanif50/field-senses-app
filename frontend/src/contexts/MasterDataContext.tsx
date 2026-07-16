@@ -66,6 +66,7 @@ export type {
   POSTerminal,
   POSAlert,
   Site,
+  RegularizationRequest,
 } from "@/data/sharedTypes";
 
 // ============= INITIAL DATA =============
@@ -415,6 +416,7 @@ interface MasterDataContextType {
   posAlerts: POSAlert[];
   trackingEntries: TrackingEntry[];
   employeeTasks: EmployeeTask[];
+  regularizationRequests: RegularizationRequest[];
 
   // Core Setters
   setEmployees: React.Dispatch<React.SetStateAction<Employee[]>>;
@@ -448,6 +450,7 @@ interface MasterDataContextType {
   setPosAlerts: React.Dispatch<React.SetStateAction<POSAlert[]>>;
   setTrackingEntries: React.Dispatch<React.SetStateAction<TrackingEntry[]>>;
   setEmployeeTasks: React.Dispatch<React.SetStateAction<EmployeeTask[]>>;
+  setRegularizationRequests: React.Dispatch<React.SetStateAction<RegularizationRequest[]>>;
 
   // Helper functions - Core
   getRoleNameById: (roleId: string) => string;
@@ -607,7 +610,7 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
         if (Array.isArray(attData)) setAttendanceEntries(attData);
         if (Array.isArray(teData)) setTrackingEntries(teData);
       });
-    }, 30000);
+    }, 10000);
 
     return () => clearInterval(intervalId);
   }, []);
@@ -638,6 +641,32 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
   const [posAlerts, setPosAlerts] = useState<POSAlert[]>([]);
   const [trackingEntries, setTrackingEntries] = useState<TrackingEntry[]>([]);
   const [employeeTasks, setEmployeeTasks] = useState<EmployeeTask[]>([]);
+  const [regularizationRequests, setRegularizationRequests] = useState<RegularizationRequest[]>(() => {
+    try {
+      const saved = localStorage.getItem('regularizationRequests');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('regularizationRequests', JSON.stringify(regularizationRequests));
+  }, [regularizationRequests]);
+
+  React.useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'regularizationRequests' && e.newValue) {
+        try {
+          setRegularizationRequests(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error('Error parsing regularization storage', err);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // Core helper functions
   const getRoleNameById = useCallback((roleId: string) => getRoleName(roleId, roles), [roles]);
@@ -734,6 +763,7 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
     posAlerts,
     trackingEntries,
     employeeTasks,
+    regularizationRequests,
 
     // Core Setters
     setSites,
@@ -768,6 +798,7 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
     setPosAlerts,
     setTrackingEntries,
     setEmployeeTasks,
+    setRegularizationRequests,
 
     // Helper functions - Core
     getRoleNameById,

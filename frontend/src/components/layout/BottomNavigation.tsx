@@ -31,34 +31,40 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
   } catch(e) {}
 
   const { roles, rolePermissions } = useMasterData();
-  const currentRole = roles.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const matchingRoles = roles.filter(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
+  const matchingRoleIds = matchingRoles.map(r => r.id);
 
   let tabs = allTabs.filter(tab => {
     if (tab.roles.includes("superadmin") && (isGlobalAdmin && !isImpersonating)) return true;
     if (tab.roles.includes("superadmin")) return false;
     
-    const rolePerm = rolePermissions.find(p => p.roleId === currentRole?.id && p.module === tab.label);
+    const rolePerm = rolePermissions.find(p => matchingRoleIds.includes(p.roleId) && p.module === tab.label);
     let hasRole = (userRole.toLowerCase() === "admin" && tab.roles.includes("admin")) || !!rolePerm?.view;
     if (!hasRole && rolePermissions) {
       if (tab.id === "inventory-management") {
-        hasRole = rolePermissions.some(p => p.roleId === currentRole?.id && ["Product Setup", "Stock Management", "Sales & Billing", "Inventory Management"].includes(p.module) && p.view);
+        hasRole = rolePermissions.some(p => matchingRoleIds.includes(p.roleId) && ["Product Setup", "Stock Management", "Sales & Billing", "Inventory Management"].includes(p.module) && p.view);
       } else if (tab.id === "sales-executive") {
-        hasRole = rolePermissions.some(p => p.roleId === currentRole?.id && ["Territory Management", "Distributor Linkage", "Sales Monitoring", "Sales Executive"].includes(p.module) && p.view);
+        hasRole = rolePermissions.some(p => matchingRoleIds.includes(p.roleId) && ["Territory Management", "Distributor Linkage", "Sales Monitoring", "Sales Executive"].includes(p.module) && p.view);
       } else if (tab.id === "master-setup") {
-        hasRole = rolePermissions.some(p => p.roleId === currentRole?.id && ["Role Management", "Organization Chart", "Site Master", "Distributor Master"].includes(p.module) && p.view);
+        hasRole = rolePermissions.some(p => matchingRoleIds.includes(p.roleId) && ["Role Management", "Organization Chart", "Site Master", "Distributor Master"].includes(p.module) && p.view);
       }
     }
     const alwaysActiveTabs = ["profile", "approvals", "admin-dashboard", "employee-dashboard", "product-booking", "admin-orders"];
     const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(tab.label) || alwaysActiveTabs.includes(tab.id);
     
-    if (userRole === "employee" && (tab.id === "employee-dashboard" || tab.id === "product-booking")) {
+    // Fully Dynamic: If the admin explicitly granted view permission for this role, it MUST be visible.
+    if (rolePerm?.view) {
+      return true;
+    }
+
+    if (userRole === "employee" && tab.id === "employee-dashboard") {
       return true;
     }
     
     return hasRole && moduleActive;
   });
 
-  const rolePerms = rolePermissions.filter(rp => rp.roleId === currentRole?.id);
+  const rolePerms = rolePermissions.filter(rp => matchingRoleIds.includes(rp.roleId));
   const dynamicallyEnabledTabs = allTabs.filter(tab => {
     const rolePerm = rolePerms.find(rp => rp.module === tab.label);
     const moduleActive = (isGlobalAdmin && !isImpersonating) || modulesEnabled.includes("All") || modulesEnabled.includes(tab.label) || ["master-setup", "profile", "approvals"].includes(tab.id);
@@ -77,7 +83,7 @@ export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationPro
     if (userRole === "superadmin") return "organizations";
     if (userRole === "admin") return "admin-dashboard";
     if (userRole === "manager" || rawRole.toLowerCase() === "regional manager" || rawRole.toLowerCase() === "regional_manager") return "rm-dashboard";
-    return "employee-portal";
+    return "employee-dashboard";
   };
 
   const handleNavClick = (id: string) => {

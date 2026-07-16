@@ -121,14 +121,28 @@ const permissionModulesHierarchy: PermissionModuleConfig[] = [
     ]
   },
   {
+    id: "Daily Tracking",
+    label: "Daily Tracking",
+    subModules: []
+  },
+  {
     id: "Field Operations & Tracking",
     label: "Field Operations & Tracking",
     subModules: [
-      { id: "Daily Tracking", label: "Daily Tracking" },
       { id: "Team Tracking", label: "Team Tracking" },
       { id: "Live Tracking", label: "Live Tracking" },
       { id: "Projects & Tasks", label: "Projects & Tasks" }
     ]
+  },
+  {
+    id: "Meeting Scheduler",
+    label: "Meeting Scheduler",
+    subModules: []
+  },
+  {
+    id: "Communication & Meetings",
+    label: "Communication & Meetings",
+    subModules: []
   },
   {
     id: "Employee Portal",

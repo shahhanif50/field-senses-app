@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-type StatusType = "active" | "inactive" | "online" | "offline" | "pending" | "delayed" | "completed" | "idle" | "success" | "warning" | "error" | "info" | "scheduled" | "cancelled" | "rescheduled";
+type StatusType = "active" | "inactive" | "online" | "offline" | "pending" | "delayed" | "completed" | "idle" | "success" | "warning" | "error" | "info" | "scheduled" | "cancelled" | "rescheduled" | "approved" | "denied";
 
 interface StatusBadgeProps {
   status: StatusType;
@@ -25,11 +25,14 @@ const statusConfig: Record<StatusType, { bg: string; text: string; dot: string }
   scheduled: { bg: "bg-info/10", text: "text-info", dot: "bg-info" },
   cancelled: { bg: "bg-destructive/10", text: "text-destructive", dot: "bg-destructive" },
   rescheduled: { bg: "bg-warning/10", text: "text-warning", dot: "bg-warning" },
+  approved: { bg: "bg-success/10", text: "text-success", dot: "bg-success" },
+  denied: { bg: "bg-destructive/10", text: "text-destructive", dot: "bg-destructive" },
 };
 
 export function StatusBadge({ status, label, pulse = false, className }: StatusBadgeProps) {
-  const config = statusConfig[status] || statusConfig.inactive;
-  const displayLabel = label || status.charAt(0).toUpperCase() + status.slice(1);
+  const normalizedStatus = (status || "").toLowerCase() as StatusType;
+  const config = statusConfig[normalizedStatus] || statusConfig.inactive;
+  const displayLabel = label || String(status).charAt(0).toUpperCase() + String(status).slice(1);
 
   return (
     <span

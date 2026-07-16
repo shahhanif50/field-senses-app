@@ -426,32 +426,20 @@ const [filterDate, setFilterDate] = useState<string>("");
 
   return (
     <>
-      <div className="flex h-[calc(100vh-120px)] bg-slate-50 relative rounded-2xl overflow-hidden border border-slate-200 flex-col lg:flex-row">
+      <div className="flex h-auto min-h-[calc(100vh-120px)] lg:h-[calc(100vh-120px)] relative flex-col lg:flex-row gap-6 lg:gap-0">
         {/* Left Content */}
-        <div className="flex-[6] bg-white overflow-y-auto flex flex-col relative z-10 border-r border-slate-200">
-          <div className="p-6">
-            {/* Headers */}
-            <div className="flex justify-between items-start mb-6 pb-6 border-b border-slate-100">
-              <div className="w-1/2 pr-4">
-                <h2 className="text-2xl font-bold text-slate-800">Daily Operations Log</h2>
-                <p className="text-sm text-slate-500 mt-1">Review check-in/out records, attendance logs, and geofence breach reports.</p>
-              </div>
-              <div className="w-1/2 pl-4 border-l border-slate-100">
-                <h2 className="text-2xl font-bold text-slate-800">Live Tracking & Route History</h2>
-                <p className="text-sm text-slate-500 mt-1">Monitor field operations, calculate distances, and automate travel reimbursements.</p>
-              </div>
-            </div>
-
+        <div className="flex-[6] bg-transparent overflow-y-auto flex flex-col relative z-10">
+          <div className="p-0 sm:p-4 md:p-6">
             {/* Tabs & Content */}
             <Tabs defaultValue="tracking" className="w-full">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <TabsList className="bg-slate-100 p-1 rounded-xl">
-                  <TabsTrigger value="tracking" className="rounded-lg px-4 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all"><Navigation className="w-4 h-4 mr-2"/> Live Tracking / Route History</TabsTrigger>
-                  <TabsTrigger value="analytics" className="rounded-lg px-4 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all"><BarChart3 className="w-4 h-4 mr-2"/> Tracking Analytics & Settings</TabsTrigger>
+              <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
+                <TabsList className="bg-slate-100 p-1 rounded-xl flex flex-col sm:flex-row h-auto w-full xl:w-auto">
+                  <TabsTrigger value="tracking" className="w-full sm:w-auto rounded-lg px-2 sm:px-4 py-2 text-xs sm:text-sm data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all whitespace-normal sm:whitespace-nowrap"><Navigation className="w-4 h-4 mr-1 sm:mr-2 shrink-0"/> Attendance & Live Tracking</TabsTrigger>
+                  <TabsTrigger value="analytics" className="w-full sm:w-auto rounded-lg px-2 sm:px-4 py-2 text-xs sm:text-sm data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all whitespace-normal sm:whitespace-nowrap"><BarChart3 className="w-4 h-4 mr-1 sm:mr-2 shrink-0"/> Tracking Analytics & Settings</TabsTrigger>
                 </TabsList>
                 
-                <div className="flex items-center gap-3">
-                  <div className="text-sm text-slate-500 font-medium">Date:</div>
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                  <div className="text-xs sm:text-sm text-slate-500 font-medium shrink-0">Date:</div>
                   <Input 
                     type="date" 
                     value={filterDate} 
@@ -467,7 +455,7 @@ const [filterDate, setFilterDate] = useState<string>("");
               <TabsContent value="tracking" className="mt-0 space-y-6">
                 {/* Live Tracking KPI Cards */}
                 <div>
-                  <h3 className="text-xl font-bold text-slate-800 mb-4">Live Tracking / Route History</h3>
+                  <h3 className="text-xl font-bold text-slate-800 mb-4">Attendance & Live Tracking</h3>
                   <p className="text-slate-500 text-sm mb-4">Real-time location monitoring and historical route data</p>
                   
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -671,7 +659,7 @@ const [filterDate, setFilterDate] = useState<string>("");
           </div>
         </div>
         {/* Right Content (Map & Live Tracking Card) */}
-        <div className="w-full lg:w-[40%] flex flex-col h-[400px] lg:h-auto relative z-0 bg-slate-100">
+        <div className="w-full lg:w-[40%] flex flex-col h-[400px] lg:h-auto relative z-0 bg-transparent">
           <div className="flex-1 relative">
             <MapContainer 
               center={displayRoute.length > 0 ? displayRoute[displayRoute.length - 1] : { lat: 19.0596, lng: 72.8295 }} 

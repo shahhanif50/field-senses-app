@@ -4,8 +4,66 @@ import { Camera, MapPin, CheckCircle2, Clock, X, Navigation, Image as ImageIcon 
 import { Button } from '@/components/ui/button';
 import { useMasterData } from '@/contexts/MasterDataContext';
 import { AttendanceEntry, PortalEmployee as Employee } from '@/data/sharedTypes';
+import { RegularizationDrawer } from './RegularizationDrawer';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+
+const WorkTimer = ({ checkInTime, checkOutTime }: { checkInTime?: string | null, checkOutTime?: string | null }) => {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!checkInTime) return;
+
+    // Handle HH:mm format OR ISO string
+    let start = 0;
+    if (checkInTime.includes(':') && !checkInTime.includes('T')) {
+      const now = new Date();
+      const [hours, minutes] = checkInTime.split(':');
+      now.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+      start = now.getTime();
+    } else {
+      start = new Date(checkInTime).getTime();
+    }
+    
+    if (checkOutTime) {
+      let end = 0;
+      if (checkOutTime.includes(':') && !checkOutTime.includes('T')) {
+        const now = new Date();
+        const [hours, minutes] = checkOutTime.split(':');
+        now.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+        end = now.getTime();
+      } else {
+        end = new Date(checkOutTime).getTime();
+      }
+      setElapsed(Math.max(0, end - start));
+      return;
+    }
+
+    // Live counting
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      setElapsed(Math.max(0, now - start));
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [checkInTime, checkOutTime]);
+
+  if (!checkInTime) return null;
+
+  const hours = Math.floor(elapsed / 3600000);
+  const minutes = Math.floor((elapsed % 3600000) / 60000);
+  const seconds = Math.floor((elapsed % 60000) / 1000);
+
+  return (
+    <div className="font-mono text-xl font-bold text-primary tabular-nums tracking-tight mt-1 flex items-center gap-2 bg-primary/5 p-2 rounded-lg w-fit border border-primary/10">
+      <Clock className="w-5 h-5 text-primary/70" />
+      {hours.toString().padStart(2, '0')}:{minutes.toString().padStart(2, '0')}:{seconds.toString().padStart(2, '0')}
+      <span className="text-xs font-medium text-primary/60 uppercase tracking-wider ml-1">worked</span>
+    </div>
+  );
+};
 
 export function AttendanceWidget() {
   const { employees, attendanceEntries, setAttendanceEntries, trackingEntries, setTrackingEntries } = useMasterData();
@@ -32,10 +90,22 @@ export function AttendanceWidget() {
     })[0];
   }, [attendanceEntries, employeeId, userId, currentEmployee, today]);
 
+  const todayTracking = useMemo(() => {
+    if (!employeeId) return undefined;
+    // We want the most recent check-in for today
+    const todays = trackingEntries.filter(e => 
+      (e.employeeId === employeeId || e.employeeName === currentEmployee?.fullName) && 
+      e.checkInTime && 
+      e.checkInTime.startsWith(today)
+    );
+    return todays.sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime())[0];
+  }, [trackingEntries, employeeId, currentEmployee, today]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRegularizationOpen, setIsRegularizationOpen] = useState(false);
   const [mode, setMode] = useState<"checkIn" | "checkOut">("checkIn");
   const [photoData, setPhotoData] = useState<string | null>(null);
-  const [locationData, setLocationData] = useState<{lat: number, lng: number} | null>(null);
+  const [locationData, setLocationData] = useState<{lat: number, lng: number, address?: string} | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -99,10 +169,34 @@ export function AttendanceWidget() {
     setIsLocating(true);
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          
+          let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          try {
+            const res = await fetch(`https://photon.komoot.io/reverse?lon=${lng}&lat=${lat}`);
+            const data = await res.json();
+            if (data.features && data.features.length > 0) {
+              const p = data.features[0].properties;
+              const addressParts = [
+                p.name,
+                p.street,
+                p.city || p.town || p.village || p.county,
+                p.state
+              ].filter(Boolean);
+              if (addressParts.length > 0) {
+                address = addressParts.join(', ');
+              }
+            }
+          } catch (e) {
+            console.error("Reverse geocoding failed", e);
+          }
+
           setLocationData({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
+            lat,
+            lng,
+            address
           });
           setIsLocating(false);
           toast.success("Location acquired successfully");
@@ -233,11 +327,6 @@ export function AttendanceWidget() {
           totalHoursWorked: 8.5 // Mock calculated hours
         };
 
-        const todayTracking = trackingEntries.find(e => 
-          e.employeeId === employeeId && 
-          e.checkInTime && 
-          e.checkInTime.startsWith(today)
-        );
         if (todayTracking) {
           const updatedTracking = {
             ...todayTracking,
@@ -327,11 +416,17 @@ export function AttendanceWidget() {
                   ? `Checked in at ${todayEntry?.actualCheckIn}. Ready to wrap up?` 
                   : "Please check in to start your day."}
             </p>
+            {(isCheckedIn || isCheckedOut) && (
+              <WorkTimer 
+                checkInTime={todayTracking?.checkInTime || todayEntry?.actualCheckIn} 
+                checkOutTime={todayTracking?.checkOutTime || todayEntry?.actualCheckOut} 
+              />
+            )}
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-          {(!isCheckedIn || isCheckedOut) && (
+          {!isCheckedIn && (
             <Button onClick={openCheckInModal} className="w-full sm:w-auto bg-primary text-primary-foreground">
               <Camera className="w-4 h-4 mr-2 shrink-0" />
               <span className="whitespace-nowrap">Check In</span>
@@ -344,14 +439,22 @@ export function AttendanceWidget() {
             </Button>
           )}
           {isCheckedOut && (
-            <div className="flex items-center justify-center gap-2 text-success px-4 py-2 bg-success/10 rounded-lg font-medium w-full sm:w-auto whitespace-nowrap">
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
-              <span>Checked Out</span>
-            </div>
+            <Button size="lg" variant="outline" disabled className="w-full sm:w-auto">
+              Completed
+            </Button>
           )}
+          <Button 
+            size="lg" 
+            variant="secondary" 
+            onClick={() => setIsRegularizationOpen(true)} 
+            className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700"
+          >
+            Regularize
+          </Button>
         </div>
       </motion.div>
 
+      {/* Check In / Out Modal */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
@@ -359,9 +462,9 @@ export function AttendanceWidget() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col border border-border"
+              className="bg-card w-full max-w-md max-h-[95dvh] overflow-y-auto rounded-2xl shadow-xl flex flex-col border border-border"
             >
-              <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-card z-10">
                 <h3 className="font-semibold text-lg flex items-center gap-2">
                   <Camera className="w-5 h-5 text-primary" />
                   {mode === "checkIn" ? "Check In Proof" : "Check Out Proof"}
@@ -371,9 +474,9 @@ export function AttendanceWidget() {
                 </Button>
               </div>
               
-              <div className="p-4 flex flex-col items-center gap-4 bg-muted/30">
+              <div className="p-4 flex flex-col items-center gap-4 bg-muted/30 flex-1">
                 {!photoData ? (
-                  <div className="relative w-full aspect-[3/4] bg-black rounded-xl overflow-hidden flex items-center justify-center">
+                  <div className="relative w-full h-[40vh] min-h-[240px] max-h-[350px] bg-black rounded-xl overflow-hidden flex items-center justify-center shadow-inner">
                     <video 
                       ref={videoRef} 
                       autoPlay 
@@ -389,7 +492,7 @@ export function AttendanceWidget() {
                     )}
                   </div>
                 ) : (
-                  <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden border-2 border-primary/20">
+                  <div className="relative w-full h-[40vh] min-h-[240px] max-h-[350px] rounded-xl overflow-hidden border-2 border-primary/20 shadow-md">
                     <img src={photoData} alt="Proof" className="w-full h-full object-cover" />
                     <Button 
                       onClick={retakePhoto}
@@ -412,8 +515,8 @@ export function AttendanceWidget() {
                     <div className="text-sm">
                       <p className="font-medium">{locationData ? "Location acquired" : isLocating ? "Getting location..." : "Location required"}</p>
                       {locationData && (
-                        <p className="text-xs text-muted-foreground">
-                          {locationData.lat.toFixed(4)}, {locationData.lng.toFixed(4)}
+                        <p className="text-xs text-muted-foreground line-clamp-2" title={locationData.address || `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`}>
+                          {locationData.address || `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`}
                         </p>
                       )}
                     </div>
@@ -442,6 +545,12 @@ export function AttendanceWidget() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Regularization Drawer */}
+      <RegularizationDrawer 
+        open={isRegularizationOpen} 
+        onOpenChange={setIsRegularizationOpen} 
+      />
     </>
   );
 }

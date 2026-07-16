@@ -75,17 +75,15 @@ export function EmployeePortalTab() {
   const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
   const canCreate = isGlobalAdmin || userRole === 'ADMIN' || employeeModulePerm?.create;
 
-  if (!isManagement) {
-    return <EmployeeWalletDashboard />;
-  }
-
   return (
     <div className="p-6">
       <Tabs defaultValue="directory" className="w-full">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <TabsList className="w-full sm:w-auto overflow-x-auto flex-nowrap justify-start hide-scrollbar">
             <TabsTrigger value="directory" className="whitespace-nowrap">Employee Directory</TabsTrigger>
-            <TabsTrigger value="earnings" className="rounded-md whitespace-nowrap">Global Earnings</TabsTrigger>
+            {isManagement && (
+              <TabsTrigger value="earnings" className="rounded-md whitespace-nowrap">Global Earnings</TabsTrigger>
+            )}
           </TabsList>
           {canCreate && (
             <button 
@@ -144,9 +142,11 @@ export function EmployeePortalTab() {
           </div>
         </TabsContent>
 
-        <TabsContent value="earnings">
-          <AdminEarningsDashboard />
-        </TabsContent>
+        {isManagement && (
+          <TabsContent value="earnings">
+            <AdminEarningsDashboard />
+          </TabsContent>
+        )}
       </Tabs>
 
       {isModalOpen && (

@@ -63,7 +63,7 @@ export const allTabs = [
   { id: "employee-portal", label: "Employee Portal", icon: Contact, roles: ["manager", "employee", "WH_MGR"] },
   { id: "inventory-management", label: "Inventory Management", icon: Package, roles: ["admin", "manager", "WH_MGR"] },
   { id: "admin-orders", label: "Admin Orders", icon: ClipboardList, roles: ["admin", "manager"] },
-  { id: "daily-tracking", label: "Daily Tracking", icon: Activity, roles: ["admin", "manager", "employee"] },
+  { id: "daily-tracking", label: "Daily Tracking", icon: Activity, roles: ["admin", "manager"] },
   { id: "team-tracking", label: "Team Tracking", icon: Users, roles: ["admin", "manager"] },
   { id: "live-tracking", label: "Live Tracking", icon: Navigation, roles: ["admin", "manager", "employee"] },
   { id: "reports", label: "Reports & Analytics", icon: BarChart3, roles: ["admin", "manager", "employee"] },
@@ -158,7 +158,7 @@ export function TopNavigation({
     }
 
     // Explicitly grant employee default tabs
-    if (userRole === "employee" && (tab.id === "employee-dashboard" || tab.id === "product-booking")) {
+    if (userRole === "employee" && tab.id === "employee-dashboard") {
       return true;
     }
     
@@ -438,7 +438,7 @@ export function TopNavigation({
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
-      <div className="glass-card mx-4 mt-4 px-6 py-3">
+      <div className="glass-card mx-2 mt-2 px-3 py-2 sm:mx-4 sm:mt-4 sm:px-6 sm:py-3">
         <div className="flex items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex items-center gap-3 shrink-0">

@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { 
   MapPin, Clock, Navigation, User, Activity, AlertTriangle, Map, BarChart3, Settings,
   CheckCircle, XCircle, Timer, TrendingUp, Shield, Bell, Zap, Target, Gauge, FileText,
-  UserCheck, UserX, AlarmClock, LogOut, Hourglass, Eye, Edit, Download, Camera
+  UserCheck, UserX, AlarmClock, LogOut, Hourglass, Eye, Edit, Download, Camera, Calendar, Users
 } from "lucide-react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { format } from "date-fns";
@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MeetingsTab } from "@/components/tabs/MeetingsTab";
+import { RegularizationAdminTab } from "@/components/tabs/RegularizationAdminTab";
 
 import { useMasterData } from "@/contexts/MasterDataContext";
 import { TrackingEntry, AttendanceEntry, GeoFenceAlert } from "@/data/sharedTypes";
@@ -35,8 +37,10 @@ interface TrackingSettings {
 
 // Sub tabs for Daily Tracking - Combined modules
 const allSubTabs = [
-  { id: "live-tracking", label: "Live Tracking / Route History", icon: MapPin },
+  { id: "live-tracking", label: "Attendance & Live Tracking", icon: MapPin },
   { id: "geo-fence", label: "Geo-Fence Alerts", icon: Map, adminOnly: true },
+  { id: "meeting-scheduler", label: "Meeting Scheduler", icon: Calendar },
+  { id: "regularization", label: "Regularization", icon: Clock, adminOnly: true },
   { id: "analytics-settings", label: "Tracking Analytics & Settings", icon: BarChart3, adminOnly: true },
 ];
 
@@ -64,13 +68,13 @@ const LocationCell = ({ value, status }: { value: string, status: string }) => {
           if (data.address.city || data.address.town || data.address.village) parts.push(data.address.city || data.address.town || data.address.village);
           if (data.address.state) parts.push(data.address.state);
           const shortAddress = parts.join(', ') || data.display_name;
-          setAddress(shortAddress);
-          sessionStorage.setItem(cacheKey, shortAddress);
+          setAddress(shortAddress || `Coordinates: ${lat}, ${lng}`);
+          sessionStorage.setItem(cacheKey, shortAddress || `Coordinates: ${lat}, ${lng}`);
         } else {
-          setAddress("Unknown Location");
+          setAddress(`Coordinates: ${lat}, ${lng}`);
         }
       })
-      .catch(() => setAddress("Unknown Location"));
+      .catch(() => setAddress(`Coordinates: ${lat}, ${lng}`));
     } else {
       setAddress(value);
     }
@@ -171,6 +175,54 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
         checkOutPhoto: matchingAttendance?.checkOutPhoto || (tracking as any).checkOutPhoto,
       };
     });
+
+  const handleExport = () => {
+    if (!trackingData || trackingData.length === 0) {
+      alert("No data available to export");
+      return;
+    }
+
+    const headers = [
+      "Date",
+      "Employee ID",
+      "Employee Name",
+      "Role",
+      "Department",
+      "Check-In Time",
+      "Check-Out Time",
+      "Check-In Location",
+      "Check-Out Location",
+      "Status",
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...trackingData.map((row) => {
+        return [
+          row.date || selectedDate,
+          row.employeeId || "",
+          `"${row.employeeName || ""}"`,
+          `"${row.role || ""}"`,
+          `"${(row as any).department || ""}"`,
+          row.checkInTime ? new Date(row.checkInTime).toLocaleTimeString() : "",
+          row.checkOutTime ? new Date(row.checkOutTime).toLocaleTimeString() : "",
+          `"${row.checkInLocation || ""}"`,
+          `"${row.checkOutLocation || ""}"`,
+          row.status || "",
+        ].join(",");
+      }),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Live_Tracking_${selectedDate}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const [selectedEmployee, setSelectedEmployee] = useState<TrackingEntry | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -285,6 +337,48 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
                 <img src={(row as any).checkOutPhoto} alt="Check Out Proof" className="w-10 h-10 object-cover rounded-md border" />
               </div>
             )}
+          </div>
+        );
+      }
+    },
+    {
+      key: "totalTime",
+      header: "Total Time",
+      render: (_, row) => {
+        if (!row.checkInTime) return <span className="text-muted-foreground">-</span>;
+        
+        let start = 0;
+        if (String(row.checkInTime).includes(':') && !String(row.checkInTime).includes('T')) {
+          const now = new Date();
+          const [hours, minutes] = String(row.checkInTime).split(':');
+          now.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+          start = now.getTime();
+        } else {
+          start = new Date(String(row.checkInTime)).getTime();
+        }
+
+        let end = new Date().getTime();
+        if (row.checkOutTime) {
+          if (String(row.checkOutTime).includes(':') && !String(row.checkOutTime).includes('T')) {
+            const now = new Date();
+            const [hours, minutes] = String(row.checkOutTime).split(':');
+            now.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+            end = now.getTime();
+          } else {
+            end = new Date(String(row.checkOutTime)).getTime();
+          }
+        }
+
+        const elapsed = Math.max(0, end - start);
+        const hours = Math.floor(elapsed / 3600000);
+        const minutes = Math.floor((elapsed % 3600000) / 60000);
+        
+        return (
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold text-sm">
+              {hours}h {minutes}m
+            </span>
+            {!row.checkOutTime && <span className="text-[10px] uppercase font-bold text-success animate-pulse">Running</span>}
           </div>
         );
       }
@@ -580,15 +674,17 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
   const getSectionInfo = () => {
     switch (activeSubTab) {
       case "live-tracking":
-        return { title: "Live Tracking / Route History", description: "Real-time location monitoring and historical route data" };
+        return { title: "Attendance & Live Tracking", description: "Real-time location monitoring and historical route data" };
       case "attendance":
         return { title: "Attendance Log", description: "Track employee check-in/out times, shift compliance, and attendance status" };
       case "geo-fence":
         return { title: "Geo-Fence Alerts", description: "Log alerts when employees breach assigned zones or idle beyond limits" };
       case "analytics-settings":
         return { title: "Tracking Analytics & Settings", description: "Configure tracking rules and analyze performance trends" };
+      case "meeting-scheduler":
+        return { title: "Meeting Scheduler", description: "Manage and schedule team and client meetings" };
       default:
-        return { title: "Live Tracking / Route History", description: "Real-time location monitoring and historical route data" };
+        return { title: "Attendance & Live Tracking", description: "Real-time location monitoring and historical route data" };
     }
   };
 
@@ -906,7 +1002,7 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
           onView={isAdmin ? (entry) => handleViewDetails(entry) : undefined}
           searchPlaceholder="Search employees..."
           showExport={canExport}
-          onExport={canExport ? () => alert("Exporting data...") : undefined}
+          onExport={canExport ? handleExport : undefined}
         />
       );
     }
@@ -918,7 +1014,7 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
           columns={attendanceColumns}
           searchPlaceholder="Search attendance records..."
           showExport={canExport}
-          onExport={canExport ? () => alert("Exporting data...") : undefined}
+          onExport={canExport ? handleExport : undefined}
         />
       );
     }
@@ -930,9 +1026,17 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
           columns={geoFenceColumns}
           searchPlaceholder="Search alerts..."
           showExport={canExport}
-          onExport={canExport ? () => alert("Exporting data...") : undefined}
+          onExport={canExport ? handleExport : undefined}
         />
       );
+    }
+
+    if (activeSubTab === "meeting-scheduler") {
+      return <MeetingsTab />;
+    }
+
+    if (activeSubTab === "regularization") {
+      return <RegularizationAdminTab />;
     }
 
     return null;
@@ -1006,6 +1110,7 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
         }}
         employeeId={selectedEmployee?.employeeId || ""}
         date={new Date().toISOString().split('T')[0]}
+        initialData={selectedEmployee}
       />
     </div>
   );

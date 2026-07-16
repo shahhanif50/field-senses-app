@@ -27,9 +27,18 @@ class Meeting(models.Model):
     PRIORITY_CHOICES = (('low', 'low'), ('medium', 'medium'), ('high', 'high'))
     priority = models.CharField(max_length=50, choices=PRIORITY_CHOICES)
     approvalRequired = models.BooleanField(default=False)
-    STATUS_CHOICES = (('scheduled', 'scheduled'), ('completed', 'completed'), ('cancelled', 'cancelled'), ('rescheduled', 'rescheduled'))
+    STATUS_CHOICES = (('scheduled', 'scheduled'), ('in-progress', 'in-progress'), ('completed', 'completed'), ('cancelled', 'cancelled'), ('rescheduled', 'rescheduled'))
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='scheduled')
     isActive = models.BooleanField(default=True)
+    
+    actualStartTime = models.DateTimeField(blank=True, null=True)
+    actualEndTime = models.DateTimeField(blank=True, null=True)
+    startLocationLat = models.FloatField(blank=True, null=True)
+    startLocationLng = models.FloatField(blank=True, null=True)
+    endLocationLat = models.FloatField(blank=True, null=True)
+    endLocationLng = models.FloatField(blank=True, null=True)
+    startPhoto = models.TextField(blank=True, null=True)
+    endPhoto = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.title

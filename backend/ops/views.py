@@ -48,9 +48,11 @@ class MeetingViewSet(viewsets.ModelViewSet):
 
         # Resolve site restriction
         admin_site_ids = []
+        actual_user_id = user_id
         if user_id and user_id != 'admin':
             try:
                 emp = Employee.objects.get(id=user_id)
+                actual_user_id = emp.employeeId
                 admin_site_ids = list(emp.accessibleSites.values_list("id", flat=True))
                 if user_role == 'SITE_ADMIN' and emp.siteId:
                     admin_site_ids.append(emp.siteId.id)
@@ -60,28 +62,45 @@ class MeetingViewSet(viewsets.ModelViewSet):
         if user_role == 'ADMIN' or user_id == 'admin':
             if org_id and org_id != 'null':
                 emp_ids = Employee.objects.filter(organization_id=org_id).values_list('employeeId', flat=True)
-                queryset = queryset.filter(employeeId__in=emp_ids)
+                from django.db.models import Q
+                q_obj = Q()
+                for eid in emp_ids:
+                    q_obj |= Q(organizerId=eid) | Q(attendees__icontains=eid)
+                queryset = queryset.filter(q_obj).distinct()
         elif user_role in ['SR_MGR', 'HEAD']:
             if org_id and org_id != 'null':
                 org_emp_ids = Employee.objects.filter(organization_id=org_id)
                 if admin_site_ids:
                     org_emp_ids = org_emp_ids.filter(siteId__in=admin_site_ids)
-                org_emp_ids = org_emp_ids.values_list('id', flat=True)
-                queryset = queryset.filter(attendees__id__in=org_emp_ids).distinct()
+                org_emp_ids = org_emp_ids.values_list('employeeId', flat=True)
+                from django.db.models import Q
+                q_obj = Q(organizerId=actual_user_id) | Q(attendees__icontains=actual_user_id)
+                for oid in org_emp_ids:
+                    q_obj |= Q(organizerId=oid) | Q(attendees__icontains=oid)
+                queryset = queryset.filter(q_obj).distinct()
         elif user_role == 'MANAGER' and user_id:
             team = Employee.objects.filter(reportingManager=user_id)
             if admin_site_ids:
                 team = team.filter(siteId__in=admin_site_ids)
-            team_ids = team.values_list('id', flat=True)
-            queryset = queryset.filter(Q(attendees__id=user_id) | Q(attendees__id__in=team_ids)).distinct()
+            team_ids = team.values_list('employeeId', flat=True)
+            from django.db.models import Q
+            q_obj = Q(organizerId=actual_user_id) | Q(attendees__icontains=actual_user_id)
+            for tid in team_ids:
+                q_obj |= Q(organizerId=tid) | Q(attendees__icontains=tid)
+            queryset = queryset.filter(q_obj).distinct()
         elif (user_role == 'SITE_ADMIN' or admin_site_ids) and user_id:
             if admin_site_ids:
-                site_emp_ids = Employee.objects.filter(siteId__in=admin_site_ids).values_list("id", flat=True)
-                queryset = queryset.filter(attendees__id__in=site_emp_ids).distinct()
+                site_emp_ids = Employee.objects.filter(siteId__in=admin_site_ids).values_list("employeeId", flat=True)
+                from django.db.models import Q
+                q_obj = Q(organizerId=actual_user_id) | Q(attendees__icontains=actual_user_id)
+                for sid in site_emp_ids:
+                    q_obj |= Q(organizerId=sid) | Q(attendees__icontains=sid)
+                queryset = queryset.filter(q_obj).distinct()
             else:
                 queryset = queryset.none()
         elif user_id:
-            queryset = queryset.filter(attendees__id=user_id).distinct()
+            from django.db.models import Q
+            queryset = queryset.filter(Q(organizerId=actual_user_id) | Q(attendees__icontains=actual_user_id)).distinct()
         return queryset
 
 class TravelExpenseViewSet(viewsets.ModelViewSet):
@@ -249,7 +268,7 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
         emp_uuid = employee_id
         emp_code = employee_id
         try:
-            employee = Employee.objects.get(employeeId=employee_id)
+            employee = Employee.objects.filter(employeeId=employee_id).first()
             emp_uuid = str(employee.id)
             emp_code = employee.employeeId
             emp_name = employee.fullName
@@ -354,18 +373,28 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
             
             check_in_loc = None
             check_out_loc = None
+            check_in_photo = None
+            check_out_photo = None
             
             if attendance:
-                check_in = attendance.actualCheckIn
-                check_out = attendance.actualCheckOut
+                check_in = attendance.actualCheckIn or (tracking.checkInTime.strftime('%I:%M %p') if tracking and tracking.checkInTime else None)
+                check_out = attendance.actualCheckOut or (tracking.checkOutTime.strftime('%I:%M %p') if tracking and tracking.checkOutTime else None)
+                check_in_photo = attendance.checkInPhoto or (tracking.checkInPhoto if tracking else None)
+                check_out_photo = attendance.checkOutPhoto or (tracking.checkOutPhoto if tracking else None)
                 curr_status = "Completed" if check_out else tracking.status.title() if tracking and tracking.status else "Offline"
+                
+                check_in_loc = None
                 if attendance.checkInLocationLat and attendance.checkInLocationLng:
                     check_in_loc = f"{attendance.checkInLocationLat},{attendance.checkInLocationLng}"
+                
+                check_out_loc = None
                 if attendance.checkOutLocationLat and attendance.checkOutLocationLng:
                     check_out_loc = f"{attendance.checkOutLocationLat},{attendance.checkOutLocationLng}"
             elif tracking:
                 check_in = tracking.checkInTime.strftime('%I:%M %p') if tracking.checkInTime else None
                 check_out = tracking.checkOutTime.strftime('%I:%M %p') if tracking.checkOutTime else None
+                check_in_photo = tracking.checkInPhoto
+                check_out_photo = tracking.checkOutPhoto
                 curr_status = tracking.status.title() if tracking.status else "Offline"
             else:
                 check_in = None
@@ -380,6 +409,8 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
             check_out = None
             check_in_loc = None
             check_out_loc = None
+            check_in_photo = None
+            check_out_photo = None
             curr_status = "Offline"
             idle = 0
             pva = 0
@@ -395,6 +426,8 @@ class TrackingEntryViewSet(viewsets.ModelViewSet):
                 "checkOutTime": check_out,
                 "checkInLocation": check_in_loc,
                 "checkOutLocation": check_out_loc,
+                "checkInPhoto": check_in_photo,
+                "checkOutPhoto": check_out_photo,
                 "workMode": "Field",
                 "currentStatus": curr_status,
                 "currentLocation": {"lat": 22.7196, "lng": 75.8577, "address": "Current Location"} 
