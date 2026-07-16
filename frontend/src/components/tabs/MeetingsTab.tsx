@@ -319,6 +319,11 @@ export function MeetingsTab() {
     if (activeFilter === "Cancelled") return m.status === "cancelled";
     
     return true;
+  }).sort((a, b) => {
+    // Sort by date (descending) then start time (descending)
+    const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
+    if (dateCompare !== 0) return dateCompare;
+    return b.startTime.localeCompare(a.startTime);
   });
 
   const filterOptions = ["All", "Upcoming", "In Progress", "Completed", "Cancelled"];

@@ -63,7 +63,7 @@ export function RegularizationAdminTab() {
   return (
     <div className="space-y-4">
       <DataTable
-        data={regularizationRequests}
+        data={[...regularizationRequests].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())}
         columns={columns}
         searchPlaceholder="Search regularization requests..."
       />
