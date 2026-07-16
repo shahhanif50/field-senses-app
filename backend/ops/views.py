@@ -121,6 +121,7 @@ class TravelExpenseViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
         user_role = self.request.headers.get('X-User-Role')
+        org_id = self.request.headers.get('X-Organization-Id')
         
         if user_role:
             user_role = user_role.upper()
@@ -529,6 +530,7 @@ class AlertViewSet(viewsets.ModelViewSet):
         org_id = self.request.headers.get('X-Organization-Id')
         user_id = self.request.headers.get('X-User-Id')
         user_role = self.request.headers.get('X-User-Role')
+        org_id = self.request.headers.get('X-Organization-Id')
         
         if user_role:
             user_role = user_role.upper()
@@ -674,6 +676,7 @@ class LeaveBalanceViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
         user_role = self.request.headers.get('X-User-Role')
+        org_id = self.request.headers.get('X-Organization-Id')
         
         if user_role:
             user_role = user_role.upper()
@@ -726,6 +729,7 @@ class EmployeeWalletViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
         user_role = self.request.headers.get('X-User-Role')
+        org_id = self.request.headers.get('X-Organization-Id')
         
         if user_role:
             user_role = user_role.upper()
@@ -774,6 +778,7 @@ class WithdrawalRequestViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
         user_role = self.request.headers.get('X-User-Role')
+        org_id = self.request.headers.get('X-Organization-Id')
         
         if user_role:
             user_role = user_role.upper()
@@ -847,6 +852,7 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
         user_role = self.request.headers.get('X-User-Role')
+        org_id = self.request.headers.get('X-Organization-Id')
         
         if user_role:
             user_role = user_role.upper()
@@ -897,6 +903,7 @@ class MessageViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         user_id = self.request.headers.get('X-User-Id')
         user_role = self.request.headers.get('X-User-Role')
+        org_id = self.request.headers.get('X-Organization-Id')
         
         if user_role:
             user_role = user_role.upper()
