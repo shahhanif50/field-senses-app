@@ -175,16 +175,18 @@ export function AttendanceWidget() {
           
           let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
           try {
-            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+              headers: { 'Accept-Language': 'en-US,en;q=0.9' }
+            });
             const data = await res.json();
-            if (data.city || data.locality || data.principalSubdivision) {
-              const addressParts = [
-                data.locality || data.city,
-                data.principalSubdivision,
-                data.countryName
-              ].filter(Boolean);
-              if (addressParts.length > 0) {
-                address = addressParts.join(', ');
+            if (data && data.address) {
+              const parts = [];
+              if (data.address.suburb) parts.push(data.address.suburb);
+              if (data.address.city || data.address.town || data.address.village) parts.push(data.address.city || data.address.town || data.address.village);
+              if (data.address.state) parts.push(data.address.state);
+              const shortAddress = parts.join(', ') || data.display_name;
+              if (shortAddress) {
+                address = shortAddress;
               }
             }
           } catch (e) {
