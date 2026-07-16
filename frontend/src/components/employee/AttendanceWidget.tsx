@@ -148,7 +148,13 @@ export function AttendanceWidget() {
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
       if (ctx) {
+        // Flip horizontally so the captured image acts like a mirror
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Reset transform just in case
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
         setPhotoData(dataUrl);
         // Stop stream after capture to save resources
@@ -175,6 +181,7 @@ export function AttendanceWidget() {
           
           let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
           try {
+            // Try Nominatim first
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
               headers: { 'Accept-Language': 'en-US,en;q=0.9' }
             });
@@ -190,7 +197,21 @@ export function AttendanceWidget() {
               }
             }
           } catch (e) {
-            console.error("Reverse geocoding failed", e);
+            console.error("Nominatim failed, trying fallback...", e);
+            try {
+              const fbRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+              const fbData = await fbRes.json();
+              if (fbData.city || fbData.locality || fbData.principalSubdivision) {
+                const fbParts = [
+                  fbData.locality || fbData.city,
+                  fbData.principalSubdivision,
+                  fbData.countryName
+                ].filter(Boolean);
+                if (fbParts.length > 0) address = fbParts.join(', ');
+              }
+            } catch (fbErr) {
+              console.error("Fallback reverse geocoding also failed", fbErr);
+            }
           }
 
           setLocationData({
@@ -482,7 +503,7 @@ export function AttendanceWidget() {
                       autoPlay 
                       playsInline 
                       muted 
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover -scale-x-100"
                     />
                     {!stream && (
                       <div className="text-white/50 flex flex-col items-center">
