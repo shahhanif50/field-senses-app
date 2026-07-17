@@ -182,18 +182,11 @@ export function AttendanceWidget() {
           let address = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
           try {
             // Try Nominatim first
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
-              headers: { 'Accept-Language': 'en-US,en;q=0.9' }
-            });
-            const data = await res.json();
-            if (data && data.address) {
-              const parts = [];
-              if (data.address.suburb) parts.push(data.address.suburb);
-              if (data.address.city || data.address.town || data.address.village) parts.push(data.address.city || data.address.town || data.address.village);
-              if (data.address.state) parts.push(data.address.state);
-              const shortAddress = parts.join(', ') || data.display_name;
-              if (shortAddress) {
-                address = shortAddress;
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.display_name) {
+                address = data.display_name;
               }
             }
           } catch (e) {

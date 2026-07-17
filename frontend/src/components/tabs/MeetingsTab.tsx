@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plus, Calendar, Clock, MapPin, Video, Users, Search, MoreVertical, X, Check, Camera } from "lucide-react";
+import { Plus, Calendar, Clock, MapPin, Video, Users, Search, MoreVertical, X, Check, Camera, FileText, MessageSquare, CheckSquare, CalendarDays, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,8 +37,12 @@ interface Meeting {
   endLocationLng?: number;
   startPhoto?: string;
   endPhoto?: string;
+  startLocationName?: string;
+  endLocationName?: string;
+  momData?: any;
   recurring?: string;
   priority?: string;
+  createdAt?: string;
 }
 
 export function MeetingsTab() {
@@ -48,10 +52,25 @@ export function MeetingsTab() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [isSaving, setIsSaving] = useState(false);
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
+  const [expandedMom, setExpandedMom] = useState<Record<string, boolean>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeTimeField, setActiveTimeField] = useState<'startTime' | 'endTime'>('startTime');
+  const [momModalOpen, setMomModalOpen] = useState(false);
+  const [activeMomMeetingId, setActiveMomMeetingId] = useState("");
+  const [momFormData, setMomFormData] = useState({ agenda: "", actionItems: "", followUpDate: "", comments: "" });
+  const [isSubmittingMom, setIsSubmittingMom] = useState(false);
+
+  const calculateDuration = (start?: string, end?: string) => {
+    if (!start || !end) return null;
+    const diff = new Date(end).getTime() - new Date(start).getTime();
+    if (diff <= 0) return "0 mins";
+    const mins = Math.floor(diff / 60000);
+    const hrs = Math.floor(mins / 60);
+    if (hrs > 0) return `${hrs}h ${mins % 60}m`;
+    return `${mins} mins`;
+  };
   
-  const { trackingEntries, regularizationRequests } = useMasterData();
+  const { trackingEntries, regularizationRequests, employees } = useMasterData();
   const userId = sessionStorage.getItem("userId") || "";
   const today = new Date().toISOString().split('T')[0];
   const userRole = sessionStorage.getItem("userRole") || "Employee";
@@ -272,10 +291,20 @@ export function MeetingsTab() {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
           const now = new Date().toISOString();
-          
-          const patchData = captureType === "start" 
-            ? { status: "in-progress", actualStartTime: now, startPhoto: photoData, startLocationLat: lat, startLocationLng: lng }
-            : { status: "completed", actualEndTime: now, endPhoto: photoData, endLocationLat: lat, endLocationLng: lng };
+          let locationName = "Unknown Location";
+          try {
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            if (geoRes.ok) {
+              const geoData = await geoRes.json();
+              locationName = geoData.display_name || "Unknown Location";
+            }
+          } catch (e) {
+            console.error("Geocoding failed", e);
+          }
+
+          const patchData: any = captureType === "start" 
+            ? { status: "in-progress", actualStartTime: now, startPhoto: photoData, startLocationLat: lat, startLocationLng: lng, startLocationName: locationName }
+            : { status: "completed", actualEndTime: now, endPhoto: photoData, endLocationLat: lat, endLocationLng: lng, endLocationName: locationName };
 
           const res = await fetch(`/api/ops/meetings/${activeMeetingId}/`, {
             method: "PATCH",
@@ -304,6 +333,29 @@ export function MeetingsTab() {
     );
   };
 
+  const submitMomForm = async () => {
+    if (!activeMomMeetingId) return;
+    setIsSubmittingMom(true);
+    try {
+      const res = await fetch(`/api/ops/meetings/${activeMomMeetingId}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ momData: momFormData }),
+      });
+      if (res.ok) {
+        toast({ title: "Success", description: "MOM submitted successfully!" });
+        setMomModalOpen(false);
+        fetchMeetings();
+      } else {
+        toast({ title: "Error", description: "Failed to submit MOM.", variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: "Error", description: "Network error.", variant: "destructive" });
+    } finally {
+      setIsSubmittingMom(false);
+    }
+  };
+
   const filteredMeetings = meetings.filter(m => {
     const matchesSearch = m.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           m.agenda?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -320,7 +372,11 @@ export function MeetingsTab() {
     
     return true;
   }).sort((a, b) => {
-    // Sort by date (descending) then start time (descending)
+    // Sort by createdAt (descending) if available
+    if (a.createdAt && b.createdAt) {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+    // Fallback: Sort by date (descending) then start time (descending)
     const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
     if (dateCompare !== 0) return dateCompare;
     return b.startTime.localeCompare(a.startTime);
@@ -331,16 +387,41 @@ export function MeetingsTab() {
   return (
     <div className="space-y-6">
       {!isModalOpen ? (
-        <div className="relative min-h-[calc(100vh-200px)] pb-24">
-          {/* Search Bar */}
-          <div className="relative mb-4">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input 
-              placeholder="Search clients, locations..." 
-              className="pl-12 rounded-full h-12 bg-background border-muted-foreground/30 shadow-sm"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
+        <div className="relative min-h-[calc(100vh-200px)] pb-4">
+          {/* Top Actions */}
+          <div className="flex gap-3 mb-4 items-center">
+            {/* Search Bar */}
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input 
+                placeholder="Search clients, locations..." 
+                className="pl-12 rounded-full h-12 bg-background border-muted-foreground/30 shadow-sm"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            {/* New Meeting Button */}
+            <Button 
+              onClick={() => {
+                if (!isCheckedInToday) {
+                  toast({ title: "Check-in Required", description: "You must check in for the day before creating a meeting.", variant: "destructive" });
+                  return;
+                }
+                const now = new Date();
+                const currTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                now.setHours(now.getHours() + 1);
+                const endTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                
+                setFormData({ type: "client", mode: "in-person", startTime: currTime, endTime: endTime, reminder: "15min", organizer: employeeName, organizerId: employeeId, attendees: [] });
+                setLocationSuggestions([]);
+                setIsModalOpen(true);
+              }} 
+              className="h-12 rounded-full px-5 shadow-sm bg-[#2563eb] hover:bg-[#1d4ed8] text-white flex items-center gap-2 shrink-0"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="hidden sm:inline font-medium">New Meeting</span>
+            </Button>
           </div>
 
           {/* Filter Pills */}
@@ -417,6 +498,33 @@ export function MeetingsTab() {
                     </div>
                   </div>
 
+                  {/* Actions - Always visible */}
+                  {((meeting.mode === "online" && meeting.meetingLink && !isAdmin) || (meeting.mode !== "online" && meeting.status !== "completed" && !isAdmin)) && (
+                    <div className="flex items-center justify-end mb-3 gap-2">
+                      {meeting.mode === "online" && meeting.meetingLink && !isAdmin && (
+                        <Button variant="outline" size="sm" className="h-8 text-[11px] px-4 bg-primary/5 hover:bg-primary/10 border-primary/20 font-semibold" onClick={() => {
+                          if (!isCheckedInToday) {
+                            toast({ title: "Check-in Required", description: "You must check in for the day before joining a meeting.", variant: "destructive" });
+                            return;
+                          }
+                          window.open(meeting.meetingLink, '_blank');
+                        }}>
+                          Join
+                        </Button>
+                      )}
+                      {meeting.mode !== "online" && meeting.status !== "completed" && !isAdmin && (
+                        <Button 
+                          variant={meeting.status === "in-progress" ? "destructive" : "default"} 
+                          size="sm" 
+                          className="h-8 text-[11px] px-5 font-semibold" 
+                          onClick={() => handleLiveAction(meeting.id, meeting.status === "in-progress" ? "end" : "start")}
+                        >
+                          {meeting.status === "in-progress" ? "End" : "Start"}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex justify-center -mx-3.5 border-t border-slate-50">
                     <Button 
                       variant="ghost" 
@@ -448,34 +556,7 @@ export function MeetingsTab() {
                         </div>
                       </div>
                     
-                      {/* Actions - Conditionally render container if buttons exist */}
-                      {((meeting.mode === "online" && meeting.meetingLink && !isAdmin) || (meeting.mode !== "online" && meeting.status !== "completed" && !isAdmin)) && (
-                        <div className="flex items-center justify-end mt-2 pt-2 border-t border-slate-50">
-                          <div className="flex gap-2">
-                            {meeting.mode === "online" && meeting.meetingLink && !isAdmin && (
-                              <Button variant="outline" size="sm" className="h-6 text-[10px] px-2 bg-primary/5 hover:bg-primary/10 border-primary/20" onClick={() => {
-                                if (!isCheckedInToday) {
-                                  toast({ title: "Check-in Required", description: "You must check in for the day before joining a meeting.", variant: "destructive" });
-                                  return;
-                                }
-                                window.open(meeting.meetingLink, '_blank');
-                              }}>
-                                Join
-                              </Button>
-                            )}
-                            {meeting.mode !== "online" && meeting.status !== "completed" && !isAdmin && (
-                              <Button 
-                                variant={meeting.status === "in-progress" ? "destructive" : "default"} 
-                                size="sm" 
-                                className="h-6 text-[10px] px-3" 
-                                onClick={() => handleLiveAction(meeting.id, meeting.status === "in-progress" ? "end" : "start")}
-                              >
-                                {meeting.status === "in-progress" ? "End" : "Start"}
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      )}
+
                 
                 {/* Proof and Details Section */}
                 {(meeting.startPhoto || meeting.endPhoto || meeting.actualStartTime || meeting.actualEndTime) && (
@@ -494,11 +575,24 @@ export function MeetingsTab() {
                                 <Clock className="w-2.5 h-2.5 text-primary/60" /> {new Date(meeting.actualStartTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                               </span>
                             )}
+                            {meeting.startLocationLat && meeting.startLocationLng && (
+                              <a 
+                                href={`https://maps.google.com/?q=${meeting.startLocationLat},${meeting.startLocationLng}`} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="text-[9px] text-blue-600 hover:underline flex items-start gap-1 mt-0.5 max-w-[120px]"
+                                onClick={(e) => e.stopPropagation()}
+                                title={meeting.startLocationName || "View Location"}
+                              >
+                                <MapPin className="w-2.5 h-2.5 shrink-0 mt-0.5" /> 
+                                <span className="line-clamp-2 leading-tight">{meeting.startLocationName || "View Location"}</span>
+                              </a>
+                            )}
                           </div>
                         </div>
                       )}
                       {meeting.endPhoto && (
-                        <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-md border border-slate-100 shadow-sm min-w-[140px]">
+                        <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-md border border-slate-100 shadow-sm min-w-[140px] max-w-[200px]">
                           <img src={meeting.endPhoto} alt="End" className="w-8 h-8 object-cover rounded shadow-sm border border-slate-200" />
                           <div className="flex flex-col">
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">End</span>
@@ -507,10 +601,123 @@ export function MeetingsTab() {
                                 <Clock className="w-2.5 h-2.5 text-primary/60" /> {new Date(meeting.actualEndTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                               </span>
                             )}
+                            {meeting.endLocationLat && meeting.endLocationLng && (
+                              <a 
+                                href={`https://maps.google.com/?q=${meeting.endLocationLat},${meeting.endLocationLng}`} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="text-[9px] text-blue-600 hover:underline flex items-start gap-1 mt-0.5 max-w-[120px]"
+                                onClick={(e) => e.stopPropagation()}
+                                title={meeting.endLocationName || "View Location"}
+                              >
+                                <MapPin className="w-2.5 h-2.5 shrink-0 mt-0.5" /> 
+                                <span className="line-clamp-2 leading-tight">{meeting.endLocationName || "View Location"}</span>
+                              </a>
+                            )}
                           </div>
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Duration Section */}
+                {meeting.actualStartTime && meeting.actualEndTime && (
+                  <div className="mt-3 flex items-center">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50/80 rounded-full border border-indigo-100/80">
+                      <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                      <span className="text-[11px] font-bold text-indigo-700">
+                        Duration: {calculateDuration(meeting.actualStartTime, meeting.actualEndTime)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* MOM Section */}
+                {meeting.status === 'completed' && (
+                  <div className="mt-4">
+                    {meeting.momData ? (
+                      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+                        <div 
+                          className="bg-slate-50 border-b border-slate-100 px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedMom(prev => ({ ...prev, [meeting.id]: !prev[meeting.id] }));
+                          }}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-primary" />
+                            <h5 className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                              Minutes of Meeting
+                            </h5>
+                          </div>
+                          {expandedMom[meeting.id] ? (
+                            <ChevronUp className="w-4 h-4 text-slate-400" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                          )}
+                        </div>
+                        
+                        {expandedMom[meeting.id] && (
+                          <div className="p-3 space-y-3 text-[12px] bg-slate-50/30">
+                            {meeting.momData.agenda && (
+                              <div className="flex gap-2.5">
+                                <MessageSquare className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                                <div>
+                                  <span className="font-semibold text-slate-700 block mb-0.5">Topics Discussed</span>
+                                  <p className="text-slate-600 whitespace-pre-wrap leading-relaxed">{meeting.momData.agenda}</p>
+                                </div>
+                              </div>
+                            )}
+                            {meeting.momData.actionItems && (
+                              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+                                <CheckSquare className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                                <div>
+                                  <span className="font-semibold text-slate-700 block mb-0.5">Action Items</span>
+                                  <p className="text-slate-600 whitespace-pre-wrap leading-relaxed">{meeting.momData.actionItems}</p>
+                                </div>
+                              </div>
+                            )}
+                            {meeting.momData.followUpDate && (
+                              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+                                <CalendarDays className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                                <div>
+                                  <span className="font-semibold text-slate-700 block mb-0.5">Follow-up Date</span>
+                                  <p className="text-slate-600">{meeting.momData.followUpDate}</p>
+                                </div>
+                              </div>
+                            )}
+                            {meeting.momData.comments && (
+                              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+                                <MessageCircle className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                                <div>
+                                  <span className="font-semibold text-slate-700 block mb-0.5">Comments / Feedback</span>
+                                  <p className="text-slate-600 whitespace-pre-wrap leading-relaxed">{meeting.momData.comments}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      !isAdmin && (
+                        <div className="pt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full text-xs h-9 border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMomMeetingId(meeting.id);
+                              setMomFormData({ agenda: "", actionItems: "", followUpDate: "", comments: "" });
+                              setMomModalOpen(true);
+                            }}
+                          >
+                            <FileText className="w-3.5 h-3.5 mr-2" /> Complete Minutes of Meeting
+                          </Button>
+                        </div>
+                      )
+                    )}
                   </div>
                 )}
                     </motion.div>
@@ -527,26 +734,7 @@ export function MeetingsTab() {
             )}
           </div>
           
-          {/* FAB for new meeting */}
-          <Button 
-            onClick={() => {
-              if (!isCheckedInToday) {
-                toast({ title: "Check-in Required", description: "You must check in for the day before creating a meeting.", variant: "destructive" });
-                return;
-              }
-              const now = new Date();
-              const currTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-              now.setHours(now.getHours() + 1);
-              const endTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-              
-              setFormData({ type: "client", mode: "in-person", startTime: currTime, endTime: endTime, reminder: "15min", organizer: employeeName, organizerId: employeeId, attendees: [] });
-              setLocationSuggestions([]);
-              setIsModalOpen(true);
-            }} 
-            className="fixed bottom-24 right-6 w-14 h-14 rounded-full shadow-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white flex items-center justify-center z-50 p-0"
-          >
-            <Plus className="w-6 h-6" />
-          </Button>
+
         </div>
       ) : (
         <div className="space-y-6">
@@ -584,6 +772,34 @@ export function MeetingsTab() {
                 <Label>Date <span className="text-destructive">*</span></Label>
                 <Input type="date" value={formData.date || ""} onChange={e => setFormData({ ...formData, date: e.target.value })} />
               </div>
+
+              {isAdmin && (
+                <div className="space-y-2">
+                  <Label>Assign To (Employee)</Label>
+                  <Select 
+                    value={formData.organizerId} 
+                    onValueChange={(val) => {
+                      const selectedEmp = employees.find(e => e.employeeId === val);
+                      if (selectedEmp) {
+                        setFormData({ 
+                          ...formData, 
+                          organizerId: selectedEmp.employeeId, 
+                          organizer: selectedEmp.fullName
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
+                    <SelectContent>
+                      {employees.map(emp => (
+                        <SelectItem key={emp.employeeId} value={emp.employeeId}>
+                          {emp.fullName} ({emp.employeeId})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Start Time <span className="text-destructive">*</span></Label>
@@ -653,7 +869,7 @@ export function MeetingsTab() {
           setPhotoData(null);
         }
       }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{captureType === "start" ? "Start Meeting" : "End Meeting"}</DialogTitle>
           </DialogHeader>
@@ -727,6 +943,58 @@ export function MeetingsTab() {
           }
         }}
       />
+      {/* MOM Form Modal */}
+      <Dialog open={momModalOpen} onOpenChange={setMomModalOpen}>
+        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Minutes of Meeting (MOM)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Topics Discussed (Agenda) *</Label>
+              <Textarea 
+                placeholder="What was discussed in the meeting?"
+                value={momFormData.agenda}
+                onChange={(e) => setMomFormData({ ...momFormData, agenda: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Action Items</Label>
+              <Textarea 
+                placeholder="List any action items or tasks assigned..."
+                value={momFormData.actionItems}
+                onChange={(e) => setMomFormData({ ...momFormData, actionItems: e.target.value })}
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Follow-up Date</Label>
+              <Input 
+                type="date"
+                value={momFormData.followUpDate}
+                onChange={(e) => setMomFormData({ ...momFormData, followUpDate: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Additional Comments / Feedback</Label>
+              <Textarea 
+                placeholder="Any client feedback or other remarks..."
+                value={momFormData.comments}
+                onChange={(e) => setMomFormData({ ...momFormData, comments: e.target.value })}
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMomModalOpen(false)}>Cancel</Button>
+            <Button onClick={submitMomForm} disabled={isSubmittingMom || !momFormData.agenda.trim()}>
+              {isSubmittingMom ? "Submitting..." : "Submit MOM"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

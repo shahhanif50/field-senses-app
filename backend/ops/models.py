@@ -39,6 +39,10 @@ class Meeting(models.Model):
     endLocationLng = models.FloatField(blank=True, null=True)
     startPhoto = models.TextField(blank=True, null=True)
     endPhoto = models.TextField(blank=True, null=True)
+    startLocationName = models.CharField(max_length=500, blank=True, null=True)
+    endLocationName = models.CharField(max_length=500, blank=True, null=True)
+    momData = models.JSONField(blank=True, null=True)
+    createdAt = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     def __str__(self):
         return self.title
