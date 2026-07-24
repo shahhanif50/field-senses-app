@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -8,40 +8,100 @@ import { useMasterData } from "@/contexts/MasterDataContext";
 import { RegularizationRequest } from "@/data/sharedTypes";
 
 export function RegularizationAdminTab() {
-  const { regularizationRequests, setRegularizationRequests } = useMasterData();
+  // Use local state, fetch from API
+  const [requests, setRequests] = useState<RegularizationRequest[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { employees } = useMasterData();
 
-  const handleApprove = (id: string) => {
-    setRegularizationRequests(prev => prev.map(req => req.id === id ? { ...req, status: 'Approved' } : req));
+  useEffect(() => {
+    fetchRequests(true);
+    const intervalId = setInterval(() => {
+      fetchRequests(false);
+    }, 5000); // Auto-refresh every 5 seconds
+    
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const fetchRequests = async (showLoader = false) => {
+    try {
+      if (showLoader) setLoading(true);
+      const res = await fetch('/api/ops/regularization-requests/', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setRequests(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  };
+
+  const updateRequestStatus = async (id: string, status: RegularizationRequest['status']) => {
+    try {
+      const res = await fetch(`/api/ops/regularization-requests/${id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        setRequests(prev => prev.map(req => req.id === id ? { ...req, status } : req));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    await updateRequestStatus(id, 'Approved');
     toast.success("Request approved successfully");
   };
 
-  const handleDeny = (id: string) => {
-    setRegularizationRequests(prev => prev.map(req => req.id === id ? { ...req, status: 'Denied' } : req));
+  const handleDeny = async (id: string) => {
+    await updateRequestStatus(id, 'Denied');
     toast.success("Request denied");
   };
 
-  const handleApproveAll = () => {
-    setRegularizationRequests(prev => prev.map(req => req.status === 'Pending' ? { ...req, status: 'Approved' } : req));
+  const handleApproveAll = async () => {
+    const pending = requests.filter(req => req.status === 'Pending');
+    for (const req of pending) {
+      await updateRequestStatus(req.id, 'Approved');
+    }
     toast.success("All pending requests approved");
   };
 
-  const handleDenyAll = () => {
-    setRegularizationRequests(prev => prev.map(req => req.status === 'Pending' ? { ...req, status: 'Denied' } : req));
+  const handleDenyAll = async () => {
+    const pending = requests.filter(req => req.status === 'Pending');
+    for (const req of pending) {
+      await updateRequestStatus(req.id, 'Denied');
+    }
     toast.success("All pending requests denied");
   };
 
-  const pendingCount = regularizationRequests.filter(req => req.status === 'Pending').length;
+  const pendingCount = requests.filter(req => req.status === 'Pending').length;
 
   const columns: Column<RegularizationRequest>[] = [
     { 
       header: "Employee", 
       key: "employeeName",
-      render: (value: unknown, row: RegularizationRequest) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-slate-900">{row.employeeName}</span>
-          {row.employeeId && <span className="text-xs text-slate-500">{row.employeeId}</span>}
-        </div>
-      )
+      render: (value: unknown, row: RegularizationRequest) => {
+        const emp = employees.find(e => e.employeeId === row.employeeId);
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center border border-slate-200">
+              {emp?.profilePhoto ? (
+                <img src={emp.profilePhoto} alt={row.employeeName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs font-bold text-slate-500">{row.employeeName?.charAt(0) || '?'}</span>
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className="font-medium text-slate-900">{row.employeeName}</span>
+              {row.employeeId && <span className="text-[10px] uppercase font-bold text-slate-400">{row.employeeId}</span>}
+            </div>
+          </div>
+        );
+      }
     },
     { header: "Date", key: "date" },
     { header: "Request Type", key: "type" },
@@ -50,7 +110,7 @@ export function RegularizationAdminTab() {
     {
       header: "Status",
       key: "status",
-      render: (value: unknown) => <StatusBadge status={value as string} />
+      render: (value: unknown) => <StatusBadge status={value as any} />
     },
     {
       header: "Actions",
@@ -98,11 +158,18 @@ export function RegularizationAdminTab() {
         </div>
       </div>
 
-      <DataTable
-        data={[...regularizationRequests].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())}
-        columns={columns}
-        searchPlaceholder="Search regularization requests..."
-      />
+      {loading ? (
+        <div className="flex justify-center p-8 text-slate-500">Loading requests...</div>
+      ) : (
+        <DataTable
+          data={[...requests].sort((a: any, b: any) => {
+            if (a.timestamp && b.timestamp) return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+          })}
+          columns={columns}
+          searchPlaceholder="Search regularization requests..."
+        />
+      )}
     </div>
   );
 }

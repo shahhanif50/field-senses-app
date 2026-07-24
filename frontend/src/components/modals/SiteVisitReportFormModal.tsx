@@ -72,8 +72,36 @@ export function SiteVisitReportFormModal({ isOpen, onClose, onSubmit, siteName, 
         return;
       }
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhoto(reader.result as string);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Compress large images
+          const MAX_SIZE = 800;
+          if (width > height && width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            import('@/lib/watermark').then(({ addWatermarkToCanvas }) => {
+              addWatermarkToCanvas(ctx, width, height).then(() => {
+                setPhoto(canvas.toDataURL('image/jpeg', 0.8));
+              });
+            });
+          }
+        };
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -85,7 +113,7 @@ export function SiteVisitReportFormModal({ isOpen, onClose, onSubmit, siteName, 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="p-6 pb-2 border-b">
           <DialogTitle className="text-xl">Site Visit Report</DialogTitle>
           <p className="text-sm text-muted-foreground">Checkout report for {siteName}</p>
@@ -229,8 +257,8 @@ export function SiteVisitReportFormModal({ isOpen, onClose, onSubmit, siteName, 
                   </Label>
                 </div>
               ) : (
-                <div className="relative rounded-xl overflow-hidden border border-border h-48 group">
-                  <img src={photo} alt="Checkout Proof" className="w-full h-full object-cover" />
+                <div className="relative rounded-xl overflow-hidden border border-border bg-black/5 flex items-center justify-center group">
+                  <img src={photo} alt="Checkout Proof" className="max-w-full h-auto max-h-[400px] object-contain" />
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Label htmlFor="checkout-camera-retry" className="cursor-pointer text-white flex items-center gap-2">
                       <Camera className="w-4 h-4" /> Retake Photo

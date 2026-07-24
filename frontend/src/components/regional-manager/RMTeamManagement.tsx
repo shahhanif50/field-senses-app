@@ -73,8 +73,12 @@ export default function RMTeamManagement() {
                   <tr key={emp.id || i} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0 ring-1 ring-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                          {emp.fullName?.split(' ').map((n:string) => n[0]).join('').substring(0,2) || 'EX'}
+                        <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0 ring-1 ring-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors overflow-hidden">
+                          {emp.profilePhoto ? (
+                            <img src={emp.profilePhoto} alt={emp.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            emp.fullName?.split(' ').map((n:string) => n[0]).join('').substring(0,2) || 'EX'
+                          )}
                         </div>
                         <div>
                           <p className="font-bold text-gray-900 leading-tight">{emp.fullName || "Unnamed Executive"}</p>

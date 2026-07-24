@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, MapPin, CheckCircle2, Clock, X, Navigation, Image as ImageIcon } from 'lucide-react';
+import { Camera, MapPin, CheckCircle2, Clock, X, Navigation, Image as ImageIcon, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMasterData } from '@/contexts/MasterDataContext';
 import { AttendanceEntry, PortalEmployee as Employee } from '@/data/sharedTypes';
 import { RegularizationDrawer } from './RegularizationDrawer';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useTransparentLogo } from '@/hooks/useTransparentLogo';
 
 const WorkTimer = ({ checkInTime, checkOutTime }: { checkInTime?: string | null, checkOutTime?: string | null }) => {
   const [elapsed, setElapsed] = useState(0);
@@ -105,6 +107,7 @@ export function AttendanceWidget() {
   const [isRegularizationOpen, setIsRegularizationOpen] = useState(false);
   const [mode, setMode] = useState<"checkIn" | "checkOut">("checkIn");
   const [photoData, setPhotoData] = useState<string | null>(null);
+  const logoSrc = useTransparentLogo();
   const [locationData, setLocationData] = useState<{lat: number, lng: number, address?: string} | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   
@@ -144,24 +147,128 @@ export function AttendanceWidget() {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      
+      if (!video.videoWidth || !video.videoHeight) {
+        toast.error("Camera is still initializing, please wait.");
+        return;
+      }
+      
+      const containerWidth = video.clientWidth > 100 ? video.clientWidth : (window.innerWidth > 0 ? window.innerWidth : 375);
+      const containerHeight = video.clientHeight > 100 ? video.clientHeight : (window.innerHeight > 0 ? window.innerHeight : 812);
+      const dpr = window.devicePixelRatio || 2;
+      
+      // Canvas must be physical device pixels for crisp text rendering
+      canvas.width = containerWidth * dpr;
+      canvas.height = containerHeight * dpr;
+      
+      const targetRatio = containerWidth / containerHeight;
+      const videoRatio = video.videoWidth / video.videoHeight;
+
+      let sWidth = video.videoWidth;
+      let sHeight = video.videoHeight;
+      let sx = 0;
+      let sy = 0;
+
+      if (videoRatio > targetRatio) {
+        sWidth = video.videoHeight * targetRatio;
+        sx = (video.videoWidth - sWidth) / 2;
+      } else {
+        sHeight = video.videoWidth / targetRatio;
+        sy = (video.videoHeight - sHeight) / 2;
+      }
+
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Flip horizontally so the captured image acts like a mirror
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        // Reset transform just in case
+        ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        setPhotoData(dataUrl);
-        // Stop stream after capture to save resources
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-          setStream(null);
-        }
+        // Scale is directly the device pixel ratio, making text mathematically identical to CSS
+        const scale = dpr;
+        const leftX = 16 * scale;
+        
+        const now = new Date();
+        const timeStr = format(now, "hh:mm a");
+        const dateStr = format(now, "EEE, MMM dd, yyyy");
+        const locationStr = locationData?.address || "Unknown Location";
+        const type = mode === "checkIn" ? "CLOCK IN" : "CLOCK OUT";
+        
+        // Move up to bottom-56 (224px) to avoid being covered by the tall submit banner
+        let currentY = canvas.height - (224 * scale) - (64 * scale);
+        
+        // 1. Draw badge background
+        ctx.font = `bold ${11 * scale}px 'Inter', sans-serif`;
+        const typeWidth = ctx.measureText(type).width;
+        ctx.font = `600 ${14 * scale}px 'Inter', sans-serif`;
+        const timeWidth = ctx.measureText(timeStr).width;
+        
+        const badgeWidth = typeWidth + timeWidth + (38 * scale);
+        const badgeHeight = 26 * scale;
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(leftX, currentY, badgeWidth, badgeHeight, 8 * scale);
+        else ctx.rect(leftX, currentY, badgeWidth, badgeHeight);
+        ctx.fill();
+        
+        // Primary pill inside badge
+        ctx.fillStyle = '#2563eb';
+        const pillWidth = typeWidth + (16 * scale);
+        const pillHeight = 18 * scale;
+        const pillX = leftX + (6 * scale);
+        const pillY = currentY + (4 * scale);
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 4 * scale);
+        else ctx.rect(pillX, pillY, pillWidth, pillHeight);
+        ctx.fill();
+        
+        // Type Text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${11 * scale}px 'Inter', sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        ctx.fillText(type, pillX + pillWidth / 2, pillY + pillHeight / 2 + (1 * scale));
+        
+        // Time Text
+        ctx.textAlign = 'left';
+        ctx.font = `600 ${14 * scale}px 'Inter', sans-serif`;
+        ctx.fillText(timeStr, pillX + pillWidth + (8 * scale), currentY + badgeHeight / 2 + (1 * scale));
+        
+        currentY += badgeHeight + (12 * scale); // gap-3
+        
+        // 2. Draw vertical line
+        ctx.fillStyle = '#2563eb';
+        const lineHeight = 36 * scale;
+        ctx.fillRect(leftX, currentY, 3 * scale, lineHeight);
+        
+        // 3. Draw text with shadow for readability
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4 * scale;
+        ctx.shadowOffsetX = 1 * scale;
+        ctx.shadowOffsetY = 1 * scale;
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `500 ${15 * scale}px 'Inter', sans-serif`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(dateStr, leftX + (12 * scale), currentY);
+        
+        ctx.font = `400 ${13 * scale}px 'Inter', sans-serif`;
+        const maxLocLength = 50;
+        const shortLoc = locationStr.length > maxLocLength ? locationStr.substring(0, maxLocLength) + '...' : locationStr;
+        ctx.fillText(shortLoc, leftX + (12 * scale), currentY + (20 * scale));
+        
+        import('@/lib/watermark').then(({ addWatermarkToCanvas }) => {
+          addWatermarkToCanvas(ctx, canvas.width, canvas.height).then(() => {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            setPhotoData(dataUrl);
+            // Stop stream after capture to save resources
+            if (stream) {
+              stream.getTracks().forEach(track => track.stop());
+              setStream(null);
+            }
+          });
+        });
       }
     }
   };
@@ -213,17 +320,17 @@ export function AttendanceWidget() {
             address
           });
           setIsLocating(false);
-          toast.success("Location acquired successfully");
+          toast.success("Location acquired successfully", { position: "top-center", duration: 2000 });
         },
         (error) => {
           setIsLocating(false);
-          toast.error("Failed to get location: " + error.message);
+          toast.error("Failed to get location: " + error.message, { position: "top-center", duration: 3000 });
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     } else {
       setIsLocating(false);
-      toast.error("Geolocation is not supported by your browser");
+      toast.error("Geolocation is not supported by your browser", { position: "top-center", duration: 3000 });
     }
   };
 
@@ -331,6 +438,31 @@ export function AttendanceWidget() {
       }
     } else {
       // Check Out
+      const calculateHours = (inTimeStr: string, outTimeStr: string) => {
+        try {
+          const parseTime = (timeStr: string) => {
+            if (!timeStr) return new Date();
+            const [time, modifier] = timeStr.split(' ');
+            let [hours, minutes] = time.split(':');
+            let hrs = parseInt(hours, 10);
+            if (modifier === 'PM' && hrs < 12) hrs += 12;
+            if (modifier === 'AM' && hrs === 12) hrs = 0;
+            const d = new Date();
+            d.setHours(hrs, parseInt(minutes, 10), 0, 0);
+            return d;
+          };
+          const start = parseTime(inTimeStr);
+          const end = parseTime(outTimeStr);
+          const diffMs = end.getTime() - start.getTime();
+          if (diffMs < 0) return 0;
+          return parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+        } catch (e) {
+          return 0;
+        }
+      };
+
+      const calculatedHours = calculateHours(todayEntry?.actualCheckIn || "", timeString);
+
       if (todayEntry) {
         const updatedEntry = {
           ...todayEntry,
@@ -338,7 +470,7 @@ export function AttendanceWidget() {
           checkOutPhoto: photoData,
           checkOutLocationLat: locationData.lat,
           checkOutLocationLng: locationData.lng,
-          totalHoursWorked: 8.5 // Mock calculated hours
+          totalHoursWorked: calculatedHours
         };
 
         if (todayTracking) {
@@ -469,96 +601,112 @@ export function AttendanceWidget() {
       </motion.div>
 
       {/* Check In / Out Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card w-full max-w-md max-h-[95dvh] overflow-y-auto rounded-2xl shadow-xl flex flex-col border border-border"
-            >
-              <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-card z-10">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Camera className="w-5 h-5 text-primary" />
-                  {mode === "checkIn" ? "Check In Proof" : "Check Out Proof"}
-                </h3>
-                <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)} className="rounded-full h-8 w-8">
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-              
-              <div className="p-4 flex flex-col items-center gap-4 bg-muted/30 flex-1">
-                {!photoData ? (
-                  <div className="relative w-full h-[40vh] min-h-[240px] max-h-[350px] bg-black rounded-xl overflow-hidden flex items-center justify-center shadow-inner">
-                    <video 
-                      ref={videoRef} 
-                      autoPlay 
-                      playsInline 
-                      muted 
-                      className="absolute inset-0 w-full h-full object-cover -scale-x-100"
-                    />
-                    {!stream && (
-                      <div className="text-white/50 flex flex-col items-center">
-                        <Camera className="w-8 h-8 mb-2 animate-pulse" />
-                        <span className="text-sm">Initializing camera...</span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="relative w-full h-[40vh] min-h-[240px] max-h-[350px] rounded-xl overflow-hidden border-2 border-primary/20 shadow-md">
-                    <img src={photoData} alt="Proof" className="w-full h-full object-cover" />
-                    <Button 
-                      onClick={retakePhoto}
-                      variant="secondary" 
-                      size="sm" 
-                      className="absolute bottom-4 left-1/2 -translate-x-1/2 shadow-lg"
-                    >
-                      Retake Photo
-                    </Button>
-                  </div>
-                )}
-                
-                <canvas ref={canvasRef} className="hidden" />
-                
-                <div className="w-full bg-card border rounded-xl p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${locationData ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
-                      {isLocating ? <Navigation className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+      {isModalOpen && typeof window !== 'undefined' && createPortal(
+          <div className="fixed inset-0 z-[9999] bg-black flex flex-col m-0 p-0 overflow-hidden">
+            {/* Header */}
+            <div className="h-14 bg-primary flex items-center px-4 shrink-0 text-primary-foreground gap-4 z-10 relative pt-safe border-b border-white/10 shadow-sm">
+              <button onClick={() => setIsModalOpen(false)} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors">
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <span className="font-medium text-lg tracking-tight">Camera</span>
+            </div>
+            
+            {/* Camera Area */}
+            <div className="flex-1 relative bg-black flex flex-col overflow-hidden">
+              {!photoData ? (
+                <>
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    muted 
+                    className="absolute inset-0 w-full h-full object-cover -scale-x-100"
+                  />
+                  {!stream && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50">
+                      <Camera className="w-8 h-8 mb-2 animate-pulse" />
+                      <span className="text-sm">Initializing camera...</span>
                     </div>
-                    <div className="text-sm">
-                      <p className="font-medium">{locationData ? "Location acquired" : isLocating ? "Getting location..." : "Location required"}</p>
-                      {locationData && (
-                        <p className="text-xs text-muted-foreground line-clamp-2" title={locationData.address || `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`}>
-                          {locationData.address || `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`}
-                        </p>
+                  )}
+                  {/* Live Watermark Overlay (Only visible before capturing) */}
+                  {logoSrc && (
+                    <img 
+                      src={logoSrc} 
+                      alt="Logo" 
+                      className="absolute top-4 right-4 h-12 w-auto object-contain z-10 pointer-events-none"
+                      onError={(e) => e.currentTarget.style.display = 'none'}
+                    />
+                  )}
+                  <div className="absolute bottom-56 left-4 right-4 flex flex-col items-start gap-3 pointer-events-none z-10">
+                    <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md px-1.5 py-1.5 rounded-lg border border-white/10 shadow-lg">
+                      <div className="bg-blue-600 px-2 py-0.5 rounded text-white font-bold text-[11px] tracking-wide">
+                        {mode === "checkIn" ? "CLOCK IN" : "CLOCK OUT"}
+                      </div>
+                      <div className="font-semibold text-sm text-white pr-2">
+                        {format(new Date(), "hh:mm a")}
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col pl-3 border-l-[3px] border-blue-600">
+                      <span className="font-medium text-[15px] text-white drop-shadow-md">
+                        {format(new Date(), "EEE, MMM dd, yyyy")}
+                      </span>
+                      <span className="text-[13px] text-white/90 drop-shadow-md line-clamp-2 mt-0.5">
+                        {locationData?.address || (isLocating ? "Locating..." : "Unknown Location")}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Capture Button Overlay */}
+                  <div className="absolute bottom-8 left-0 right-0 flex justify-center z-10">
+                     <button onClick={capturePhoto} disabled={!stream} className="w-16 h-16 rounded-full border-2 border-white bg-transparent flex items-center justify-center hover:bg-white/10 transition-colors">
+                       <div className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm">
+                         <Camera className="w-6 h-6 text-white" />
+                       </div>
+                     </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <img src={photoData} alt="Proof" className="absolute inset-0 w-full h-full object-cover" />
+                  <button onClick={retakePhoto} className="absolute top-4 left-4 p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 z-50">
+                    <X className="w-5 h-5" />
+                  </button>
+                  
+                  {/* Submit Overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 pt-24 z-10">
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 mb-4 flex items-center gap-3 text-white border border-white/20">
+                      <div className={`p-2 rounded-lg ${locationData ? 'bg-success/20 text-green-400' : 'bg-warning/20 text-yellow-400'}`}>
+                        {isLocating ? <Navigation className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                      </div>
+                      <div className="text-sm flex-1">
+                        <p className="font-medium">{locationData ? "Location acquired" : isLocating ? "Getting location..." : "Location required"}</p>
+                        {locationData && (
+                          <p className="text-xs text-white/80 line-clamp-2" title={locationData.address || `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`}>
+                            {locationData.address || `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`}
+                          </p>
+                        )}
+                      </div>
+                      {!locationData && !isLocating && (
+                        <Button variant="ghost" size="sm" onClick={getLocation} className="text-white hover:bg-white/20">Retry</Button>
                       )}
                     </div>
-                  </div>
-                  {!locationData && !isLocating && (
-                    <Button variant="ghost" size="sm" onClick={getLocation}>Retry</Button>
-                  )}
-                </div>
-              </div>
 
-              <div className="p-4 border-t bg-card flex justify-end gap-3">
-                <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                {!photoData ? (
-                  <Button onClick={capturePhoto} disabled={!stream}>
-                    <Camera className="w-4 h-4 mr-2" />
-                    Capture
-                  </Button>
-                ) : (
-                  <Button onClick={handleSubmit} disabled={!locationData} className="bg-primary text-primary-foreground">
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Submit {mode === "checkIn" ? "Check In" : "Check Out"}
-                  </Button>
-                )}
-              </div>
-            </motion.div>
+                    <div className="flex gap-4">
+                      <Button variant="outline" className="flex-1 bg-black/40 border-white/20 text-white hover:bg-white/20 h-12" onClick={retakePhoto}>
+                        Retake
+                      </Button>
+                      <Button className="flex-1 bg-white text-black hover:bg-slate-200 h-12" onClick={handleSubmit} disabled={!locationData || isLocating}>
+                        Submit
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+        , document.body)}
 
       {/* Regularization Drawer */}
       <RegularizationDrawer 

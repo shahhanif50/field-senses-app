@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useMasterData } from '@/contexts/MasterDataContext';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -100,6 +101,10 @@ function LocationAutocomplete({ value, onChange, placeholder }: { value: string,
 }
 
 export function LiveTrackingMap() {
+  const { meetings, attendanceEntries, employees, trackingEntries } = useMasterData();
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string>("none");
+  const lastDistanceRef = useRef<number | null>(null);
+
   const [detailedRoute, setDetailedRoute] = useState<any[]>([]);
   const [currentPathIndex, setCurrentPathIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -142,6 +147,12 @@ export function LiveTrackingMap() {
   const [routeSummary, setRouteSummary] = useState<any[] | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [plannedRouteData, setPlannedRouteData] = useState<any>(null);
+
+  const getLocalDate = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const localToday = getLocalDate();
 
   useEffect(() => {
     if (showExpenseHistoryModal) {
@@ -263,6 +274,22 @@ export function LiveTrackingMap() {
               setTimeSpent(mins);
             }
 
+            // Route Deviation Check (Simulation)
+            if (dynamicDestinations.length > 0) {
+              const mainDest = dynamicDestinations[0];
+              const currentDist = getDistanceFromLatLonInKm(mainDest.lat, mainDest.lng, nextPoint.lat, nextPoint.lng);
+              if (lastDistanceRef.current !== null) {
+                if (currentDist > lastDistanceRef.current + 0.5) {
+                  sendAlert(`Route Deviation Detected! Employee is moving away from destination.`, 'high');
+                  lastDistanceRef.current = currentDist;
+                } else if (currentDist < lastDistanceRef.current) {
+                  lastDistanceRef.current = currentDist;
+                }
+              } else {
+                lastDistanceRef.current = currentDist;
+              }
+            }
+
             const siteMatch = dynamicDestinations.find(loc => 
               getDistanceFromLatLonInKm(loc.lat, loc.lng, nextPoint.lat, nextPoint.lng) < 0.1
             );
@@ -303,6 +330,22 @@ export function LiveTrackingMap() {
                 if (tripStartTime) {
                   const mins = (new Date().getTime() - tripStartTime.getTime()) / 60000;
                   setTimeSpent(mins);
+                }
+
+                // Route Deviation Check (GPS)
+                if (dynamicDestinations.length > 0) {
+                  const mainDest = dynamicDestinations[0];
+                  const currentDist = getDistanceFromLatLonInKm(mainDest.lat, mainDest.lng, latitude, longitude);
+                  if (lastDistanceRef.current !== null) {
+                    if (currentDist > lastDistanceRef.current + 0.5) {
+                      sendAlert(`Route Deviation Detected! Employee is moving away from destination.`, 'high');
+                      lastDistanceRef.current = currentDist;
+                    } else if (currentDist < lastDistanceRef.current) {
+                      lastDistanceRef.current = currentDist;
+                    }
+                  } else {
+                    lastDistanceRef.current = currentDist;
+                  }
                 }
 
                 // Check if near destination
@@ -543,17 +586,88 @@ export function LiveTrackingMap() {
   };
 
   const handleCalculateRoute = async () => {
-    if (!startLocationInput || clientVisits.some(v => !v.name)) {
-      toast.error("Please fill in start location and all client visits");
-      return;
-    }
-    if (!purposeInput.trim()) {
-      toast.error("Please enter the purpose of the visit");
-      return;
+    let startCoords: { lat: number; lng: number } | null = null;
+    
+    if (selectedMeetingId !== "none" && !startLocationInput) {
+       const meeting = meetings.find(x => x.id === selectedMeetingId);
+       let foundCoords = false;
+       
+       if (meeting) {
+         const dayMeetings = meetings
+           .filter(m => m.date === meeting.date && m.organizerId === meeting.organizerId)
+           .sort((a, b) => new Date(a.startTime || a.actualStartTime || "").getTime() - new Date(b.startTime || b.actualStartTime || "").getTime());
+         
+         const idx = dayMeetings.findIndex(m => m.id === meeting.id);
+         
+         if (idx === 0) {
+           const currentEmp = employees.find(e => e.id === meeting.organizerId);
+           let att = attendanceEntries.find(a => (a.employeeCode === meeting.organizerId || (a as any).employeeId === meeting.organizerId || (currentEmp && a.employeeName === currentEmp.fullName)) && a.date === meeting.date);
+           if (!att) {
+             att = attendanceEntries.find(a => (a.employeeCode === meeting.organizerId || (a as any).employeeId === meeting.organizerId || (currentEmp && a.employeeName === currentEmp.fullName)) && a.date === localToday);
+           }
+           let checkInLat = att?.checkInLocationLat;
+           let checkInLng = att?.checkInLocationLng;
+           
+           if (!checkInLat || !checkInLng) {
+             let trk = trackingEntries.find(t => (t.employeeId === meeting.organizerId || (currentEmp && t.employeeName === currentEmp.fullName)) && t.checkInTime.startsWith(meeting.date));
+             if (!trk) {
+               trk = trackingEntries.find(t => (t.employeeId === meeting.organizerId || (currentEmp && t.employeeName === currentEmp.fullName)) && t.checkInTime.startsWith(localToday));
+             }
+             if (trk?.currentLocation && typeof trk.currentLocation === 'string' && trk.currentLocation.includes(',')) {
+               const parts = trk.currentLocation.split(',');
+               checkInLat = parseFloat(parts[0].trim());
+               checkInLng = parseFloat(parts[1].trim());
+             }
+           }
+           
+           if (checkInLat && checkInLng) {
+             startCoords = { lat: checkInLat, lng: checkInLng };
+             setStartLocationInput("Check-In Location");
+             foundCoords = true;
+           }
+         } else if (idx > 0) {
+           const prev = dayMeetings[idx - 1];
+           const prevLat = prev.endLocationLat || prev.startLocationLat;
+           const prevLng = prev.endLocationLng || prev.startLocationLng;
+           if (prevLat && prevLng) {
+              startCoords = { lat: prevLat, lng: prevLng };
+              setStartLocationInput(`Previous: ${prev.title || "Meeting"}`);
+              foundCoords = true;
+           }
+         }
+       }
+       
+       if (!foundCoords && navigator.geolocation) {
+         try {
+           setIsGeocoding(true);
+           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+             navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+           });
+           startCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+           setStartLocationInput("Current Location");
+         } catch(e) {
+           toast.error("Failed to get current location. Please allow location access.");
+           setIsGeocoding(false);
+           return;
+         }
+       } else if (!foundCoords) {
+         toast.error("Geolocation not supported and no previous location found.");
+         return;
+       }
+    } else {
+      if (!startLocationInput || clientVisits.some(v => !v.name)) {
+        toast.error("Please fill in start location and all client visits");
+        return;
+      }
+      if (!purposeInput.trim()) {
+        toast.error("Please enter the purpose of the visit");
+        return;
+      }
+      
+      setIsGeocoding(true);
+      startCoords = await geocodeAddress(startLocationInput);
     }
     
-    setIsGeocoding(true);
-    const startCoords = await geocodeAddress(startLocationInput);
     if (!startCoords) {
       toast.error(`Could not find location: ${startLocationInput}`);
       setIsGeocoding(false);
@@ -562,18 +676,30 @@ export function LiveTrackingMap() {
     
     const destinations = [];
     for (let i = 0; i < clientVisits.length; i++) {
-      const coords = await geocodeAddress(clientVisits[i].name);
-      if (!coords) {
-         toast.error(`Could not find location: ${clientVisits[i].name}`);
-         setIsGeocoding(false);
-         return;
-      }
-      destinations.push({
-         id: clientVisits[i].id,
-         name: clientVisits[i].name,
-         lat: coords.lat,
-         lng: coords.lng
-      });
+       let coords = null;
+       
+       if (selectedMeetingId !== "none" && i === 0) {
+          const meeting = meetings.find(x => x.id === selectedMeetingId);
+          if (meeting && meeting.startLocationLat && meeting.startLocationLng) {
+             coords = { lat: meeting.startLocationLat, lng: meeting.startLocationLng };
+          }
+       }
+       
+       if (!coords) {
+         coords = await geocodeAddress(clientVisits[i].name);
+       }
+       
+       if (!coords) {
+          toast.error(`Could not find location: ${clientVisits[i].name}`);
+          setIsGeocoding(false);
+          return;
+       }
+       destinations.push({
+          id: clientVisits[i].id,
+          name: clientVisits[i].name,
+          lat: coords.lat,
+          lng: coords.lng
+       });
     }
     
     // Calculate Summary Segments
@@ -743,11 +869,18 @@ export function LiveTrackingMap() {
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Export heavily compressed WebP or JPEG
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
-          setter(compressedDataUrl);
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Add watermark
+            import('@/lib/watermark').then(({ addWatermarkToCanvas }) => {
+              addWatermarkToCanvas(ctx, width, height).then(() => {
+                // Export heavily compressed WebP or JPEG
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                setter(compressedDataUrl);
+              });
+            });
+          }
         };
         img.src = event.target?.result as string;
       };
@@ -928,8 +1061,8 @@ export function LiveTrackingMap() {
   });
 
   return (
-    <div className="flex flex-col md:flex-row w-full h-[600px] md:h-[800px] rounded-xl overflow-hidden shadow-xl border border-slate-200 bg-slate-50">
-      <div className="flex-1 relative z-0">
+    <div className="flex flex-col md:flex-row w-full h-[100dvh] md:h-[800px] rounded-none md:rounded-xl overflow-hidden shadow-xl border-0 md:border border-slate-200 bg-slate-50">
+      <div className="flex-1 relative z-0 min-h-[40vh] md:min-h-0">
         <MapContainer center={[19.1136, 72.8697]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }}>
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -967,7 +1100,7 @@ export function LiveTrackingMap() {
         </MapContainer>
       </div>
 
-      <div className="w-full md:w-[350px] bg-white border-t md:border-t-0 md:border-l border-slate-200 overflow-y-auto z-10 flex flex-col p-5 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)]">
+      <div className="flex-1 md:flex-none w-full md:w-[350px] bg-white border-t md:border-t-0 md:border-l border-slate-200 overflow-y-auto z-10 flex flex-col p-5 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)]">
         <div className="space-y-4">
           <div className="flex justify-between items-center mb-2 pb-3 border-b border-slate-100">
             <h3 className="font-bold text-lg flex items-center gap-2">
@@ -1130,47 +1263,89 @@ export function LiveTrackingMap() {
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
             {!routeSummary ? (
               <>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label>Start Location</Label>
-                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600" onClick={handleUseCurrentLocation} disabled={isLocating}>
-                      {isLocating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <MapPin className="w-3 h-3 mr-1" />}
-                      Use Current Location
-                    </Button>
+                {selectedMeetingId === "none" && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label>Start Location</Label>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600" onClick={handleUseCurrentLocation} disabled={isLocating}>
+                        {isLocating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <MapPin className="w-3 h-3 mr-1" />}
+                        Use Current Location
+                      </Button>
+                    </div>
+                    <LocationAutocomplete 
+                      placeholder="e.g. Bandra West"
+                      value={startLocationInput}
+                      onChange={setStartLocationInput}
+                    />
                   </div>
-                  <LocationAutocomplete 
-                    placeholder="e.g. Bandra West"
-                    value={startLocationInput}
-                    onChange={setStartLocationInput}
-                  />
-                </div>
+                )}
                 
                 <div className="space-y-2 pt-2 border-t border-border">
                   <div className="flex justify-between items-center mb-2">
-                    <Label>Client Visits</Label>
-                    <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600" onClick={() => setClientVisits([...clientVisits, { id: clientVisits.length + 1, name: "" }])}>
-                      <Plus className="w-3 h-3 mr-1" /> Add Visit
-                    </Button>
+                    <Label>Link Meeting (Optional)</Label>
                   </div>
-                  {clientVisits.map((visit, index) => (
-                    <div key={visit.id} className="flex items-center gap-2 mb-2">
-                      <LocationAutocomplete 
-                        placeholder={`Client Location ${index + 1}`}
-                        value={visit.name}
-                        onChange={(val) => {
-                          const newVisits = [...clientVisits];
-                          newVisits[index].name = val;
-                          setClientVisits(newVisits);
-                        }}
-                      />
-                      {clientVisits.length > 1 && (
-                        <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500 flex-shrink-0" onClick={() => setClientVisits(clientVisits.filter((_, i) => i !== index))}>
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                  <Select value={selectedMeetingId} onValueChange={(val) => {
+                    setSelectedMeetingId(val);
+                    if (val !== "none") {
+                      const m = meetings.find(x => x.id === val);
+                      if (m) {
+                        setClientVisits([{ id: 1, name: m.location || m.title }]);
+                        setPurposeInput(`Meeting with Client: ${m.title}`);
+                      }
+                    } else {
+                      setClientVisits([{ id: 1, name: "" }]);
+                      setPurposeInput("");
+                    }
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a scheduled meeting..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Meeting Linked</SelectItem>
+                      {meetings
+                        .filter(m => {
+                          const isGlobalAdmin = sessionStorage.getItem('isGlobalAdmin') === 'true';
+                          const empId = sessionStorage.getItem('employeeId');
+                          const usrId = sessionStorage.getItem('userId');
+                          const isOwner = isGlobalAdmin || m.organizerId === empId || m.organizerId === usrId;
+                          const isValidStatus = m.status === 'scheduled' || m.status === 'in-progress';
+                          return isOwner && isValidStatus && m.date === localToday;
+                        })
+                        .map(m => (
+                        <SelectItem key={m.id} value={m.id}>{m.title} at {m.location}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                
+                {selectedMeetingId === "none" && (
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <div className="flex justify-between items-center mb-2">
+                      <Label>Client Visits</Label>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600" onClick={() => setClientVisits([...clientVisits, { id: clientVisits.length + 1, name: "" }])}>
+                        <Plus className="w-3 h-3 mr-1" /> Add Visit
+                      </Button>
+                    </div>
+                    {clientVisits.map((visit, index) => (
+                      <div key={visit.id} className="flex items-center gap-2 mb-2">
+                        <LocationAutocomplete 
+                          placeholder={`Client Location ${index + 1}`}
+                          value={visit.name}
+                          onChange={(val) => {
+                            const newVisits = [...clientVisits];
+                            newVisits[index].name = val;
+                            setClientVisits(newVisits);
+                          }}
+                        />
+                        {clientVisits.length > 1 && (
+                          <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500 flex-shrink-0" onClick={() => setClientVisits(clientVisits.filter((_, i) => i !== index))}>
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="space-y-2 pt-2 border-t border-border">
                   <Label>Purpose of Visit</Label>

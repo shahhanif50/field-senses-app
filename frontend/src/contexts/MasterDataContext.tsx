@@ -37,6 +37,7 @@ import {
   POSAlert,
   EmployeeTask,
   Site,
+  RegularizationRequest,
 } from "@/data/sharedTypes";
 
 // Re-export types for convenience
@@ -590,7 +591,8 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
       get(`${BASE}/ops/performance-metrics/`),
       get(`${BASE}/ops/tracking-entries/`),
       get(`${BASE}/ops/employee-tasks/`),
-    ]).then(([meetData, alertData, attData, geoData, lbData, pmData, teData, etData]) => {
+      get(`${BASE}/ops/regularization-requests/`),
+    ]).then(([meetData, alertData, attData, geoData, lbData, pmData, teData, etData, regData]) => {
       if (Array.isArray(meetData)) setMeetings(meetData);
       if (Array.isArray(alertData)) setAlerts(alertData);
       if (Array.isArray(attData)) setAttendanceEntries(attData);
@@ -599,16 +601,19 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
       if (Array.isArray(pmData)) setPerformanceMetrics(pmData);
       if (Array.isArray(teData)) setTrackingEntries(teData);
       if (Array.isArray(etData)) setEmployeeTasks(etData);
+      if (Array.isArray(regData)) setRegularizationRequests(regData);
     });
 
-    // Auto-refresh for live tracking and attendance data every 30 seconds
+    // Auto-refresh for live tracking and attendance data every 10 seconds
     const intervalId = setInterval(() => {
       Promise.all([
         get(`${BASE}/ops/attendance/`),
         get(`${BASE}/ops/tracking-entries/`),
-      ]).then(([attData, teData]) => {
+        get(`${BASE}/ops/regularization-requests/`),
+      ]).then(([attData, teData, regData]) => {
         if (Array.isArray(attData)) setAttendanceEntries(attData);
         if (Array.isArray(teData)) setTrackingEntries(teData);
+        if (Array.isArray(regData)) setRegularizationRequests(regData);
       });
     }, 10000);
 
@@ -641,32 +646,7 @@ export function MasterDataProvider({ children }: { children: ReactNode }) {
   const [posAlerts, setPosAlerts] = useState<POSAlert[]>([]);
   const [trackingEntries, setTrackingEntries] = useState<TrackingEntry[]>([]);
   const [employeeTasks, setEmployeeTasks] = useState<EmployeeTask[]>([]);
-  const [regularizationRequests, setRegularizationRequests] = useState<RegularizationRequest[]>(() => {
-    try {
-      const saved = localStorage.getItem('regularizationRequests');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-
-  React.useEffect(() => {
-    localStorage.setItem('regularizationRequests', JSON.stringify(regularizationRequests));
-  }, [regularizationRequests]);
-
-  React.useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'regularizationRequests' && e.newValue) {
-        try {
-          setRegularizationRequests(JSON.parse(e.newValue));
-        } catch (err) {
-          console.error('Error parsing regularization storage', err);
-        }
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  const [regularizationRequests, setRegularizationRequests] = useState<RegularizationRequest[]>([]);
 
   // Core helper functions
   const getRoleNameById = useCallback((roleId: string) => getRoleName(roleId, roles), [roles]);

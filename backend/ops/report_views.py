@@ -2,10 +2,24 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
+import math
 
-# Import models
+def haversine(lat1, lon1, lat2, lon2):
+    if None in [lat1, lon1, lat2, lon2]: return 0.0
+    try:
+        lat1, lon1, lat2, lon2 = float(lat1), float(lon1), float(lat2), float(lon2)
+        R = 6371  # Earth radius in kilometers
+        dLat = math.radians(lat2 - lat1)
+        dLon = math.radians(lon2 - lon1)
+        a = math.sin(dLat/2) * math.sin(dLat/2) + math.cos(math.radians(lat1)) \
+            * math.cos(math.radians(lat2)) * math.sin(dLon/2) * math.sin(dLon/2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        return round(R * c, 2)
+    except:
+        return 0.0
+
 from core.models import Employee, Document
-from ops.models import EmployeeTask, AttendanceEntry, TrackingEntry, GeoFenceAlert, Alert, LeaveBalance, PerformanceMetric
+from ops.models import EmployeeTask, AttendanceEntry, TrackingEntry, GeoFenceAlert, Alert, LeaveBalance, PerformanceMetric, Meeting
 from crm.models import Territory, SalesTarget, Distributor
 from inventory.models import Product
 
@@ -203,5 +217,171 @@ class ReportAPIView(APIView):
                     "status": doc.status,
                     "approver": "N/A"
                 })
+        elif module == 'meeting-travel':
+            from datetime import datetime
+            
+            emps = Employee.objects.filter(id=emp_id) if emp_id and emp_id != 'all' else Employee.objects.exclude(roleId__roleName__icontains='admin')
+            
+            total_kms_all = 0.0
+            total_meetings_all = 0
+            total_expense_all = 0.0
+            
+            for emp in emps:
+                att_qs = AttendanceEntry.objects.filter(employeeName=emp.fullName)
+                if from_date:
+                    att_qs = att_qs.filter(date__gte=from_date)
+                if to_date:
+                    att_qs = att_qs.filter(date__lte=to_date)
+                
+                for att in att_qs:
+                    date_str = att.date.strftime("%d/%m/%Y")
+                    meetings = Meeting.objects.filter(organizerId=emp.employeeId, date=att.date).order_by('startTime')
+                    
+                    dep_time = att.actualCheckIn or ""
+                    arr_time = att.actualCheckOut or ""
+                    
+                    mode = emp.vehicleType if emp.vehicleType != 'None' else "-"
+                    rate = emp.perKmRate or 0.0
+                    daily_allow = emp.dailyAllowance or 0.0
+                    
+                    kms_covered = 0.0
+                    stations_visited = []
+                    
+                    last_lat = att.checkInLocationLat
+                    last_lng = att.checkInLocationLng
+                    
+                    if not last_lat and len(meetings) > 0:
+                         last_lat = meetings[0].startLocationLat
+                         last_lng = meetings[0].startLocationLng
+                    
+                    local_exp = 0.0
+                    hotel_exp = 0.0
+                    other_exp = 0.0
+                    fuel_rs = 0.0
+                    
+                    last_rate = rate
+                    used_rates = set()
+                    used_modes = set()
+                    
+                    def safe_float(v):
+                        try:
+                            return float(v) if v else 0.0
+                        except (ValueError, TypeError):
+                            return 0.0
+                    
+                    if not meetings:
+                        dist = 0.0
+                        if last_lat and str(last_lat).strip() and att.checkOutLocationLat and str(att.checkOutLocationLat).strip():
+                            dist = haversine(last_lat, last_lng, att.checkOutLocationLat, att.checkOutLocationLng)
+                        
+                        dist = round(dist, 2)
+                        fuel = round(dist * rate, 2)
+                        total = round(fuel + daily_allow, 2)
+                        
+                        total_kms_all += dist
+                        total_expense_all += total
+                        
+                        data.append({
+                            "date": date_str,
+                            "time": f"{dep_time} - {arr_time}" if (dep_time or arr_time) else "-",
+                            "employee": emp.fullName,
+                            "station": "No meetings",
+                            "mode": mode,
+                            "rate": rate,
+                            "kms": dist,
+                            "fuel": fuel,
+                            "daily": daily_allow,
+                            "local": 0.0,
+                            "hotel": 0.0,
+                            "other": 0.0,
+                            "total": total
+                        })
+                    else:
+                        for idx, m in enumerate(meetings):
+                            dist = 0.0
+                            if last_lat and str(last_lat).strip() and m.startLocationLat and str(m.startLocationLat).strip():
+                                dist = haversine(last_lat, last_lng, m.startLocationLat, m.startLocationLng)
+                            
+                            m_rate = m.vehicleRate if hasattr(m, 'vehicleRate') and m.vehicleRate and float(m.vehicleRate) > 0 else rate
+                            m_mode = m.vehicleType if hasattr(m, 'vehicleType') and m.vehicleType else mode
+                            
+                            m_fuel = dist * m_rate
+                            
+                            m_local = 0.0
+                            m_hotel = 0.0
+                            m_other = 0.0
+                            m_proofs = []
+                            if m.momData and isinstance(m.momData, dict) and 'expenses' in m.momData:
+                                exp = m.momData['expenses']
+                                if exp.get('status') == 'approved':
+                                    m_local = safe_float(exp.get('local'))
+                                    m_hotel = safe_float(exp.get('hotel'))
+                                    m_other = safe_float(exp.get('other'))
+                                    if exp.get('localBill'): m_proofs.append({'type': 'Local Conveyance', 'url': exp.get('localBill')})
+                                    if exp.get('hotelBill'): m_proofs.append({'type': 'Hotel Expense', 'url': exp.get('hotelBill')})
+                                    if exp.get('otherBill'): m_proofs.append({'type': 'Other Expense', 'url': exp.get('otherBill')})
+                            
+                            m_daily = daily_allow if idx == 0 else 0.0
+                            
+                            if m.endLocationLat and str(m.endLocationLat).strip():
+                                last_lat = m.endLocationLat
+                                last_lng = m.endLocationLng
+                                last_rate = m_rate
+                            elif m.startLocationLat and str(m.startLocationLat).strip():
+                                last_lat = m.startLocationLat
+                                last_lng = m.startLocationLng
+                                last_rate = m_rate
+                            else:
+                                last_rate = m_rate
+                                
+                            return_dist = 0.0
+                            if idx == len(meetings) - 1:
+                                if last_lat and str(last_lat).strip() and att.checkOutLocationLat and str(att.checkOutLocationLat).strip():
+                                    return_dist = haversine(last_lat, last_lng, att.checkOutLocationLat, att.checkOutLocationLng)
+                            
+                            total_dist = round(dist + return_dist, 2)
+                            total_fuel = round(m_fuel + (return_dist * last_rate), 2)
+                            
+                            m_local = round(m_local, 2)
+                            m_hotel = round(m_hotel, 2)
+                            m_other = round(m_other, 2)
+                            
+                            total_rs = round(total_fuel + m_daily + m_local + m_hotel + m_other, 2)
+                            
+                            total_kms_all += total_dist
+                            total_meetings_all += 1
+                            total_expense_all += total_rs
+                            
+                            m_time = ""
+                            if m.startTime and m.endTime:
+                                m_time = f"{m.startTime} - {m.endTime}"
+                            elif hasattr(m, 'actualStartTime') and m.actualStartTime and hasattr(m, 'actualEndTime') and m.actualEndTime:
+                                m_time = f"{m.actualStartTime.strftime('%H:%M')} - {m.actualEndTime.strftime('%H:%M')}"
+                            else:
+                                m_time = f"{dep_time} - {arr_time}" if (dep_time or arr_time) else "-"
+                            
+                            data.append({
+                                "date": date_str,
+                                "time": m_time,
+                                "employee": emp.fullName,
+                                "station": m.title,
+                                "mode": m_mode,
+                                "rate": m_rate,
+                                "kms": total_dist,
+                                "fuel": total_fuel,
+                                "daily": m_daily,
+                                "local": m_local,
+                                "hotel": m_hotel,
+                                "other": m_other,
+                                "total": total_rs,
+                                "proofs": m_proofs
+                            })
+            
+            summary = [
+                {"label": "Total KMs", "value": f"{total_kms_all:.1f}", "trend": "", "icon": "Navigation"},
+                {"label": "Meetings Visited", "value": str(total_meetings_all), "trend": "", "icon": "MapPin"},
+                {"label": "Total Expenses", "value": f"₹{total_expense_all:.2f}", "trend": "", "icon": "Activity"},
+                {"label": "Employees Active", "value": str(emps.count()), "trend": "", "icon": "UserCheck"},
+            ]
 
         return Response({"summary": summary, "data": data})

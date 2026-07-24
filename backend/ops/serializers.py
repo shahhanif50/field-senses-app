@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Meeting, TrackingEntry, EmployeeTask, Alert, AttendanceEntry, GeoFenceAlert, LeaveBalance, PerformanceMetric, EmployeeWallet, WithdrawalRequest, LeaveRequest, Message, TravelExpense
+from .models import Meeting, TrackingEntry, EmployeeTask, Alert, AttendanceEntry, GeoFenceAlert, LeaveBalance, PerformanceMetric, EmployeeWallet, WithdrawalRequest, LeaveRequest, Message, TravelExpense, RegularizationRequest, VehicleConfig
 
 class MeetingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -72,4 +72,14 @@ class MessageSerializer(serializers.ModelSerializer):
 class TravelExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         model = TravelExpense
+        fields = '__all__'
+
+class RegularizationRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RegularizationRequest
+        fields = '__all__'
+
+class VehicleConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VehicleConfig
         fields = '__all__'

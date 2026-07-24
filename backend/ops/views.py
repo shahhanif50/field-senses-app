@@ -4,7 +4,11 @@ from rest_framework.response import Response
 from django.db.models import Q
 import json
 from datetime import datetime
-from .models import Meeting, TrackingEntry, EmployeeTask, Alert, AttendanceEntry, GeoFenceAlert, LeaveBalance, PerformanceMetric, EmployeeWallet, WithdrawalRequest, LeaveRequest, Message, TravelExpense
+from .models import (
+    Meeting, TrackingEntry, EmployeeTask, Alert, AttendanceEntry,
+    GeoFenceAlert, LeaveBalance, PerformanceMetric, EmployeeWallet,
+    WithdrawalRequest, LeaveRequest, Message, TravelExpense, RegularizationRequest, VehicleConfig
+)
 from core.models import Employee
 
 def get_site_restricted_employee_codes(user_id, user_role):
@@ -30,7 +34,7 @@ def get_site_restricted_employee_codes(user_id, user_role):
 from .serializers import (
     MeetingSerializer, TrackingEntrySerializer, EmployeeTaskSerializer, AlertSerializer,
     AttendanceEntrySerializer, GeoFenceAlertSerializer, LeaveBalanceSerializer, PerformanceMetricSerializer,
-    EmployeeWalletSerializer, WithdrawalRequestSerializer, LeaveRequestSerializer, MessageSerializer, TravelExpenseSerializer
+    EmployeeWalletSerializer, WithdrawalRequestSerializer, LeaveRequestSerializer, MessageSerializer, TravelExpenseSerializer, RegularizationRequestSerializer, VehicleConfigSerializer
 )
 
 class MeetingViewSet(viewsets.ModelViewSet):
@@ -947,4 +951,57 @@ class MessageViewSet(viewsets.ModelViewSet):
         message.readBy = read_by
         message.save()
         return Response({"status": "marked read"})
+
+
+class RegularizationRequestViewSet(viewsets.ModelViewSet):
+    queryset = RegularizationRequest.objects.all().order_by('-timestamp')
+    serializer_class = RegularizationRequestSerializer
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        employeeId = self.request.query_params.get('employeeId')
+        status = self.request.query_params.get('status')
+        if employeeId:
+            queryset = queryset.filter(employeeId=employeeId)
+        if status:
+            queryset = queryset.filter(status=status)
+        return queryset
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        if instance.status == 'Approved':
+            try:
+                from .models import Employee, AttendanceEntry
+                from datetime import datetime
+                emp = Employee.objects.get(employeeId=instance.employeeId)
+                att = AttendanceEntry.objects.filter(employeeName=emp.fullName, date=instance.date).first()
+                if att:
+                    if instance.type == 'Check In':
+                        att.actualCheckIn = instance.requestedTime
+                    elif instance.type == 'Check Out':
+                        att.actualCheckOut = instance.requestedTime
+                    elif instance.type == 'Both':
+                        times = instance.requestedTime.split(' - ')
+                        if len(times) == 2:
+                            att.actualCheckIn = times[0].strip()
+                            att.actualCheckOut = times[1].strip()
+                    
+                    if att.actualCheckIn and att.actualCheckOut:
+                        try:
+                            fmt = "%I:%M %p"
+                            in_time = datetime.strptime(att.actualCheckIn, fmt)
+                            out_time = datetime.strptime(att.actualCheckOut, fmt)
+                            diff = (out_time - in_time).total_seconds() / 3600.0
+                            if diff < 0:
+                                diff += 24.0
+                            att.totalHoursWorked = round(diff, 2)
+                        except Exception:
+                            pass
+                    att.save()
+            except Exception as e:
+                print(f"Error updating attendance entry on regularization: {e}")
+
+class VehicleConfigViewSet(viewsets.ModelViewSet):
+    queryset = VehicleConfig.objects.all()
+    serializer_class = VehicleConfigSerializer
 

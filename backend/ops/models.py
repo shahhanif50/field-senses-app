@@ -22,6 +22,9 @@ class Meeting(models.Model):
     attachments = models.JSONField(default=list)
     REMINDER_CHOICES = (('15min', '15min'), ('30min', '30min'), ('1hour', '1hour'), ('none', 'none'))
     reminder = models.CharField(max_length=50, choices=REMINDER_CHOICES)
+    
+    vehicleType = models.CharField(max_length=100, blank=True, null=True)
+    vehicleRate = models.FloatField(default=0.0)
     RECURRING_CHOICES = (('none', 'none'), ('daily', 'daily'), ('weekly', 'weekly'), ('monthly', 'monthly'))
     recurring = models.CharField(max_length=50, choices=RECURRING_CHOICES)
     PRIORITY_CHOICES = (('low', 'low'), ('medium', 'medium'), ('high', 'high'))
@@ -41,6 +44,8 @@ class Meeting(models.Model):
     endPhoto = models.TextField(blank=True, null=True)
     startLocationName = models.CharField(max_length=500, blank=True, null=True)
     endLocationName = models.CharField(max_length=500, blank=True, null=True)
+    startMeterPhoto = models.TextField(blank=True, null=True)
+    endMeterPhoto = models.TextField(blank=True, null=True)
     momData = models.JSONField(blank=True, null=True)
     createdAt = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
@@ -266,3 +271,27 @@ class TravelExpense(models.Model):
 
     def __str__(self):
         return f"Expense: {self.employeeName} - {self.amount}"
+
+class RegularizationRequest(models.Model):
+    id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    employeeName = models.CharField(max_length=200)
+    employeeId = models.CharField(max_length=50)
+    date = models.DateField()
+    type = models.CharField(max_length=100)
+    requestedTime = models.CharField(max_length=100)
+    reason = models.TextField()
+    STATUS_CHOICES = (('Pending', 'Pending'), ('Approved', 'Approved'), ('Denied', 'Denied'))
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='Pending')
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.type} for {self.employeeName} on {self.date}"
+
+class VehicleConfig(models.Model):
+    id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
+    name = models.CharField(max_length=100)
+    type = models.CharField(max_length=50) # e.g. '2W', '4W'
+    ratePerKm = models.FloatField(default=0.0)
+    
+    def __str__(self):
+        return f"{self.name} ({self.type}) - {self.ratePerKm}/km"

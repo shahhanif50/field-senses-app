@@ -286,7 +286,10 @@ export interface Meeting {
   recurring: "none" | "daily" | "weekly" | "monthly";
   priority: "low" | "medium" | "high";
   approvalRequired: boolean;
+  vehicleType?: string;
+  vehicleRate?: number;
   status: "scheduled" | "in-progress" | "completed" | "cancelled" | "rescheduled";
+  cancelReason?: string;
   isActive: boolean;
   actualStartTime?: string;
   actualEndTime?: string;
@@ -585,5 +588,15 @@ export interface POSAlert {
   timestamp: string;
   resolved: boolean;
 }
-e x p o r t   i n t e r f a c e   R e g u l a r i z a t i o n R e q u e s t   {   i d :   s t r i n g ;   e m p l o y e e N a m e :   s t r i n g ;   e m p l o y e e I d ? :   s t r i n g ;   d a t e :   s t r i n g ;   t y p e :   ' C h e c k   I n '   |   ' C h e c k   O u t '   |   ' B o t h ' ;   r e q u e s t e d T i m e :   s t r i n g ;   r e a s o n :   s t r i n g ;   s t a t u s :   ' P e n d i n g '   |   ' A p p r o v e d '   |   ' D e n i e d ' ;   t i m e s t a m p :   s t r i n g ;   }  
- 
+
+export interface RegularizationRequest {
+  id: string;
+  employeeName: string;
+  employeeId?: string;
+  date: string;
+  type: 'Check In' | 'Check Out' | 'Both';
+  requestedTime: string;
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Denied';
+  timestamp: string;
+}

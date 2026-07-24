@@ -24,6 +24,9 @@ export interface Employee {
   accessibleSites?: string[];
   region?: string;
   role?: string;
+  vehicleType?: "Bike" | "Car" | "None";
+  perKmRate?: number;
+  dailyAllowance?: number;
 }
 
 export interface Role {

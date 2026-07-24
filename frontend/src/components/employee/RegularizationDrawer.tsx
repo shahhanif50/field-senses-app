@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, Clock, CalendarIcon, FileText, X } from 'lucide-react';
@@ -28,13 +28,40 @@ export function RegularizationDrawer({ open, onOpenChange }: RegularizationDrawe
   const [pickerOpen, setPickerOpen] = useState(false);
   const [activeTimeField, setActiveTimeField] = useState<'checkIn' | 'checkOut'>('checkIn');
 
-  const { regularizationRequests, setRegularizationRequests } = useMasterData();
+  const [localRequests, setLocalRequests] = useState<RegularizationRequest[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // We no longer use context state for regularization to ensure fresh DB sync
+  // const { regularizationRequests, setRegularizationRequests } = useMasterData();
+
+  useEffect(() => {
+    if (open) {
+      fetchRequests();
+    }
+  }, [open]);
+
+  const fetchRequests = async () => {
+    try {
+      const employeeId = sessionStorage.getItem("employeeId");
+      if (!employeeId) return;
+      setLoading(true);
+      const res = await fetch(`/api/ops/regularization-requests/?employeeId=${employeeId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLocalRequests(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddRegularization = () => {
     setView('add');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!regDate || !reqType || !reason) {
       toast.error("Please fill in all basic fields.");
       return;
@@ -57,22 +84,31 @@ export function RegularizationDrawer({ open, onOpenChange }: RegularizationDrawe
     const employeeId = sessionStorage.getItem("employeeId") || "EMP-UNKNOWN";
     const employeeName = sessionStorage.getItem("userName") || "Unknown User";
 
-    // Add to context
-    const newRequest: RegularizationRequest = {
-      id: Math.random().toString(36).substr(2, 9),
-      employeeName: employeeName, 
-      employeeId: employeeId,
-      date: regDate || new Date().toISOString().split('T')[0],
-      type: reqType === 'check-in' ? 'Check In' : reqType === 'check-out' ? 'Check Out' : 'Both',
-      requestedTime: requestedTimeStr,
-      reason,
-      status: 'Pending',
-      timestamp: new Date().toISOString(),
-    };
+    try {
+      const res = await fetch('/api/ops/regularization-requests/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeName,
+          employeeId,
+          date: regDate || new Date().toISOString().split('T')[0],
+          type: reqType === 'check-in' ? 'Check In' : reqType === 'check-out' ? 'Check Out' : 'Both',
+          requestedTime: requestedTimeStr,
+          reason,
+          status: 'Pending'
+        })
+      });
 
-    setRegularizationRequests(prev => [newRequest, ...prev]);
-
-    toast.success('Regularization request submitted successfully');
+      if (res.ok) {
+        toast.success('Regularization request submitted successfully');
+        fetchRequests(); // Refresh the list
+      } else {
+        toast.error('Failed to submit request');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('An error occurred');
+    }
     
     // Reset form
     setRegDate('');
@@ -93,7 +129,7 @@ export function RegularizationDrawer({ open, onOpenChange }: RegularizationDrawe
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[100dvh] sm:h-full sm:max-w-md w-full p-0 flex flex-col bg-[#f8f9fc] border-none shadow-none z-50">
+      <SheetContent side="bottom" className="h-[100dvh] sm:h-full sm:max-w-md w-full p-0 flex flex-col bg-[#f8f9fc] border-none shadow-none z-50" aria-describedby={undefined}>
         {/* Header */}
         <SheetHeader className="p-4 pt-5 pb-4 bg-primary text-primary-foreground flex flex-row items-center gap-3 text-left shadow-sm">
           <Button 
@@ -114,8 +150,10 @@ export function RegularizationDrawer({ open, onOpenChange }: RegularizationDrawe
             {/* Content List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 pt-5">
           
-              {regularizationRequests.length > 0 ? (
-                regularizationRequests.map((request) => {
+              {loading ? (
+                <div className="flex justify-center p-4"><span className="text-sm text-slate-500">Loading...</span></div>
+              ) : localRequests.length > 0 ? (
+                localRequests.map((request) => {
                   const isPending = request.status === 'Pending';
                   const isApproved = request.status === 'Approved';
                   const isDenied = request.status === 'Denied';

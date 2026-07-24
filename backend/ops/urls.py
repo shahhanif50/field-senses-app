@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     MeetingViewSet, TrackingEntryViewSet, EmployeeTaskViewSet, AlertViewSet,
     AttendanceEntryViewSet, GeoFenceAlertViewSet, LeaveBalanceViewSet, PerformanceMetricViewSet,
-    EmployeeWalletViewSet, WithdrawalRequestViewSet, LeaveRequestViewSet, MessageViewSet, TravelExpenseViewSet
+    EmployeeWalletViewSet, WithdrawalRequestViewSet, LeaveRequestViewSet, MessageViewSet, TravelExpenseViewSet,
+    RegularizationRequestViewSet, VehicleConfigViewSet
 )
 from .report_views import ReportAPIView
 
@@ -21,6 +22,8 @@ router.register(r'wallets', EmployeeWalletViewSet)
 router.register(r'withdrawals', WithdrawalRequestViewSet)
 router.register(r'leave-requests', LeaveRequestViewSet)
 router.register(r'messages', MessageViewSet)
+router.register(r'regularization-requests', RegularizationRequestViewSet)
+router.register(r'vehicles', VehicleConfigViewSet)
 
 urlpatterns = [
     path('reports/', ReportAPIView.as_view(), name='reports'),

@@ -34,6 +34,7 @@ export function NotificationBell({ onNotificationClick, isMuted, onToggleMute }:
   const [replyText, setReplyText] = useState('');
   const { getEmployeeNameById } = useMasterData();
   const userId = sessionStorage.getItem("userId") || "";
+  const employeeId = sessionStorage.getItem("employeeId") || "";
   const [dismissedMeetingIds, setDismissedMeetingIds] = useState<string[]>(() => JSON.parse(localStorage.getItem(`dismissedMeetings_${userId}`) || "[]"));
 
   // Re-fetch when opened, and on interval
@@ -58,7 +59,10 @@ export function NotificationBell({ onNotificationClick, isMuted, onToggleMute }:
         if (Array.isArray(data)) {
           let systemAlerts = [...data.filter(a => !a.resolved)];
           if (!canSeeApprovals) {
-             systemAlerts = systemAlerts.filter(a => a.type !== "pending_approval");
+             systemAlerts = systemAlerts.filter(a => 
+               a.type !== "pending_approval" && 
+               (a.relatedEntityId === userId || a.relatedEntityId === employeeId)
+             );
           }
           combinedAlerts = [...systemAlerts];
         }

@@ -294,7 +294,7 @@ export function ProjectsTab() {
             <Label>Description</Label>
             <Input value={projectForm.description || ''} onChange={(e) => setProjectForm({...projectForm, description: e.target.value})} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Status</Label>
               <Select value={projectForm.status || 'Active'} onValueChange={(v) => setProjectForm({...projectForm, status: v})}>

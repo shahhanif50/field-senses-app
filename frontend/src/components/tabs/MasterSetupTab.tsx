@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Shield, Building, GitBranch, FileText, Plus, User, Mail, Phone, Calendar,
   Briefcase, MapPin, Trash2, Check, X, ChevronRight, ChevronDown, UserPlus, AlertTriangle, Lock,
-  Store, BadgeCheck, Pen, Upload, Eye, EyeOff, Download, File
+  Store, BadgeCheck, Pen, Upload, Eye, EyeOff, Download, File, Navigation
 } from "lucide-react";
 import { SignaturePad } from "@/components/ui/SignaturePad";
 import { DataTable, Column } from "@/components/ui/DataTable";
@@ -582,8 +582,12 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
       header: "Name",
       render: (_, row) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <User className="w-4 h-4 text-primary" />
+          <div className="w-8 h-8 rounded-full bg-primary/10 overflow-hidden flex items-center justify-center shrink-0">
+            {row.profilePhoto ? (
+              <img src={row.profilePhoto} alt={row.fullName} className="w-full h-full object-cover" />
+            ) : (
+              <User className="w-4 h-4 text-primary" />
+            )}
           </div>
           <div>
             <p className="font-medium">{row.fullName}</p>
@@ -2740,6 +2744,54 @@ export function MasterSetupTab({ defaultMaster = "employees", isTeamManagementVi
                     type="date"
                     value={employeeForm.joiningDate || ""}
                     onChange={(e) => setEmployeeForm({ ...employeeForm, joiningDate: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Expense & Travel Settings Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Navigation className="w-5 h-5 text-primary" />
+                Expense & Travel Settings
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Vehicle Type</Label>
+                  <Select
+                    value={employeeForm.vehicleType || "None"}
+                    onValueChange={(value) => setEmployeeForm({ ...employeeForm, vehicleType: value as "Bike" | "Car" | "None" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="None">None</SelectItem>
+                      <SelectItem value="Bike">Bike</SelectItem>
+                      <SelectItem value="Car">Car</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Rate per KM (₹)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={employeeForm.perKmRate || ""}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, perKmRate: parseFloat(e.target.value) || 0 })}
+                    placeholder="e.g. 3.5"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Daily Allowance (₹)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={employeeForm.dailyAllowance || ""}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, dailyAllowance: parseFloat(e.target.value) || 0 })}
+                    placeholder="e.g. 220"
                   />
                 </div>
               </div>

@@ -341,8 +341,8 @@ export function SuperAdminSitesTab() {
       </div>
 
       <Card className="border-border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="overflow-x-auto w-full max-w-[100vw]">
+          <Table className="min-w-[1000px]">
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead className="whitespace-nowrap font-bold text-xs uppercase text-muted-foreground">Site ID</TableHead>

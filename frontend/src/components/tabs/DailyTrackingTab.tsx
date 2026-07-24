@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { 
   MapPin, Clock, Navigation, User, Activity, AlertTriangle, Map, BarChart3, Settings,
   CheckCircle, XCircle, Timer, TrendingUp, Shield, Bell, Zap, Target, Gauge, FileText,
-  UserCheck, UserX, AlarmClock, LogOut, Hourglass, Eye, Edit, Download, Camera, Calendar, Users
+  UserCheck, UserX, AlarmClock, LogOut, Hourglass, Eye, Edit, Download, Camera, Calendar, Users, Car
 } from "lucide-react";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { format } from "date-fns";
@@ -16,11 +16,16 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MeetingsTab } from "@/components/tabs/MeetingsTab";
 import { RegularizationAdminTab } from "@/components/tabs/RegularizationAdminTab";
+import { VehicleManagementSettings } from "@/components/tabs/VehicleManagementSettings";
 
 import { useMasterData } from "@/contexts/MasterDataContext";
 import { TrackingEntry, AttendanceEntry, GeoFenceAlert } from "@/data/sharedTypes";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 // ============= INTERFACES =============
 
@@ -41,7 +46,7 @@ const allSubTabs = [
   { id: "geo-fence", label: "Geo-Fence Alerts", icon: Map, adminOnly: true },
   { id: "meeting-scheduler", label: "Meeting Scheduler", icon: Calendar },
   { id: "regularization", label: "Regularization", icon: Clock, adminOnly: true },
-  { id: "analytics-settings", label: "Tracking Analytics & Settings", icon: BarChart3, adminOnly: true },
+  { id: "vehicle-management", label: "Vehicle Management", icon: Car, adminOnly: true },
 ];
 
 const LocationCell = ({ value, status }: { value: string, status: string }) => {
@@ -226,6 +231,7 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
 
   const [selectedEmployee, setSelectedEmployee] = useState<TrackingEntry | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [proofModalData, setProofModalData] = useState<{ employeeName: string, checkIn?: string, checkOut?: string } | null>(null);
   const [activeSubTab, setActiveSubTab] = useState("live-tracking");
   const [analyticsTab, setAnalyticsTab] = useState("settings");
   
@@ -238,38 +244,42 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
     auditTrailEnabled: true,
   });
 
-  const handleViewDetails = (entry: TrackingEntry) => {
-    setSelectedEmployee(entry);
-    setIsDetailModalOpen(true);
-  };
+
 
   // ============= LIVE TRACKING COLUMNS =============
   const liveTrackingColumns: Column<TrackingEntry>[] = [
     {
       key: "employeeName",
       header: "Employee",
-      render: (_, row) => (
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-semibold">
-              {row.employeeName.split(" ").map((n) => n[0]).join("")}
+      render: (_, row) => {
+        const emp = employees?.find(e => e.employeeId === row.employeeId || e.id === row.employeeId);
+        return (
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              {emp?.profilePhoto ? (
+                <img src={emp.profilePhoto} alt={row.employeeName} className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-semibold">
+                  {row.employeeName.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                </div>
+              )}
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${
+                  row.status === "online"
+                    ? "bg-success animate-pulse"
+                    : row.status === "idle"
+                    ? "bg-warning animate-pulse"
+                    : "bg-muted-foreground"
+                }`}
+              />
             </div>
-            <span
-              className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${
-                row.status === "online"
-                  ? "bg-success animate-pulse"
-                  : row.status === "idle"
-                  ? "bg-warning animate-pulse"
-                  : "bg-muted-foreground"
-              }`}
-            />
+            <div>
+              <p className="font-medium">{row.employeeName}</p>
+              <p className="text-xs text-muted-foreground">{row.employeeId} • {row.role}</p>
+            </div>
           </div>
-          <div>
-            <p className="font-medium">{row.employeeName}</p>
-            <p className="text-xs text-muted-foreground">{row.employeeId} • {row.role}</p>
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "currentLocation",
@@ -388,6 +398,33 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
       header: "Status",
       render: (value) => <StatusBadge status={value as "online" | "offline" | "completed"} pulse={value === "online"} />,
     },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (_, row) => {
+        const hasPhoto = (row as any).checkInPhoto || (row as any).checkOutPhoto;
+        if (!hasPhoto) return <span className="text-muted-foreground text-xs italic">No Proofs</span>;
+        
+        return (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              setProofModalData({
+                employeeName: row.employeeName,
+                checkIn: (row as any).checkInPhoto,
+                checkOut: (row as any).checkOutPhoto
+              });
+            }}
+          >
+            <Camera className="w-3.5 h-3.5" />
+            View Proofs
+          </Button>
+        );
+      }
+    }
   ];
 
   // ============= ATTENDANCE COLUMNS =============
@@ -679,8 +716,8 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
         return { title: "Attendance Log", description: "Track employee check-in/out times, shift compliance, and attendance status" };
       case "geo-fence":
         return { title: "Geo-Fence Alerts", description: "Log alerts when employees breach assigned zones or idle beyond limits" };
-      case "analytics-settings":
-        return { title: "Tracking Analytics & Settings", description: "Configure tracking rules and analyze performance trends" };
+      case "vehicle-management":
+        return { title: "Vehicle Management", description: "Configure company vehicles and standard reimbursement rates" };
       case "meeting-scheduler":
         return { title: "Meeting Scheduler", description: "Manage and schedule team and client meetings" };
       default:
@@ -787,209 +824,11 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
       );
     }
 
-    if (activeSubTab === "analytics-settings") {
-      return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: "Avg Distance/Employee", value: `${avgDistancePerEmployee} km`, icon: Navigation, color: "text-primary" },
-            { label: "Avg Idle Time", value: `${overallAvgIdleTime} min`, icon: Timer, color: "text-warning" },
-            { label: "Geo-Fence Breaches", value: String(geoFenceBreachTrend), icon: Shield, color: "text-destructive" },
-            { label: "Attendance Rate", value: `${attendanceComplianceRate}%`, icon: Target, color: "text-success" },
-          ].map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="glass-card p-4 flex items-center gap-4"
-            >
-              <div className={`w-12 h-12 rounded-xl bg-muted flex items-center justify-center ${stat.color}`}>
-                <stat.icon className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-                <p className="text-2xl font-display font-bold">{stat.value}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      );
+    if (activeSubTab === "vehicle-management") {
+      return <VehicleManagementSettings />;
     }
-
+    
     return null;
-  };
-
-  // ============= RENDER ANALYTICS & SETTINGS =============
-  const renderAnalyticsSettings = () => {
-    return (
-      <div className="space-y-6">
-        <Tabs value={analyticsTab} onValueChange={setAnalyticsTab}>
-          <TabsList className="bg-muted/50">
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Settings
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Analytics Reports
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="settings" className="space-y-6 mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  Tracking Configuration
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="idleThreshold">Idle Threshold (minutes)</Label>
-                    <Input
-                      id="idleThreshold"
-                      type="number"
-                      value={settings.idleThreshold}
-                      onChange={(e) => setSettings({ ...settings, idleThreshold: Number(e.target.value) })}
-                      placeholder="Default: 30 min"
-                    />
-                    <p className="text-xs text-muted-foreground">Alert when employee is idle beyond this duration</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="geoFenceRadius">Geo-Fence Radius (meters)</Label>
-                    <Input
-                      id="geoFenceRadius"
-                      type="number"
-                      value={settings.geoFenceRadius}
-                      onChange={(e) => setSettings({ ...settings, geoFenceRadius: Number(e.target.value) })}
-                      placeholder="Per territory"
-                    />
-                    <p className="text-xs text-muted-foreground">Default boundary radius for geo-fence zones</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="alertSeverity">Alert Severity Levels</Label>
-                    <Select
-                      value={settings.alertSeverity}
-                      onValueChange={(value: "low" | "medium" | "high") =>
-                        setSettings({ ...settings, alertSeverity: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select severity" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">Default severity for new alerts</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Approval Workflow for Adjustments</Label>
-                        <p className="text-xs text-muted-foreground">Enable manager approval for time adjustments</p>
-                      </div>
-                      <Switch
-                        checked={settings.approvalWorkflow}
-                        onCheckedChange={(checked) => setSettings({ ...settings, approvalWorkflow: checked })}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Audit Trail Enabled</Label>
-                        <p className="text-xs text-muted-foreground">Track all changes with user/timestamp</p>
-                      </div>
-                      <Switch
-                        checked={settings.auditTrailEnabled}
-                        onCheckedChange={(checked) => setSettings({ ...settings, auditTrailEnabled: checked })}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {canEdit && (
-                  <div className="flex justify-end gap-2 pt-4 border-t">
-                    <Button variant="outline">Reset to Defaults</Button>
-                    <Button>Save Settings</Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="analytics" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {[
-                {
-                  title: "Distance Covered per Employee",
-                  description: "Daily / Weekly / Monthly breakdown of travel distance",
-                  icon: Navigation,
-                  value: `${avgDistancePerEmployee} km avg`,
-                },
-                {
-                  title: "Avg Idle Time per Employee",
-                  description: "Performance metric tracking idle patterns",
-                  icon: Timer,
-                  value: `${overallAvgIdleTime} min avg`,
-                },
-                {
-                  title: "Plan vs Actual Trends",
-                  description: "Visual deviation tracking over time",
-                  icon: TrendingUp,
-                  value: `${avgPlanVsActual}% compliance`,
-                },
-                {
-                  title: "Geo-Fence Breach Frequency",
-                  description: "Compliance metric for zone violations",
-                  icon: Shield,
-                  value: `${geoFenceBreachTrend} active breaches`,
-                },
-                {
-                  title: "Attendance Compliance %",
-                  description: "HR metric for attendance tracking",
-                  icon: UserCheck,
-                  value: `${attendanceComplianceRate}% present`,
-                },
-              ].map((report, index) => (
-                <motion.div
-                  key={report.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                            <report.icon className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold">{report.title}</h3>
-                            <p className="text-sm text-muted-foreground mt-1">{report.description}</p>
-                            <p className="text-lg font-bold text-primary mt-2">{report.value}</p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="icon">
-                          <FileText className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
   };
 
   // ============= RENDER DATA TABLE =============
@@ -999,7 +838,6 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
         <DataTable
           data={trackingData}
           columns={liveTrackingColumns}
-          onView={isAdmin ? (entry) => handleViewDetails(entry) : undefined}
           searchPlaceholder="Search employees..."
           showExport={canExport}
           onExport={canExport ? handleExport : undefined}
@@ -1098,7 +936,7 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
       >
-        {activeSubTab === "analytics-settings" ? renderAnalyticsSettings() : renderDataTable()}
+        {activeSubTab === "vehicle-management" ? null : renderDataTable()}
       </motion.div>
 
       {/* Daily Tracking Detail Modal */}
@@ -1112,6 +950,41 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
         date={new Date().toISOString().split('T')[0]}
         initialData={selectedEmployee}
       />
+
+      {/* Proof Images Modal */}
+      {proofModalData && (
+        <Dialog open={!!proofModalData} onOpenChange={(open) => !open && setProofModalData(null)}>
+          <DialogContent className="max-w-2xl bg-white border-0 shadow-2xl p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-display font-bold">Attendance Proofs - {proofModalData.employeeName}</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col md:flex-row gap-6 justify-center items-center mt-4">
+              {proofModalData.checkIn ? (
+                <div className="flex flex-col items-center gap-2">
+                  <span className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Check-In Photo</span>
+                  <img src={proofModalData.checkIn} className="w-full max-w-[280px] h-auto rounded-lg shadow-md border border-border" alt="Check In" />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <span className="font-semibold text-sm uppercase tracking-wider">Check-In Photo</span>
+                  <div className="w-[280px] h-[373px] flex items-center justify-center bg-muted/50 border border-dashed rounded-lg">No Check-In Photo</div>
+                </div>
+              )}
+              {proofModalData.checkOut ? (
+                <div className="flex flex-col items-center gap-2">
+                  <span className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Check-Out Photo</span>
+                  <img src={proofModalData.checkOut} className="w-full max-w-[280px] h-auto rounded-lg shadow-md border border-border" alt="Check Out" />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <span className="font-semibold text-sm uppercase tracking-wider">Check-Out Photo</span>
+                  <div className="w-[280px] h-[373px] flex items-center justify-center bg-muted/50 border border-dashed rounded-lg">No Check-Out Photo</div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

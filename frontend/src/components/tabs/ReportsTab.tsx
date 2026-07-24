@@ -68,7 +68,8 @@ import { useMasterData } from "@/contexts/MasterDataContext";
 type ReportModule = 
   | "sales-executive"
   | "employee-portal"
-  | "inventory";
+  | "inventory"
+  | "meeting-travel";
 
 interface ReportConfig {
   module: ReportModule;
@@ -107,6 +108,14 @@ const reportModules: ReportConfig[] = [
     color: "amber",
     focus: "Stock Movement, Low Stock Alerts, Billing Summary",
     metrics: ["Stock Value", "Items Below Minimum", "Monthly Movement", "Billing Total"],
+  },
+  {
+    module: "meeting-travel",
+    title: "Travelling Expenses",
+    icon: Briefcase,
+    color: "indigo",
+    focus: "Distance Traveled, Fuel Costs, Daily Allowance",
+    metrics: ["Total KMs", "Fuel Amount", "Allowances", "Final Total"],
   },
 ];
 
@@ -194,28 +203,182 @@ export const ReportsTab = () => {
     }, 2000);
   };
 
-  const handleExport = (format: "pdf" | "excel") => {
+  const handleExport = async (format: "pdf" | "excel") => {
     const fileName = `Report_${currentModuleConfig.title.replace(/\s+/g, "_")}_${dateRange.from}_to_${dateRange.to}${selectedEmployee !== "all" ? `_${selectedEmployee}` : ""}`;
     
+    // Calculate Grand Total for meeting-travel
+    let totalRow: string[] | null = null;
+    if (currentModuleConfig.module === 'meeting-travel' && reportData.length > 0) {
+      let tKms = 0, tFuel = 0, tDaily = 0, tLocal = 0, tHotel = 0, tOther = 0, tTotal = 0;
+      reportData.forEach(row => {
+        tKms += Number(row.kms) || 0;
+        tFuel += Number(row.fuel) || 0;
+        tDaily += Number(row.daily) || 0;
+        tLocal += Number(row.local) || 0;
+        tHotel += Number(row.hotel) || 0;
+        tOther += Number(row.other) || 0;
+        tTotal += Number(row.total) || 0;
+      });
+      totalRow = [
+        "", "", "", "Grand Total:", "", "",
+        tKms.toFixed(2), tFuel.toFixed(2), tDaily.toFixed(2),
+        tLocal.toFixed(2), tHotel.toFixed(2), tOther.toFixed(2), tTotal.toFixed(2)
+      ];
+    }
+    
     if (format === 'excel') {
-      const worksheet = XLSX.utils.json_to_sheet(reportData);
+      let worksheet;
+      if (currentModuleConfig.module === 'meeting-travel') {
+        const emp = employees.find(e => e.id === selectedEmployee) || employees.find(e => e.fullName === selectedEmployee);
+        const headerData = [
+          ["CROPRISE AGROCHEM LIMITED"],
+          ["Travelling Expenses"],
+          [
+            `Name: ${emp?.fullName || 'All'}`, 
+            `Designation: ${emp?.designation || '-'}`, 
+            `Dept: ${emp?.departmentId || '-'}`, 
+            `Code: ${emp?.employeeId || '-'}`, 
+            `HQ/State: ${emp?.region || '-'}`
+          ],
+          [`From: ${dateRange.from}`, `To: ${dateRange.to}`],
+          []
+        ];
+        
+        const tableColumn = Object.keys(reportData[0] || {}).filter(k => k !== 'proofs');
+        const tableRows = reportData.map(row => {
+          const rowData = { ...row };
+          delete rowData.proofs;
+          return Object.values(rowData).map(val => String(val).replace(/₹/g, 'Rs. '));
+        });
+        if (totalRow) tableRows.push(totalRow);
+        
+        const aoa = [...headerData, tableColumn, ...tableRows];
+        
+        worksheet = XLSX.utils.aoa_to_sheet(aoa);
+      } else {
+        worksheet = XLSX.utils.json_to_sheet(reportData);
+      }
+      
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
       XLSX.writeFile(workbook, `${fileName}.xlsx`);
     } else {
       const doc = new jsPDF();
-      doc.text(`${currentModuleConfig.title} Report`, 14, 15);
-      doc.setFontSize(10);
-      doc.text(`Date Range: ${dateRange.from} to ${dateRange.to}`, 14, 22);
+      let startY = 30;
       
-      const tableColumn = Object.keys(reportData[0] || {});
-      const tableRows = reportData.map(row => Object.values(row).map(val => String(val).replace(/₹/g, 'Rs. ')));
+      if (currentModuleConfig.module === 'meeting-travel') {
+        const emp = employees.find(e => e.id === selectedEmployee) || employees.find(e => e.fullName === selectedEmployee);
+        
+        doc.setFontSize(14);
+        doc.text("CROPRISE AGROCHEM LIMITED", 14, 15);
+        doc.setFontSize(12);
+        doc.text("Travelling Expenses", 14, 22);
+        
+        doc.setFontSize(10);
+        doc.text(`Name: ${emp?.fullName || 'All'}`, 14, 30);
+        doc.text(`Designation: ${emp?.designation || '-'}`, 80, 30);
+        doc.text(`Dept: ${emp?.departmentId || '-'}`, 140, 30);
+        
+        doc.text(`Code: ${emp?.employeeId || '-'}`, 14, 36);
+        doc.text(`HQ/State: ${emp?.region || '-'}`, 80, 36);
+        
+        doc.text(`From: ${dateRange.from}    To: ${dateRange.to}`, 14, 42);
+        
+        startY = 50;
+      } else {
+        doc.text(`${currentModuleConfig.title} Report`, 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Date Range: ${dateRange.from} to ${dateRange.to}`, 14, 22);
+      }
+      
+      const tableColumn = Object.keys(reportData[0] || {}).filter(k => k !== 'proofs');
+      const tableRows = reportData.map(row => {
+        const rowData = { ...row };
+        delete rowData.proofs;
+        return Object.values(rowData).map(val => String(val).replace(/₹/g, 'Rs. '));
+      });
+      if (totalRow) tableRows.push(totalRow);
       
       autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
-        startY: 30,
+        startY: startY,
       });
+      
+      const finalY = (doc as any).lastAutoTable.finalY || startY + 50;
+      doc.setFontSize(10);
+      doc.text("Signature: ___________________", doc.internal.pageSize.getWidth() - 70, finalY + 30);
+      
+      if (currentModuleConfig.module === 'meeting-travel') {
+        for (const row of reportData) {
+          if (row.proofs && Array.isArray(row.proofs) && row.proofs.length > 0) {
+            doc.addPage();
+            doc.setFontSize(14);
+            doc.text(`Meeting & Expense Proofs`, 14, 20);
+            
+            doc.setFontSize(10);
+            const details = [
+              `Date: ${row.date || 'N/A'}`,
+              `Employee: ${row.employee || 'N/A'}`,
+              `Station: ${row.station || 'N/A'}`,
+              `Mode: ${row.mode || '-'} | KMs: ${row.kms || '0'} | Fuel: Rs ${row.fuel || '0'} | Daily: Rs ${row.daily || '0'}`,
+              `Local: Rs ${row.local || '0'} | Hotel: Rs ${row.hotel || '0'} | Other: Rs ${row.other || '0'}`,
+              `Total: Rs ${row.total || '0'}`,
+            ];
+            
+            let detailsY = 28;
+            details.forEach(d => {
+              doc.text(d, 14, detailsY);
+              detailsY += 6;
+            });
+            
+            let currentX = 14;
+            let currentY = detailsY + 5;
+            
+            const imgMaxWidth = 55;
+            const imgMaxHeight = 85;
+            
+            for (const proof of row.proofs) {
+              try {
+                let base64 = proof.url;
+                if (!base64.startsWith('data:')) {
+                  const res = await fetch(proof.url);
+                  const blob = await res.blob();
+                  base64 = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                  });
+                }
+                
+                const format = proof.url.toLowerCase().endsWith('.png') ? 'PNG' : 'JPEG';
+                
+                const img = new Image();
+                img.src = base64;
+                await new Promise((resolve) => { img.onload = resolve; });
+                
+                let width = img.width;
+                let height = img.height;
+                const ratio = Math.min(imgMaxWidth / width, imgMaxHeight / height);
+                width = width * ratio;
+                height = height * ratio;
+                
+                if (currentX + imgMaxWidth > 200) {
+                   currentX = 14;
+                   currentY += imgMaxHeight + 15;
+                }
+                
+                doc.setFontSize(9);
+                doc.text(proof.type, currentX, currentY - 2);
+                doc.addImage(base64, format, currentX, currentY, width, height);
+                currentX += imgMaxWidth + 5;
+              } catch (e) {
+                console.error("Failed to add proof image to PDF", e);
+              }
+            }
+          }
+        }
+      }
       
       doc.save(`${fileName}.pdf`);
     }
@@ -241,8 +404,14 @@ export const ReportsTab = () => {
         { label: "Monthly Turnover", value: "₹8.45L", trend: "+15%", icon: RefreshCw },
         { label: "Avg Days Stock", value: "18 days", trend: "-3", icon: Clock },
       ],
+      "meeting-travel": [
+        { label: "Total Distance", value: "245 km", trend: "+12%", icon: Navigation },
+        { label: "Fuel Expenses", value: "₹2,150", trend: "+5%", icon: MapPin },
+        { label: "Daily Allowances", value: "₹950", trend: "-", icon: Briefcase },
+        { label: "Total Cost", value: "₹3,100", trend: "+4%", icon: Activity },
+      ],
     };
-    return metrics[selectedModule] || [];
+    return metrics[selectedModule as keyof typeof metrics] || [];
   };
 
   const getTableColumns = () => {
@@ -250,6 +419,7 @@ export const ReportsTab = () => {
       "sales-executive": ["Employee ID", "Employee", "Territory", "Visits", "Target (₹)", "Achieved (₹)", "Coverage"],
       "employee-portal": ["Employee ID", "Employee", "Attendance", "Tasks Completed", "KPI Score", "Leaves"],
       "inventory": ["Item", "SKU", "Opening", "Inward", "Outward", "Closing", "Value"],
+      "meeting-travel": ["Date", "Time (Dep-Arr)", "Employee", "Station Visited", "Type of Vehicle", "Rate per KM", "KMs Covered", "Fuel (Rs)", "Daily Allowance (Rs)", "Local Conveyances (Rs)", "Hotel Exp (Rs)", "Mobile/Other (Rs)", "Total (Rs)"]
     };
     return columns[selectedModule];
   };
@@ -263,6 +433,7 @@ export const ReportsTab = () => {
       rose: { bg: "bg-rose-500/10", text: "text-rose-500", border: "border-rose-500/20" },
       red: { bg: "bg-red-500/10", text: "text-red-500", border: "border-red-500/20" },
       cyan: { bg: "bg-cyan-500/10", text: "text-cyan-500", border: "border-cyan-500/20" },
+      indigo: { bg: "bg-indigo-500/10", text: "text-indigo-500", border: "border-indigo-500/20" },
     };
     return colors[color] || colors.emerald;
   };
@@ -633,6 +804,20 @@ export const ReportsTab = () => {
                               ))}
                             </TableRow>
                           ))}
+                          
+                          {/* Grand Total Row */}
+                          {selectedModule === 'meeting-travel' && reportData.length > 0 && (
+                            <TableRow className="bg-slate-50 font-bold border-t-2 border-slate-200 hover:bg-slate-50">
+                               <TableCell colSpan={6} className="text-right py-3 pr-4 text-slate-700">Grand Total:</TableCell>
+                               <TableCell className="py-3 text-sm">{reportData.reduce((sum, row) => sum + (Number(row.kms) || 0), 0).toFixed(2)}</TableCell>
+                               <TableCell className="py-3 text-sm">₹{reportData.reduce((sum, row) => sum + (Number(row.fuel) || 0), 0).toFixed(2)}</TableCell>
+                               <TableCell className="py-3 text-sm">₹{reportData.reduce((sum, row) => sum + (Number(row.daily) || 0), 0).toFixed(2)}</TableCell>
+                               <TableCell className="py-3 text-sm">₹{reportData.reduce((sum, row) => sum + (Number(row.local) || 0), 0).toFixed(2)}</TableCell>
+                               <TableCell className="py-3 text-sm">₹{reportData.reduce((sum, row) => sum + (Number(row.hotel) || 0), 0).toFixed(2)}</TableCell>
+                               <TableCell className="py-3 text-sm">₹{reportData.reduce((sum, row) => sum + (Number(row.other) || 0), 0).toFixed(2)}</TableCell>
+                               <TableCell className="py-3 text-sm text-primary">₹{reportData.reduce((sum, row) => sum + (Number(row.total) || 0), 0).toFixed(2)}</TableCell>
+                            </TableRow>
+                          )}
                         </TableBody>
                       </Table>
                     </div>

@@ -175,6 +175,12 @@ class Employee(models.Model):
     taskAssignmentAllowed = models.BooleanField(default=True)
     statusId = models.ForeignKey(StatusMaster, on_delete=models.SET_NULL, null=True)
     accountStatus = models.BooleanField(default=True)
+    
+    # Expense settings
+    VEHICLE_CHOICES = (('Bike', 'Bike'), ('Car', 'Car'), ('None', 'None'))
+    vehicleType = models.CharField(max_length=50, choices=VEHICLE_CHOICES, default='None')
+    perKmRate = models.FloatField(default=0.0)
+    dailyAllowance = models.FloatField(default=0.0)
 
     class Meta:
         unique_together = ('employeeId', 'organization')

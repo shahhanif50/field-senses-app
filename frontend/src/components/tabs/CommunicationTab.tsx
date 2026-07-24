@@ -252,7 +252,7 @@ export function CommunicationTab() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="grid grid-cols-1 md:grid-cols-4 gap-6 h-[700px]"
+            className="grid grid-cols-1 md:grid-cols-4 gap-6 min-h-[70vh] lg:h-[700px]"
           >
             {/* Sidebar */}
             <div className="bg-card border border-border/50 rounded-2xl flex flex-col overflow-hidden">

@@ -1027,7 +1027,7 @@ export function OrganizationsTab() {
           </div>
 
           {/* Table */}
-          <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm shadow-sm overflow-x-auto">
+          <div className="rounded-xl border border-border bg-card/50 backdrop-blur-sm shadow-sm overflow-x-auto w-full max-w-[100vw]">
             <Table className="min-w-[1200px]">
               <TableHeader className="bg-muted/50">
                 <TableRow>

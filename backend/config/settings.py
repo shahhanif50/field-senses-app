@@ -148,3 +148,4 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'rdnationalit@gmail.com'
 EMAIL_HOST_PASSWORD = 'pjrzvxyzigirpsmf'
 DEFAULT_FROM_EMAIL = 'rdnationalit@gmail.com'
+DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600

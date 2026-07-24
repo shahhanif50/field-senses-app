@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Mail, Phone, Building, Briefcase, Calendar, Upload, Loader2, CheckCircle2, Building2, MapPin, Map, AlertCircle } from "lucide-react";
+import { User, Mail, Phone, Building, Briefcase, Calendar, Upload, Loader2, CheckCircle2, Building2, MapPin, Map, AlertCircle, Trash2 } from "lucide-react";
 import { useMasterData } from "@/contexts/MasterDataContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -117,6 +117,32 @@ export function ProfileTab() {
     reader.readAsDataURL(file);
   };
 
+  const handleRemovePhoto = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (profile?.isVirtual) return;
+
+    setUploading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API}/api/employees/${profile.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profilePhoto: null }),
+      });
+
+      if (response.ok) {
+        setProfile({ ...profile, profilePhoto: null });
+      } else {
+        setError("Failed to remove photo");
+      }
+    } catch (err) {
+      setError("Network error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-20 text-muted-foreground">Loading Profile...</div>;
   }
@@ -142,27 +168,41 @@ export function ProfileTab() {
         
         {/* Left Column: Avatar & Basic Info */}
         <div className="flex flex-col items-center md:items-start w-full md:w-64 shrink-0">
-          <div className="relative group mb-6">
-            <div className="w-40 h-40 rounded-full overflow-hidden bg-muted flex items-center justify-center border-4 border-background shadow-sm relative">
+          <div className="flex flex-col items-center gap-4 mb-6">
+            <div className="w-40 h-40 rounded-full overflow-hidden bg-muted flex items-center justify-center border-4 border-background shadow-sm">
               {profile.profilePhoto ? (
                 <img src={profile.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <User className="w-16 h-16 text-muted-foreground/50" />
               )}
-              
-              {/* Upload Overlay */}
-              <label className="absolute inset-0 bg-background/60 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer">
-                {uploading ? (
-                  <Loader2 className="w-6 h-6 text-primary animate-spin" />
-                ) : (
-                  <>
-                    <Upload className="w-6 h-6 text-foreground mb-1" />
-                    <span className="text-foreground text-xs font-medium">Change Photo</span>
-                  </>
-                )}
-                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading || profile.isVirtual} />
-              </label>
             </div>
+
+            {!profile.isVirtual && (
+              <div className="flex items-center gap-2 w-full justify-center">
+                <label className="flex items-center justify-center gap-2 cursor-pointer bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground px-3 py-2 rounded-lg text-xs font-medium transition-colors flex-1 text-center">
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  Change Photo
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={uploading} />
+                </label>
+
+                {profile.profilePhoto && (
+                  <button 
+                    onClick={() => {
+                      if(window.confirm('Are you sure you want to remove your profile photo?')) {
+                        handleRemovePhoto(new Event('click') as any);
+                      }
+                    }}
+                    disabled={uploading}
+                    className="flex items-center justify-center gap-2 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground px-3 py-2 rounded-lg text-xs font-medium transition-colors flex-1"
+                    title="Remove Photo"
+                    type="button"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           
           <h1 className="text-2xl font-semibold text-foreground text-center md:text-left">{profile.fullName}</h1>

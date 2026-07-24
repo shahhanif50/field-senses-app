@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { X, Calendar, Clock, MapPin, Image as ImageIcon } from "lucide-react";
+import { X, Calendar, Clock, MapPin, Image as ImageIcon, Eye } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +87,7 @@ export function DailyTrackingDetailModal({
   initialData,
 }: DailyTrackingDetailModalProps) {
   const [modalDate, setModalDate] = useState(date);
+  const [fullScreenPhoto, setFullScreenPhoto] = useState<string | null>(null);
   
   useEffect(() => {
     if (isOpen && date) {
@@ -202,8 +204,14 @@ export function DailyTrackingDetailModal({
                           Check-in Photo
                         </p>
                         {employee.checkInPhoto ? (
-                          <div className="rounded-lg overflow-hidden border bg-muted/30 relative aspect-video">
-                            <img src={employee.checkInPhoto} alt="Check In" className="w-full h-full object-cover" />
+                          <div 
+                            className="rounded-lg overflow-hidden border bg-black/5 relative flex items-center justify-center cursor-pointer group"
+                            onClick={() => setFullScreenPhoto(employee.checkInPhoto)}
+                          >
+                            <img src={employee.checkInPhoto} alt="Check In" className="max-w-full h-auto max-h-[500px] object-contain group-hover:opacity-90 transition-opacity" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Eye className="w-8 h-8 text-white" />
+                            </div>
                           </div>
                         ) : (
                           <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/10 flex items-center justify-center h-32">
@@ -240,8 +248,14 @@ export function DailyTrackingDetailModal({
                           Check-out Photo
                         </p>
                         {employee.checkOutPhoto ? (
-                          <div className="rounded-lg overflow-hidden border bg-muted/30 relative aspect-video">
-                            <img src={employee.checkOutPhoto} alt="Check Out" className="w-full h-full object-cover" />
+                          <div 
+                            className="rounded-lg overflow-hidden border bg-black/5 relative flex items-center justify-center cursor-pointer group"
+                            onClick={() => setFullScreenPhoto(employee.checkOutPhoto)}
+                          >
+                            <img src={employee.checkOutPhoto} alt="Check Out" className="max-w-full h-auto max-h-[500px] object-contain group-hover:opacity-90 transition-opacity" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Eye className="w-8 h-8 text-white" />
+                            </div>
                           </div>
                         ) : (
                           <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/10 flex items-center justify-center h-32">
@@ -258,6 +272,17 @@ export function DailyTrackingDetailModal({
           </div>
         </div>
       </motion.div>
+      
+      {/* Full Screen Photo Portal */}
+      {fullScreenPhoto && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center backdrop-blur-sm" onClick={() => setFullScreenPhoto(null)}>
+          <button className="absolute top-4 right-4 p-2 text-white hover:bg-white/20 rounded-full transition-colors" onClick={() => setFullScreenPhoto(null)}>
+            <X className="w-8 h-8" />
+          </button>
+          <img src={fullScreenPhoto} alt="Full Screen" className="max-w-[95vw] max-h-[95vh] object-contain shadow-2xl" />
+        </div>,
+        document.body
+      )}
     </AnimatePresence>
   );
 }

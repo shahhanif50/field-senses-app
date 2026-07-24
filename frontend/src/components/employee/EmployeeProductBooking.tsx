@@ -345,7 +345,7 @@ export function EmployeeProductBooking() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
                   <div className="bg-card/50 backdrop-blur-sm border border-border/80 rounded-2xl p-4 shadow-sm flex flex-col gap-1 hover:border-primary/30 transition-colors">
                     <span className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">Availability</span>
                     <span className="text-foreground text-sm font-bold flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-green-500" /> In Stock</span>
@@ -503,7 +503,7 @@ export function EmployeeProductBooking() {
                   )}
                 </div>
                 <div className="flex-1 space-y-6 w-full">
-                  <div className="grid grid-cols-2 gap-6 border-b border-border/40 pb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-b border-border/40 pb-6">
                     <div>
                       <p className="text-muted-foreground text-sm font-bold uppercase tracking-widest mb-2">Product</p>
                       <p className="font-black text-lg text-foreground line-clamp-2 leading-tight">{selectedProduct.name}</p>
@@ -513,7 +513,7 @@ export function EmployeeProductBooking() {
                       <p className="font-bold text-lg text-foreground">{new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <p className="text-muted-foreground text-sm font-bold uppercase tracking-widest mb-2">Quantity</p>
                       <p className="font-black text-foreground text-xl">{quantity} <span className="text-sm font-semibold text-muted-foreground">units</span></p>
