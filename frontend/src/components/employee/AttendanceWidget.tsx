@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, MapPin, CheckCircle2, Clock, X, Navigation, Image as ImageIcon, ChevronLeft } from 'lucide-react';
+import { Camera, MapPin, CheckCircle2, Clock, X, Navigation, Image as ImageIcon, ChevronLeft, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMasterData } from '@/contexts/MasterDataContext';
 import { AttendanceEntry, PortalEmployee as Employee } from '@/data/sharedTypes';
@@ -107,6 +107,7 @@ export function AttendanceWidget() {
   const [isRegularizationOpen, setIsRegularizationOpen] = useState(false);
   const [mode, setMode] = useState<"checkIn" | "checkOut">("checkIn");
   const [photoData, setPhotoData] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const logoSrc = useTransparentLogo();
   const [locationData, setLocationData] = useState<{lat: number, lng: number, address?: string} | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -131,15 +132,29 @@ export function AttendanceWidget() {
     return null;
   }
 
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream, isModalOpen]);
+
   const startCamera = async () => {
+    setCameraError(null);
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraError("Camera is not supported in this browser.");
+        toast.error("Camera is not supported in this browser.");
+        return;
+      }
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
-    } catch (err) {
-      toast.error("Could not access camera. Please allow permissions.");
+    } catch (err: any) {
+      console.error("Camera error:", err);
+      setCameraError(err.message || "Could not access camera. Please check permissions.");
+      toast.error("Could not access camera. Please check permissions or device.");
     }
   };
 
@@ -623,9 +638,19 @@ export function AttendanceWidget() {
                     className="absolute inset-0 w-full h-full object-cover -scale-x-100"
                   />
                   {!stream && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50">
-                      <Camera className="w-8 h-8 mb-2 animate-pulse" />
-                      <span className="text-sm">Initializing camera...</span>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 bg-black/80 z-20">
+                      {cameraError ? (
+                        <>
+                          <AlertTriangle className="w-8 h-8 mb-2 text-red-500" />
+                          <span className="text-sm px-6 text-center text-red-400">{cameraError}</span>
+                          <Button variant="outline" size="sm" onClick={startCamera} className="mt-4 border-white/20 text-white hover:bg-white/10">Retry</Button>
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-8 h-8 mb-2 animate-pulse" />
+                          <span className="text-sm">Initializing camera...</span>
+                        </>
+                      )}
                     </div>
                   )}
                   {/* Live Watermark Overlay (Only visible before capturing) */}

@@ -163,6 +163,7 @@ export function DailyTrackingTab({ viewMode = "team" }: { viewMode?: "self" | "t
         entry.employeeName.toLowerCase().split(' ').sort().join(' ') === userName.toLowerCase().split(' ').sort().join(' ');
     })
     .sort((a, b) => new Date(b.checkInTime).getTime() - new Date(a.checkInTime).getTime())
+    .filter((entry, index, self) => index === self.findIndex((t) => t.employeeId === entry.employeeId))
     .map(tracking => {
       const matchingAttendance = attendanceData.find(a => a.employeeCode === tracking.employeeId);
       return {
