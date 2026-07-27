@@ -127,16 +127,16 @@ export function AttendanceWidget() {
     }
   }, [isModalOpen, stream]);
 
-  // Only show if attendance is required
-  if (!currentEmployee?.attendanceRequired) {
-    return null;
-  }
-
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
     }
   }, [stream, isModalOpen]);
+
+  // Only show if attendance is required
+  if (!currentEmployee?.attendanceRequired) {
+    return null;
+  }
 
   const startCamera = async () => {
     setCameraError(null);
