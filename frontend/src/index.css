@@ -258,4 +258,15 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  
+  /* Fix Leaflet broken tile grey box */
+  .leaflet-container {
+    background: transparent !important;
+  }
+  .leaflet-tile {
+    background: transparent !important;
+  }
+  img.leaflet-tile {
+    color: transparent !important;
+  }
 }

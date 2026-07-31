@@ -299,6 +299,17 @@ export interface Meeting {
   endLocationLng?: number;
   startPhoto?: string;
   endPhoto?: string;
+  startMeterPhoto?: string | null;
+  endMeterPhoto?: string | null;
+  startMeterLocationLat?: number | null;
+  startMeterLocationLng?: number | null;
+  startMeterLocationName?: string | null;
+  endMeterLocationLat?: number | null;
+  endMeterLocationLng?: number | null;
+  endMeterLocationName?: string | null;
+  startMeterTime?: string | null;
+  endMeterTime?: string | null;
+  calculatedDistanceKms?: number;
 }
 
 // ============= INVENTORY TYPES =============

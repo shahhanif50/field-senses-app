@@ -34,7 +34,8 @@ import {
   MessageSquare,
   UserCheck,
   Target,
-  CreditCard
+  CreditCard,
+  ChevronLeft
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,8 @@ interface TopNavigationProps {
   onTabChange: (tab: string) => void;
   isDark: boolean;
   onThemeToggle: () => void;
+  onBack?: () => void;
+  canGoBack?: boolean;
 }
 
 export const allTabs = [
@@ -81,6 +84,8 @@ export function TopNavigation({
   onTabChange,
   isDark,
   onThemeToggle,
+  onBack,
+  canGoBack,
 }: TopNavigationProps) {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -442,6 +447,17 @@ export function TopNavigation({
         <div className="flex items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex items-center gap-3 shrink-0">
+            {canGoBack && onBack && (
+              <Button 
+                variant="secondary" 
+                size="icon" 
+                onClick={onBack} 
+                className="shrink-0 rounded-full w-9 h-9 bg-slate-100 hover:bg-slate-200 text-slate-700 shadow-sm border border-slate-200/60 mr-1 transition-all"
+                title="Go Back"
+              >
+                <ChevronLeft className="w-5 h-5 pr-[2px]" />
+              </Button>
+            )}
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <Building2 className="w-6 h-6 text-primary-foreground" />
             </div>

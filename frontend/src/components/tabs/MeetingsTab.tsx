@@ -51,13 +51,49 @@ interface Meeting {
   vehicleType?: string;
   vehicleRate?: number;
   vehicleMeterPhoto?: string;
-  startMeterPhoto?: string;
-  endMeterPhoto?: string;
+  startMeterPhoto?: string | null;
+  endMeterPhoto?: string | null;
+  startMeterLocationLat?: number | null;
+  startMeterLocationLng?: number | null;
+  startMeterLocationName?: string | null;
+  endMeterLocationLat?: number | null;
+  endMeterLocationLng?: number | null;
+  endMeterLocationName?: string | null;
+  startMeterTime?: string | null;
+  endMeterTime?: string | null;
+  calculatedDistanceKms?: number;
 }
+
+const LiveMeetingDuration = ({ startTime, endTime }: { startTime: string; endTime?: string }) => {
+  const [duration, setDuration] = useState<string>("");
+
+  useEffect(() => {
+    const calculate = () => {
+      const end = endTime ? new Date(endTime) : new Date();
+      const diff = end.getTime() - new Date(startTime).getTime();
+      if (diff <= 0) return "0 mins";
+      const mins = Math.floor(diff / 60000);
+      const hrs = Math.floor(mins / 60);
+      if (hrs > 0) return `${hrs}h ${mins % 60}m`;
+      return `${mins} mins`;
+    };
+
+    setDuration(calculate());
+
+    if (!endTime) {
+      const interval = setInterval(() => {
+        setDuration(calculate());
+      }, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [startTime, endTime]);
+
+  return <>{duration}{!endTime ? " (Ongoing)" : ""}</>;
+};
 
 export function MeetingsTab() {
   const logoSrc = useTransparentLogo();
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const { meetings, setMeetings, trackingEntries, regularizationRequests, employees, attendanceEntries } = useMasterData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
@@ -84,8 +120,6 @@ export function MeetingsTab() {
     if (hrs > 0) return `${hrs}h ${mins % 60}m`;
     return `${mins} mins`;
   };
-
-  const { trackingEntries, regularizationRequests, employees, attendanceEntries } = useMasterData();
   const userId = sessionStorage.getItem("userId") || "";
   const sessionEmpId = sessionStorage.getItem("employeeId") || "";
 
@@ -102,6 +136,10 @@ export function MeetingsTab() {
   };
 
   const getMeetingDistance = (meeting: Meeting) => {
+    if (meeting.calculatedDistanceKms && meeting.calculatedDistanceKms > 0) {
+      return `${meeting.calculatedDistanceKms.toFixed(2)} km (from Start Meter to End Meter)`;
+    }
+
     if (!meeting.startLocationLat || !meeting.startLocationLng) return null;
 
     // Find meetings for the same date and same employee that have started, ordered by start time
@@ -146,7 +184,7 @@ export function MeetingsTab() {
 
       if (checkInLat && checkInLng) {
         const dist = haversine(checkInLat, checkInLng, meeting.startLocationLat, meeting.startLocationLng);
-        return dist ? `${dist} km (from check-in)` : null;
+        return dist ? `${dist} km (from Check-in to ${meeting.title || "meeting"})` : null;
       } else {
         return "N/A (No Check-in)";
       }
@@ -157,7 +195,7 @@ export function MeetingsTab() {
       const prevLng = prev.endLocationLng || prev.startLocationLng;
       if (prevLat && prevLng) {
         const dist = haversine(prevLat, prevLng, meeting.startLocationLat, meeting.startLocationLng);
-        return dist ? `${dist} km (from prev meeting)` : null;
+        return dist ? `${dist} km (from ${prev.title || "previous meeting"} to ${meeting.title || "this meeting"})` : null;
       }
     }
     return null;
@@ -213,22 +251,22 @@ export function MeetingsTab() {
   const employeeId = sessionStorage.getItem("employeeId") || "EMP-UNKNOWN";
   const employeeName = sessionStorage.getItem("userName") || "Unknown User";
 
-  const [formData, setFormData] = useState<Partial<Meeting>>({
+  const [formData, setFormData] = useState<any>({
+    clientName: "",
+    title: "",
     type: "client",
-    mode: "in-person",
-    startTime: (() => {
+    checklist: "",
+    dateTime: (() => {
       const d = new Date();
-      return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     })(),
-    endTime: (() => {
-      const d = new Date();
-      d.setHours(d.getHours() + 1);
-      return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-    })(),
-    reminder: "15min",
+    location: "",
+    priority: "medium",
+    agenda: "",
     organizer: employeeName,
     organizerId: employeeId,
     attendees: [],
+    mode: "in-person",
   });
 
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
@@ -320,26 +358,33 @@ export function MeetingsTab() {
   }, []);
 
   const handleSave = async () => {
-    if (!formData.title || !formData.date || !formData.location) {
+    if (!formData.title || !formData.dateTime || !formData.location) {
       toast({ title: "Validation Error", description: "Please fill all required fields.", variant: "destructive" });
-      return;
-    }
-
-    if (formData.vehicleType && !formData.vehicleMeterPhoto) {
-      toast({ title: "Validation Error", description: "Vehicle meter photo is required when a vehicle is selected.", variant: "destructive" });
       return;
     }
 
     setIsSaving(true);
     try {
+      const dt = new Date(formData.dateTime);
+      const date = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+      const startTime = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+      
+      const endDt = new Date(dt.getTime() + 60 * 60 * 1000); // Default to +1 hour
+      const endTime = `${String(endDt.getHours()).padStart(2, '0')}:${String(endDt.getMinutes()).padStart(2, '0')}`;
+
+      const fullTitle = formData.clientName ? `${formData.clientName} - ${formData.title}` : formData.title;
+      const fullAgenda = formData.checklist ? `Checklist: ${formData.checklist}\n\n${formData.agenda || ""}` : (formData.agenda || "");
+
       const payload: any = {
         ...formData,
-        startMeterPhoto: formData.vehicleMeterPhoto,
-        agenda: formData.agenda || "Client Meeting",
+        title: fullTitle,
+        date,
+        startTime,
+        endTime,
+        agenda: fullAgenda || "Client Meeting",
         recurring: formData.recurring || "none",
         priority: formData.priority || "medium",
       };
-      delete payload.vehicleMeterPhoto;
 
       const attendees = payload.attendees || [];
       const isOrganizerIncluded = attendees.some((a: any) => a.id === formData.organizerId);
@@ -609,6 +654,16 @@ export function MeetingsTab() {
     }
   };
 
+  useEffect(() => {
+    const handleStartFromTracking = (e: any) => {
+      if (e.detail?.meetingId) {
+        handleLiveAction(e.detail.meetingId, "start");
+      }
+    };
+    window.addEventListener('startMeetingFromTracking', handleStartFromTracking);
+    return () => window.removeEventListener('startMeetingFromTracking', handleStartFromTracking);
+  }, [isCheckedInToday, meetings]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -771,6 +826,14 @@ export function MeetingsTab() {
     
     setMomModalOpen(true);
   };
+
+  useEffect(() => {
+    const pendingMomId = localStorage.getItem('pendingMomMeetingId');
+    if (pendingMomId && meetings.some(m => m.id === pendingMomId)) {
+      openMomModal(pendingMomId);
+      localStorage.removeItem('pendingMomMeetingId');
+    }
+  }, [meetings]);
 
   const submitMomForm = async () => {
     if (!activeMomMeetingId) return;
@@ -1059,7 +1122,7 @@ export function MeetingsTab() {
                   )}
 
                   {/* Actions - Always visible */}
-                  {((meeting.mode === "online" && meeting.meetingLink && !isAdmin) || (meeting.mode !== "online" && meeting.status !== "completed" && !isAdmin)) && (
+                  {((meeting.mode === "online" && meeting.meetingLink && !isAdmin) || (meeting.status === "scheduled" && !isAdmin)) && (
                     <div className="flex items-center justify-end mb-3 gap-2">
                       {meeting.mode === "online" && meeting.meetingLink && !isAdmin && (
                         <Button variant="outline" size="sm" className="h-8 text-[11px] px-4 bg-primary/5 hover:bg-primary/10 border-primary/20 font-semibold" onClick={() => {
@@ -1074,26 +1137,6 @@ export function MeetingsTab() {
                           window.open(meeting.meetingLink, '_blank');
                         }}>
                           Join
-                        </Button>
-                      )}
-                      {meeting.mode !== "online" && !['completed', 'cancelled'].includes(meeting.status) && !isAdmin && (
-                        <Button
-                          variant={meeting.status === "in-progress" ? "destructive" : "default"}
-                          size="sm"
-                          className="h-8 text-[11px] px-5 font-semibold"
-                          onClick={() => {
-                            if (meeting.status !== "in-progress" && isCheckedOutToday) {
-                              toast({ title: "Checked Out", description: "You have checked out for the day and cannot start meetings.", variant: "destructive" });
-                              return;
-                            }
-                            if (meeting.status !== "in-progress" && !isCheckedInToday) {
-                              toast({ title: "Check-in Required", description: "You must check in for the day before starting a meeting.", variant: "destructive" });
-                              return;
-                            }
-                            handleLiveAction(meeting.id, meeting.status === "in-progress" ? "end" : "start");
-                          }}
-                        >
-                          {meeting.status === "in-progress" ? "End" : "Start"}
                         </Button>
                       )}
                       {meeting.status === "scheduled" && !isAdmin && (
@@ -1145,20 +1188,21 @@ export function MeetingsTab() {
                                   </div>
                                 </div>
 
-                                {isAdmin && meeting.momData.expenses.status === 'pending' && (
-                                  <div className="flex gap-1.5">
-                                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 h-6 text-[10px] px-3 font-semibold" onClick={() => handleExpenseApproval(meeting.id, 'approved')}>
-                                      Approve
-                                    </Button>
-                                    <Button size="sm" variant="destructive" className="h-6 text-[10px] px-3 font-semibold" onClick={() => handleExpenseApproval(meeting.id, 'denied')}>
-                                      Deny
+
+                                {isAdmin && meeting.momData.expenses.status !== 'pending' && (
+                                  <div className="flex gap-1.5 mt-2">
+                                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 font-semibold" onClick={() => handleExpenseApproval(meeting.id, 'pending')}>
+                                      Cancel Decision
                                     </Button>
                                   </div>
                                 )}
-                                {isAdmin && meeting.momData.expenses.status !== 'pending' && (
-                                  <div className="flex gap-1.5">
-                                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2 font-semibold" onClick={() => handleExpenseApproval(meeting.id, 'pending')}>
-                                      Cancel Decision
+                                {isAdmin && (!meeting.momData.expenses.status || meeting.momData.expenses.status === 'pending') && (
+                                  <div className="flex gap-1.5 mt-2">
+                                    <Button size="sm" className="h-6 text-[10px] px-2 font-semibold bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'approved')}>
+                                      Approve
+                                    </Button>
+                                    <Button size="sm" className="h-6 text-[10px] px-2 font-semibold bg-rose-600 hover:bg-rose-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'rejected')}>
+                                      Reject
                                     </Button>
                                   </div>
                                 )}
@@ -1269,10 +1313,23 @@ export function MeetingsTab() {
                                 />
                                 <div className="flex flex-col">
                                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Start Meter</span>
-                                  {meeting.actualStartTime && (
+                                  {(meeting.startMeterTime || meeting.actualStartTime) && (
                                     <span className="text-[11px] text-slate-700 font-bold flex items-center gap-1">
-                                      <Clock className="w-2.5 h-2.5 text-primary/60" /> {new Date(meeting.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      <Clock className="w-2.5 h-2.5 text-primary/60" /> {new Date((meeting.startMeterTime || meeting.actualStartTime) as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
+                                  )}
+                                  {meeting.startMeterLocationLat && meeting.startMeterLocationLng && (
+                                    <a
+                                      href={`https://maps.google.com/?q=${meeting.startMeterLocationLat},${meeting.startMeterLocationLng}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-[9px] text-blue-600 hover:underline flex items-start gap-1 mt-0.5 max-w-[120px]"
+                                      onClick={(e) => e.stopPropagation()}
+                                      title={meeting.startMeterLocationName || "View Location"}
+                                    >
+                                      <MapPin className="w-2.5 h-2.5 shrink-0 mt-0.5" />
+                                      <span className="line-clamp-2 leading-tight">{meeting.startMeterLocationName || "View Location"}</span>
+                                    </a>
                                   )}
                                 </div>
                               </div>
@@ -1318,10 +1375,23 @@ export function MeetingsTab() {
                                 />
                                 <div className="flex flex-col">
                                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">End Meter</span>
-                                  {meeting.actualEndTime && (
+                                  {(meeting.endMeterTime || meeting.actualStartTime || meeting.actualEndTime) && (
                                     <span className="text-[11px] text-slate-700 font-bold flex items-center gap-1">
-                                      <Clock className="w-2.5 h-2.5 text-primary/60" /> {new Date(meeting.actualEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      <Clock className="w-2.5 h-2.5 text-primary/60" /> {new Date((meeting.endMeterTime || meeting.actualStartTime || meeting.actualEndTime) as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
+                                  )}
+                                  {meeting.endMeterLocationLat && meeting.endMeterLocationLng && (
+                                    <a
+                                      href={`https://maps.google.com/?q=${meeting.endMeterLocationLat},${meeting.endMeterLocationLng}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-[9px] text-blue-600 hover:underline flex items-start gap-1 mt-0.5 max-w-[120px]"
+                                      onClick={(e) => e.stopPropagation()}
+                                      title={meeting.endMeterLocationName || "View Location"}
+                                    >
+                                      <MapPin className="w-2.5 h-2.5 shrink-0 mt-0.5" />
+                                      <span className="line-clamp-2 leading-tight">{meeting.endMeterLocationName || "View Location"}</span>
+                                    </a>
                                   )}
                                 </div>
                               </div>
@@ -1331,12 +1401,12 @@ export function MeetingsTab() {
                       )}
 
                       {/* Duration Section */}
-                      {meeting.actualStartTime && meeting.actualEndTime && (
+                      {meeting.actualStartTime && (
                         <div className="mt-3 flex items-center">
                           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50/80 rounded-full border border-indigo-100/80">
                             <Clock className="w-3.5 h-3.5 text-indigo-500" />
                             <span className="text-[11px] font-bold text-indigo-700">
-                              Duration: {calculateDuration(meeting.actualStartTime, meeting.actualEndTime)}
+                              Duration: <LiveMeetingDuration startTime={meeting.actualStartTime} endTime={meeting.actualEndTime} />
                             </span>
                           </div>
                         </div>
@@ -1479,20 +1549,21 @@ export function MeetingsTab() {
                                         )}
                                       </div>
 
-                                      {isAdmin && meeting.momData.expenses.status === 'pending' && (
-                                        <div className="flex gap-2 mt-2">
-                                          <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => handleExpenseApproval(meeting.id, 'approved')}>
-                                            Approve
-                                          </Button>
-                                          <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleExpenseApproval(meeting.id, 'denied')}>
-                                            Deny
-                                          </Button>
-                                        </div>
-                                      )}
+
                                       {isAdmin && meeting.momData.expenses.status !== 'pending' && (
                                         <div className="mt-2">
                                           <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => handleExpenseApproval(meeting.id, 'pending')}>
                                             Cancel Decision
+                                          </Button>
+                                        </div>
+                                      )}
+                                      {isAdmin && (!meeting.momData.expenses.status || meeting.momData.expenses.status === 'pending') && (
+                                        <div className="mt-2 flex gap-2">
+                                          <Button size="sm" className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'approved')}>
+                                            Approve
+                                          </Button>
+                                          <Button size="sm" className="w-full text-xs bg-rose-600 hover:bg-rose-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'rejected')}>
+                                            Reject
                                           </Button>
                                         </div>
                                       )}
@@ -1542,192 +1613,120 @@ export function MeetingsTab() {
 
         </div>
       ) : (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between pb-4 border-b">
-            <h2 className="text-2xl font-bold">Schedule New Meeting</h2>
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-              <Button onClick={handleSave} className="gradient-btn" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Schedule Meeting"}
-              </Button>
-            </div>
+        <div className="space-y-5 px-1 pb-8 max-w-md mx-auto">
+          <div className="flex items-center gap-3 pb-2 pt-2">
+            <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)} className="h-10 w-10 rounded-full hover:bg-slate-100 -ml-2">
+              <ChevronLeft className="w-6 h-6 text-slate-700" />
+            </Button>
+            <h2 className="text-xl font-medium text-slate-800">Plan my day</h2>
           </div>
 
-          <div className="bg-card border rounded-xl p-6 space-y-6 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2 md:col-span-2">
-                <Label>Meeting Title <span className="text-destructive">*</span></Label>
-                <Input value={formData.title || ""} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="e.g., Weekly Sync" />
-              </div>
+          <div className="space-y-6">
+            <div className="flex flex-col">
+              <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Client Name</Label>
+              <Input value={formData.clientName || ""} onChange={e => setFormData({ ...formData, clientName: e.target.value })} placeholder="e.g. Acme Logistics" className="rounded-full h-12 px-5 border-slate-200 bg-white text-[15px]" />
+            </div>
 
-              <div className="space-y-2">
-                <Label>Meeting Type</Label>
-                <Select value={formData.type} onValueChange={v => setFormData({ ...formData, type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="internal">Internal Sync</SelectItem>
-                    <SelectItem value="client">Client Meeting</SelectItem>
-                    <SelectItem value="sales">Sales Pitch</SelectItem>
-                    <SelectItem value="follow-up">Follow-up</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex flex-col">
+              <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Meeting Title</Label>
+              <Input value={formData.title || ""} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="e.g. Quarterly Review" className="rounded-full h-12 px-5 border-slate-200 bg-white text-[15px]" />
+            </div>
 
-              <div className="space-y-2">
-                <Label>Select Vehicle</Label>
-                <Select value={formData.vehicleType || ""} onValueChange={v => {
-                  if (v === "none") {
-                    setFormData({ ...formData, vehicleType: "", vehicleRate: 0, vehicleMeterPhoto: undefined });
-                    return;
-                  }
-                  const selectedVehicle = vehicles.find(veh => veh.name === v);
-                  if (selectedVehicle) {
-                    setFormData({ ...formData, vehicleType: selectedVehicle.name, vehicleRate: selectedVehicle.ratePerKm });
-                  }
-                }}>
-                  <SelectTrigger><SelectValue placeholder="No vehicle selected" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No vehicle</SelectItem>
-                    {vehicles.map((v: any) => (
-                      <SelectItem key={v.id} value={v.name}>{v.name} ({v.type}) - ₹{v.ratePerKm}/km</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {formData.vehicleType && (
-                  <div className="mt-2 flex flex-col gap-2">
-                    {!formData.vehicleMeterPhoto ? (
-                      <div className="flex gap-2 w-full">
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={handleCaptureVehicleMeter}
-                          className="flex-1 flex items-center justify-center gap-1.5 border-primary/20 text-primary hover:bg-primary/5 px-2 text-xs h-9"
-                        >
-                          <Camera className="w-4 h-4" />
-                          Capture
-                        </Button>
-                        <Label className="flex-1">
-                          <div className="flex items-center justify-center gap-1.5 border border-primary/20 text-primary bg-transparent hover:bg-primary/5 rounded-md text-xs h-9 px-2 font-medium cursor-pointer transition-colors">
-                            <Upload className="w-4 h-4" /> Upload
-                          </div>
-                          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, "vehicleMeterPhoto")} />
-                        </Label>
-                      </div>
-                    ) : (
-                      <div className="relative w-full h-32 rounded border border-slate-200 overflow-hidden shadow-sm">
-                        <img src={formData.vehicleMeterPhoto} alt="Vehicle Meter" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                          <Button 
-                            type="button" 
-                            variant="secondary" 
-                            size="sm"
-                            onClick={handleCaptureVehicleMeter}
-                            className="text-xs"
-                          >
-                            Retake Photo
-                          </Button>
-                        </div>
-                        <button 
-                          onClick={() => setFormData({ ...formData, vehicleMeterPhoto: undefined })}
-                          className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+            <div className="flex flex-col">
+              <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Type</Label>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+                {['client', 'demo', 'audit', 'sales'].map((t) => {
+                   const labelMap: any = { client: 'Client Visit', demo: 'Demo', audit: 'Audit', sales: 'Sales Call' };
+                   const isActive = formData.type === t;
+                   return (
+                     <button
+                       key={t}
+                       type="button"
+                       onClick={() => setFormData({ ...formData, type: t })}
+                       className={`whitespace-nowrap px-5 py-2.5 rounded-full text-[14px] transition-colors ${isActive ? 'bg-[#2563eb] text-white shadow-md shadow-blue-500/20' : 'bg-white border border-slate-200 text-slate-700'}`}
+                     >
+                       {labelMap[t]}
+                     </button>
+                   );
+                })}
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label>Date <span className="text-destructive">*</span></Label>
-                <Input type="date" value={formData.date || ""} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+            <div className="flex flex-col">
+              <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Checklist</Label>
+              <Select value={formData.checklist} onValueChange={v => setFormData({ ...formData, checklist: v })}>
+                <SelectTrigger className="rounded-full h-12 px-5 border-slate-200 bg-white text-[15px]"><SelectValue placeholder="Select Checklist" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="initial-discussion">Initial Discussion</SelectItem>
+                  <SelectItem value="requirements-gathering">Requirements Gathering</SelectItem>
+                  <SelectItem value="proposal-presentation">Proposal Presentation</SelectItem>
+                  <SelectItem value="closing">Closing</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col">
+              <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Date & Time</Label>
+              <Input type="datetime-local" value={formData.dateTime || ""} onChange={e => setFormData({ ...formData, dateTime: e.target.value })} className="rounded-full h-12 px-5 border-slate-200 bg-white block w-full text-[15px]" />
+            </div>
+
+            <div className="flex flex-col relative">
+              <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Destination</Label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Input value={formData.location || ""} onChange={handleLocationChange} placeholder="Search Location" className="rounded-full h-12 pl-11 pr-5 border-slate-200 bg-white text-[15px]" />
               </div>
-
-              {isAdmin && (
-                <div className="space-y-2">
-                  <Label>Assign To (Employee)</Label>
-                  <Select
-                    value={formData.organizerId}
-                    onValueChange={(val) => {
-                      const selectedEmp = employees.find(e => e.employeeId === val);
-                      if (selectedEmp) {
-                        setFormData({
-                          ...formData,
-                          organizerId: selectedEmp.employeeId,
-                          organizer: selectedEmp.fullName
+              {locationSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden top-[100%] max-h-48 overflow-y-auto">
+                  {locationSuggestions.map((s, i) => (
+                    <div
+                      key={i}
+                      className="px-4 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 cursor-pointer text-sm text-slate-700"
+                      onClick={() => {
+                        setFormData({ 
+                          ...formData, 
+                          location: s.display_name,
+                          startLocationLat: s.lat,
+                          startLocationLng: s.lng
                         });
-                      }
-                    }}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select Employee" /></SelectTrigger>
-                    <SelectContent>
-                      {employees.map(emp => (
-                        <SelectItem key={emp.employeeId} value={emp.employeeId}>
-                          {emp.fullName} ({emp.employeeId})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        setLocationSuggestions([]);
+                      }}
+                    >
+                      {s.display_name}
+                    </div>
+                  ))}
                 </div>
               )}
+            </div>
 
-              <div className="space-y-2">
-                <Label>Start Time <span className="text-destructive">*</span></Label>
-                <div className="relative cursor-pointer" onClick={() => { setActiveTimeField('startTime'); setPickerOpen(true); }}>
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"><Clock className="w-4 h-4 text-muted-foreground" /></div>
-                  <Input type="text" readOnly value={formData.startTime || ""} className="pl-9 cursor-pointer caret-transparent" />
-                </div>
+            <div className="flex flex-col">
+              <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Priority</Label>
+              <div className="flex gap-3">
+                {['low', 'medium', 'high'].map((p) => {
+                   const isActive = formData.priority === p;
+                   return (
+                     <button
+                       key={p}
+                       type="button"
+                       onClick={() => setFormData({ ...formData, priority: p })}
+                       className={`capitalize px-6 py-2.5 rounded-full text-[14px] transition-colors ${isActive ? 'bg-[#2563eb] text-white shadow-md shadow-blue-500/20' : 'bg-white border border-slate-200 text-slate-700'}`}
+                     >
+                       {p}
+                     </button>
+                   );
+                })}
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label>End Time <span className="text-destructive">*</span></Label>
-                <div className="relative cursor-pointer" onClick={() => { setActiveTimeField('endTime'); setPickerOpen(true); }}>
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"><Clock className="w-4 h-4 text-muted-foreground" /></div>
-                  <Input type="text" readOnly value={formData.endTime || ""} className="pl-9 cursor-pointer caret-transparent" />
-                </div>
-              </div>
+            <div className="flex flex-col">
+              <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Description</Label>
+              <Textarea value={formData.agenda || ""} onChange={e => setFormData({ ...formData, agenda: e.target.value })} placeholder="e.g. Describe the purpose" className="rounded-2xl p-4 border-slate-200 bg-white min-h-[100px] resize-none text-[15px]" />
+            </div>
 
-              <div className="space-y-2 md:col-span-2 relative">
-                <Label>Client Location <span className="text-destructive">*</span></Label>
-                <Input value={formData.location || ""} onChange={handleLocationChange} placeholder="Search Client Address or Name..." />
-
-                {locationSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden top-[100%] max-h-48 overflow-y-auto">
-                    {locationSuggestions.map((s, i) => (
-                      <div
-                        key={i}
-                        className="px-4 py-2 hover:bg-muted cursor-pointer text-sm"
-                        onClick={() => {
-                          setFormData({ ...formData, location: s.display_name });
-                          setLocationSuggestions([]);
-                        }}
-                      >
-                        {s.display_name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label>Agenda / Description</Label>
-                <Textarea value={formData.agenda || ""} onChange={e => setFormData({ ...formData, agenda: e.target.value })} placeholder="What's the meeting about?" className="min-h-[100px]" />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Reminder</Label>
-                <Select value={formData.reminder} onValueChange={v => setFormData({ ...formData, reminder: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No reminder</SelectItem>
-                    <SelectItem value="15min">15 minutes before</SelectItem>
-                    <SelectItem value="30min">30 minutes before</SelectItem>
-                    <SelectItem value="1hour">1 hour before</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="pt-4 pb-12">
+              <Button onClick={handleSave} className="w-full rounded-full h-14 bg-[#2563eb] hover:bg-blue-700 text-white font-medium text-[16px] shadow-lg shadow-blue-500/25" disabled={isSaving}>
+                {isSaving ? "Saving..." : "Plan for the day"}
+              </Button>
             </div>
           </div>
         </div>
@@ -1756,14 +1755,18 @@ export function MeetingsTab() {
                   <img 
                     src={logoSrc} 
                     alt="Logo" 
-                    className="absolute top-4 right-4 h-12 w-auto object-contain z-10 pointer-events-none"
+                    className="absolute top-4 right-4 h-20 w-auto object-contain z-10 pointer-events-none"
                     onError={(e) => e.currentTarget.style.display = 'none'}
                   />
                 )}
                 <div className="absolute bottom-56 left-4 right-4 flex flex-col items-start gap-3 pointer-events-none z-10">
                   <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md px-1.5 py-1.5 rounded-lg border border-white/10 shadow-lg">
                     <div className="bg-blue-600 px-2 py-0.5 rounded text-white font-bold text-[11px] tracking-wide">
-                      {captureType === "start" ? "MEETING START" : (captureType === "end" ? "MEETING END" : "EXPENSE BILL")}
+                      {captureType === "start" ? "MEETING START" : 
+                       captureType === "end" ? "MEETING END" : 
+                       (captureType === "vehicleMeter" || captureType === "startMeter") ? "VEHICLE START METER" :
+                       captureType === "endMeter" ? "VEHICLE END METER" :
+                       "EXPENSE BILL"}
                     </div>
                     <div className="font-semibold text-sm text-white pr-2">
                       {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}

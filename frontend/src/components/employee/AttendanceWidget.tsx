@@ -114,7 +114,6 @@ export function AttendanceWidget() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fallbackInputRef = useRef<HTMLInputElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
   const isCheckedIn = !!todayEntry?.actualCheckIn;
@@ -287,115 +286,6 @@ export function AttendanceWidget() {
         });
       }
     }
-  };
-
-  const handleFallbackUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !canvasRef.current) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = canvasRef.current!;
-        const containerWidth = window.innerWidth > 0 ? window.innerWidth : 375;
-        const containerHeight = window.innerHeight > 0 ? window.innerHeight : 812;
-        const dpr = window.devicePixelRatio || 2;
-        
-        canvas.width = containerWidth * dpr;
-        canvas.height = containerHeight * dpr;
-        
-        const targetRatio = containerWidth / containerHeight;
-        const imgRatio = img.width / img.height;
-
-        let sWidth = img.width;
-        let sHeight = img.height;
-        let sx = 0;
-        let sy = 0;
-
-        if (imgRatio > targetRatio) {
-          sWidth = img.height * targetRatio;
-          sx = (img.width - sWidth) / 2;
-        } else {
-          sHeight = img.width / targetRatio;
-          sy = (img.height - sHeight) / 2;
-        }
-
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-          
-          const scale = dpr;
-          const leftX = 16 * scale;
-          const now = new Date();
-          const timeStr = format(now, "hh:mm a");
-          const dateStr = format(now, "EEE, MMM dd, yyyy");
-          const locationStr = locationData?.address || "Unknown Location";
-          const type = mode === "checkIn" ? "CLOCK IN" : "CLOCK OUT";
-          let currentY = canvas.height - (224 * scale) - (64 * scale);
-          
-          ctx.font = `bold ${11 * scale}px 'Inter', sans-serif`;
-          const typeWidth = ctx.measureText(type).width;
-          ctx.font = `600 ${14 * scale}px 'Inter', sans-serif`;
-          const timeWidth = ctx.measureText(timeStr).width;
-          const badgeWidth = typeWidth + timeWidth + (38 * scale);
-          const badgeHeight = 26 * scale;
-          
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-          ctx.beginPath();
-          if (ctx.roundRect) ctx.roundRect(leftX, currentY, badgeWidth, badgeHeight, 8 * scale);
-          else ctx.rect(leftX, currentY, badgeWidth, badgeHeight);
-          ctx.fill();
-          
-          ctx.fillStyle = '#2563eb';
-          const pillWidth = typeWidth + (16 * scale);
-          const pillHeight = 18 * scale;
-          const pillX = leftX + (6 * scale);
-          const pillY = currentY + (4 * scale);
-          ctx.beginPath();
-          if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 4 * scale);
-          else ctx.rect(pillX, pillY, pillWidth, pillHeight);
-          ctx.fill();
-          
-          ctx.fillStyle = '#ffffff';
-          ctx.font = `bold ${11 * scale}px 'Inter', sans-serif`;
-          ctx.textBaseline = 'middle';
-          ctx.textAlign = 'center';
-          ctx.fillText(type, pillX + pillWidth / 2, pillY + pillHeight / 2 + (1 * scale));
-          
-          ctx.textAlign = 'left';
-          ctx.font = `600 ${14 * scale}px 'Inter', sans-serif`;
-          ctx.fillText(timeStr, pillX + pillWidth + (8 * scale), currentY + badgeHeight / 2 + (1 * scale));
-          
-          currentY += badgeHeight + (12 * scale);
-          ctx.fillStyle = '#2563eb';
-          ctx.fillRect(leftX, currentY, 3 * scale, 36 * scale);
-          
-          ctx.shadowColor = 'rgba(0,0,0,0.8)';
-          ctx.shadowBlur = 4 * scale;
-          ctx.shadowOffsetX = 1 * scale;
-          ctx.shadowOffsetY = 1 * scale;
-          ctx.fillStyle = '#ffffff';
-          ctx.font = `500 ${15 * scale}px 'Inter', sans-serif`;
-          ctx.textBaseline = 'top';
-          ctx.fillText(dateStr, leftX + (12 * scale), currentY);
-          
-          ctx.font = `400 ${13 * scale}px 'Inter', sans-serif`;
-          const maxLocLength = 50;
-          const shortLoc = locationStr.length > maxLocLength ? locationStr.substring(0, maxLocLength) + '...' : locationStr;
-          ctx.fillText(shortLoc, leftX + (12 * scale), currentY + (20 * scale));
-          
-          import('@/lib/watermark').then(({ addWatermarkToCanvas }) => {
-            addWatermarkToCanvas(ctx, canvas.width, canvas.height).then(() => {
-              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-              setPhotoData(dataUrl);
-            });
-          });
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
   };
 
   const retakePhoto = () => {
@@ -689,8 +579,8 @@ export function AttendanceWidget() {
             </p>
             {(isCheckedIn || isCheckedOut) && (
               <WorkTimer 
-                checkInTime={todayTracking?.checkInTime || todayEntry?.actualCheckIn} 
-                checkOutTime={todayTracking?.checkOutTime || todayEntry?.actualCheckOut} 
+                checkInTime={todayEntry?.actualCheckIn} 
+                checkOutTime={todayEntry?.actualCheckOut} 
               />
             )}
           </div>
@@ -753,11 +643,7 @@ export function AttendanceWidget() {
                         <>
                           <AlertTriangle className="w-8 h-8 mb-2 text-red-500" />
                           <span className="text-sm px-6 text-center text-red-400">{cameraError}</span>
-                          <div className="flex gap-3 mt-4">
-                            <Button variant="outline" size="sm" onClick={startCamera} className="border-white/20 text-white hover:bg-white/10">Retry Camera</Button>
-                            <Button variant="default" size="sm" onClick={() => fallbackInputRef.current?.click()} className="bg-blue-600 hover:bg-blue-700 text-white">Upload Photo</Button>
-                          </div>
-                          <input type="file" accept="image/*" capture="environment" ref={fallbackInputRef} className="hidden" onChange={handleFallbackUpload} />
+                          <Button variant="outline" size="sm" onClick={startCamera} className="mt-4 border-white/20 text-white hover:bg-white/10">Retry</Button>
                         </>
                       ) : (
                         <>
@@ -772,7 +658,7 @@ export function AttendanceWidget() {
                     <img 
                       src={logoSrc} 
                       alt="Logo" 
-                      className="absolute top-4 right-4 h-12 w-auto object-contain z-10 pointer-events-none"
+                      className="absolute top-4 right-4 h-20 w-auto object-contain z-10 pointer-events-none"
                       onError={(e) => e.currentTarget.style.display = 'none'}
                     />
                   )}

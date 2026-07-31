@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle, CheckCircle2, Clock, RefreshCw, Shield, Zap, MapPin, Package,
-  Bell, Filter, XCircle, ChevronRight, Info
+  Bell, Filter, XCircle, ChevronRight, Info, FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +56,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   travel_start: <MapPin className="w-4 h-4" />,
   expense_approval: <Clock className="w-4 h-4" />,
   new_employee: <Shield className="w-4 h-4" />,
+  pending_mom: <FileText className="w-4 h-4" />,
 };
 
 function timeAgo(timestamp: string): string {
@@ -69,7 +70,7 @@ function timeAgo(timestamp: string): string {
 }
 
 export function AlertsTab() {
-  const { roles, rolePermissions } = useMasterData();
+  const { roles, rolePermissions, meetings } = useMasterData();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "high" | "medium" | "low">("all");
@@ -109,25 +110,39 @@ export function AlertsTab() {
     }
   };
 
-  const filtered = alerts.filter(a => {
-    if (!showResolved && a.resolved) return false;
-    if (filter !== "all" && a.severity !== filter) return false;
-    return true;
-  });
-
-  const unresolvedCount = alerts.filter(a => !a.resolved).length;
-  const highCount = alerts.filter(a => !a.resolved && a.severity === "high").length;
-  const mediumCount = alerts.filter(a => !a.resolved && a.severity === "medium").length;
-
-  // --- PERMISSION CHECKS ---
   const rawRole = sessionStorage.getItem("userRole") || "employee";
   const currentRole = roles?.find(r => r.roleCode?.toLowerCase() === rawRole.toLowerCase());
   const alertsPerm = rolePermissions?.find(p => p.roleId === currentRole?.id && p.module === "Alerts");
   const isGlobalAdmin = sessionStorage.getItem("isGlobalAdmin") === "true";
   const isAdmin = rawRole.toLowerCase() === "admin" || isGlobalAdmin;
+  const empId = sessionStorage.getItem('employeeId') || sessionStorage.getItem('userId');
+
+  const pendingMomMeetings = meetings?.filter(m => (isAdmin || m.organizerId === empId) && m.status === 'completed' && (!m.momData || Object.keys(m.momData).length === 0)) || [];
+  const pendingMomAlerts: Alert[] = pendingMomMeetings.map(m => ({
+    id: `pending-mom-${m.id}`,
+    type: "pending_mom",
+    message: `Pending MOM for meeting: ${m.title}`,
+    timestamp: m.actualEndTime || new Date().toISOString(),
+    severity: "medium",
+    resolved: false,
+    relatedEntityId: m.id,
+    relatedEntityType: "meeting",
+  }));
+
+  const allCombinedAlerts = [...alerts, ...pendingMomAlerts].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const isRegionalManager = rawRole?.toLowerCase() === "regional_manager" || rawRole?.toLowerCase() === "regional manager";
   const canEdit = !isRegionalManager && (isAdmin || alertsPerm?.edit);
+
+  const filtered = allCombinedAlerts.filter(a => {
+    if (!showResolved && a.resolved) return false;
+    if (filter !== "all" && a.severity !== filter) return false;
+    return true;
+  });
+
+  const unresolvedCount = allCombinedAlerts.filter(a => !a.resolved).length;
+  const highCount = allCombinedAlerts.filter(a => !a.resolved && a.severity === "high").length;
+  const mediumCount = allCombinedAlerts.filter(a => !a.resolved && a.severity === "medium").length;
 
   return (
     <div className="space-y-6">
@@ -178,7 +193,7 @@ export function AlertsTab() {
             </div>
             <div>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {alerts.filter(a => a.resolved).length}
+                {allCombinedAlerts.filter(a => a.resolved).length}
               </p>
               <p className="text-sm text-muted-foreground">Resolved Today</p>
             </div>
@@ -272,21 +287,38 @@ export function AlertsTab() {
 
                   {/* Action */}
                   {!alert.resolved && canEdit && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0 bg-white dark:bg-black/20 text-xs"
-                      onClick={() => handleResolve(alert.id)}
-                      disabled={resolving === alert.id}
-                    >
-                      {resolving === alert.id ? (
-                        <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Resolve
-                        </>
-                      )}
-                    </Button>
+                    alert.type === "pending_mom" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 bg-white dark:bg-black/20 text-xs text-orange-600 border-orange-200 hover:bg-orange-50"
+                        onClick={() => {
+                          const meetingId = alert.relatedEntityId;
+                          if (meetingId) {
+                            localStorage.setItem('pendingMomMeetingId', meetingId);
+                            window.dispatchEvent(new CustomEvent('changeTab', { detail: 'meetings' }));
+                          }
+                        }}
+                      >
+                        <FileText className="w-3 h-3 mr-1" /> Fill MOM
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 bg-white dark:bg-black/20 text-xs"
+                        onClick={() => handleResolve(alert.id)}
+                        disabled={resolving === alert.id}
+                      >
+                        {resolving === alert.id ? (
+                          <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Resolve
+                          </>
+                        )}
+                      </Button>
+                    )
                   )}
                 </motion.div>
               );

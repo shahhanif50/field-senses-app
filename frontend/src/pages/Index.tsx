@@ -62,22 +62,38 @@ const Index = () => {
                    : "employee-dashboard";
                    
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [tabHistory, setTabHistory] = useState<string[]>([initialTab]);
   const [isDark, setIsDark] = useState(false);
+
+  const handleTabChange = (newTab: string) => {
+    if (newTab !== activeTab) {
+      setTabHistory(prev => [...prev, newTab]);
+      setActiveTab(newTab);
+      window.scrollTo(0, 0);
+    }
+  };
+
+  const handleBack = () => {
+    if (tabHistory.length <= 1) return;
+    const prevTab = tabHistory[tabHistory.length - 2];
+    setTabHistory(prev => prev.slice(0, -1));
+    setActiveTab(prevTab);
+    window.scrollTo(0, 0);
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
   useEffect(() => {
-    const handleTabChange = (e: any) => {
+    const handleEventTabChange = (e: any) => {
       if (e.detail) {
-        setActiveTab(e.detail);
-        window.scrollTo(0, 0);
+        handleTabChange(e.detail);
       }
     };
-    window.addEventListener("changeTab", handleTabChange);
-    return () => window.removeEventListener("changeTab", handleTabChange);
-  }, []);
+    window.addEventListener("changeTab", handleEventTabChange);
+    return () => window.removeEventListener("changeTab", handleEventTabChange);
+  }, [activeTab]);
 
   const handleThemeToggle = () => {
     setIsDark(!isDark);
@@ -190,13 +206,15 @@ const Index = () => {
       <div className="h-[100dvh] w-full flex flex-col overflow-hidden relative">
         <TopNavigation
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           isDark={isDark}
           onThemeToggle={handleThemeToggle}
+          onBack={handleBack}
+          canGoBack={tabHistory.length > 1}
         />
 
-        <main className="flex-1 overflow-y-auto pt-20 px-2 md:px-4 md:pt-24 pb-6 w-full overflow-x-hidden">
-          <div className="max-w-7xl mx-auto h-full">
+        <main className="flex-1 overflow-y-auto pt-20 px-2 md:px-4 md:pt-24 pb-6 w-full overflow-x-hidden flex flex-col">
+          <div className="max-w-7xl mx-auto h-full w-full flex-1 flex flex-col">
             {activeTab === "master-setup" && <KPICards />}
 
             <AnimatePresence mode="wait">
@@ -212,7 +230,7 @@ const Index = () => {
             </AnimatePresence>
           </div>
         </main>
-        <BottomNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />
       </div>
     </MasterDataProvider>
   );

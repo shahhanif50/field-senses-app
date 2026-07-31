@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { useTransparentLogo } from "@/hooks/useTransparentLogo";
 import { motion, AnimatePresence } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, Legend, LineChart, Line } from 'recharts';
 import {
@@ -123,6 +126,7 @@ const reportModules: ReportConfig[] = [
 
 
 export const ReportsTab = () => {
+  const logoSrc = useTransparentLogo();
   const { employees, territories, distributors, roles, rolePermissions } = useMasterData();
   const [selectedModule, setSelectedModule] = useState<ReportModule>("sales-executive");
   const today = new Date();
@@ -227,41 +231,65 @@ export const ReportsTab = () => {
     }
     
     if (format === 'excel') {
-      let worksheet;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Report');
+
       if (currentModuleConfig.module === 'meeting-travel') {
         const emp = employees.find(e => e.id === selectedEmployee) || employees.find(e => e.fullName === selectedEmployee);
-        const headerData = [
-          ["CROPRISE AGROCHEM LIMITED"],
-          ["Travelling Expenses"],
-          [
-            `Name: ${emp?.fullName || 'All'}`, 
-            `Designation: ${emp?.designation || '-'}`, 
-            `Dept: ${emp?.departmentId || '-'}`, 
-            `Code: ${emp?.employeeId || '-'}`, 
-            `HQ/State: ${emp?.region || '-'}`
-          ],
-          [`From: ${dateRange.from}`, `To: ${dateRange.to}`],
-          []
-        ];
+        
+        // Add header rows
+        worksheet.addRow(["CROPRISE AGROCHEM LIMITED"]);
+        worksheet.addRow(["Travelling Expenses"]);
+        worksheet.addRow([
+          `Name: ${emp?.fullName || 'All'}`, 
+          `Designation: ${emp?.designation || '-'}`, 
+          `Dept: ${emp?.departmentId || '-'}`, 
+          `Code: ${emp?.employeeId || '-'}`, 
+          `HQ/State: ${emp?.region || '-'}`
+        ]);
+        worksheet.addRow([`From: ${dateRange.from}`, `To: ${dateRange.to}`]);
+        worksheet.addRow([]);
         
         const tableColumn = Object.keys(reportData[0] || {}).filter(k => k !== 'proofs');
+        worksheet.addRow(tableColumn);
+        
         const tableRows = reportData.map(row => {
           const rowData = { ...row };
           delete rowData.proofs;
           return Object.values(rowData).map(val => String(val).replace(/₹/g, 'Rs. '));
         });
-        if (totalRow) tableRows.push(totalRow);
         
-        const aoa = [...headerData, tableColumn, ...tableRows];
+        tableRows.forEach(row => worksheet.addRow(row));
+        if (totalRow) worksheet.addRow(totalRow);
         
-        worksheet = XLSX.utils.aoa_to_sheet(aoa);
+        if (logoSrc) {
+          try {
+            const base64Data = logoSrc.includes(',') ? logoSrc.split(',')[1] : logoSrc;
+            const imageId = workbook.addImage({
+              base64: base64Data,
+              extension: 'png',
+            });
+            worksheet.addImage(imageId, {
+              tl: { col: 5, row: 0 },
+              ext: { width: 120, height: 120 }
+            });
+          } catch (e) {
+            console.error("Failed to add logo to Excel", e);
+          }
+        }
       } else {
-        worksheet = XLSX.utils.json_to_sheet(reportData);
+        const tableColumn = Object.keys(reportData[0] || {}).filter(k => k !== 'proofs');
+        worksheet.addRow(tableColumn);
+        reportData.forEach(row => {
+           const rowData = { ...row };
+           delete rowData.proofs;
+           worksheet.addRow(Object.values(rowData).map(val => String(val).replace(/₹/g, 'Rs. ')));
+        });
+        if (totalRow) worksheet.addRow(totalRow);
       }
-      
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-      XLSX.writeFile(workbook, `${fileName}.xlsx`);
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buffer]), `${fileName}.xlsx`);
     } else {
       const doc = new jsPDF();
       let startY = 30;
@@ -303,6 +331,7 @@ export const ReportsTab = () => {
         head: [tableColumn],
         body: tableRows,
         startY: startY,
+        margin: { top: 35 },
       });
       
       const finalY = (doc as any).lastAutoTable.finalY || startY + 50;
@@ -314,7 +343,7 @@ export const ReportsTab = () => {
           if (row.proofs && Array.isArray(row.proofs) && row.proofs.length > 0) {
             doc.addPage();
             doc.setFontSize(14);
-            doc.text(`Meeting & Expense Proofs`, 14, 20);
+            doc.text(`Meeting & Expense Proofs`, 14, 35);
             
             doc.setFontSize(10);
             const details = [
@@ -326,7 +355,7 @@ export const ReportsTab = () => {
               `Total: Rs ${row.total || '0'}`,
             ];
             
-            let detailsY = 28;
+            let detailsY = 43;
             details.forEach(d => {
               doc.text(d, 14, detailsY);
               detailsY += 6;
@@ -377,6 +406,31 @@ export const ReportsTab = () => {
               }
             }
           }
+        }
+      }
+      
+      if (logoSrc) {
+        const pageCount = (doc.internal as any).getNumberOfPages();
+        
+        // Load image to get original dimensions and maintain aspect ratio
+        const img = new Image();
+        img.src = logoSrc;
+        
+        try {
+          await new Promise((resolve, reject) => { 
+            img.onload = resolve; 
+            img.onerror = reject;
+          });
+          
+          const logoWidth = 25;
+          const logoHeight = logoWidth * (img.height / img.width);
+          
+          for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.addImage(logoSrc, 'PNG', doc.internal.pageSize.getWidth() - 14 - logoWidth, 10, logoWidth, logoHeight);
+          }
+        } catch (e) {
+          console.error("Failed to add logo to PDF", e);
         }
       }
       

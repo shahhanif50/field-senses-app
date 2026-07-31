@@ -119,6 +119,7 @@ export function DailyTrackingDetailModal({
     checkOutLocation: initialData.checkOutLocation || apiEmployee.checkOutLocation || null,
     checkInPhoto: initialData.checkInPhoto || apiEmployee.checkInPhoto || null,
     checkOutPhoto: initialData.checkOutPhoto || apiEmployee.checkOutPhoto || null,
+    meterPhoto: initialData.meterPhoto || apiEmployee.meterPhoto || null,
   } : apiEmployee;
 
   if (!isOpen) return null;
@@ -201,23 +202,50 @@ export function DailyTrackingDetailModal({
                       <div className="pt-4 border-t">
                         <p className="text-sm font-medium mb-3 flex items-center gap-2">
                           <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                          Check-in Photo
+                          Camera Proofs
                         </p>
-                        {employee.checkInPhoto ? (
-                          <div 
-                            className="rounded-lg overflow-hidden border bg-black/5 relative flex items-center justify-center cursor-pointer group"
-                            onClick={() => setFullScreenPhoto(employee.checkInPhoto)}
-                          >
-                            <img src={employee.checkInPhoto} alt="Check In" className="max-w-full h-auto max-h-[500px] object-contain group-hover:opacity-90 transition-opacity" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Eye className="w-8 h-8 text-white" />
+                        
+                        <div className="flex flex-wrap gap-3">
+                          {employee.checkInPhoto && (
+                            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-md border border-slate-100 shadow-sm min-w-[140px]">
+                              <img
+                                src={employee.checkInPhoto}
+                                alt="Check In"
+                                className="w-10 h-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setFullScreenPhoto(employee.checkInPhoto)}
+                              />
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Check-in</span>
+                                <span className="text-xs text-slate-700 font-bold flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-primary/60" /> {employee.checkInTime}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/10 flex items-center justify-center h-32">
-                            <p className="text-sm text-muted-foreground">No photo available</p>
-                          </div>
-                        )}
+                          )}
+
+                          {employee.meterPhoto && (
+                            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-md border border-slate-100 shadow-sm min-w-[140px]">
+                              <img
+                                src={employee.meterPhoto}
+                                alt="Start Meter"
+                                className="w-10 h-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setFullScreenPhoto(employee.meterPhoto)}
+                              />
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Start Meter</span>
+                                <span className="text-xs text-slate-700 font-bold flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-primary/60" /> {employee.checkInTime}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {!employee.checkInPhoto && !employee.meterPhoto && (
+                            <div className="rounded-lg w-full border border-dashed border-muted-foreground/30 bg-muted/10 flex items-center justify-center h-32">
+                              <p className="text-sm text-muted-foreground">No photos available</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -245,23 +273,30 @@ export function DailyTrackingDetailModal({
                       <div className="pt-4 border-t">
                         <p className="text-sm font-medium mb-3 flex items-center gap-2">
                           <ImageIcon className="w-4 h-4 text-muted-foreground" />
-                          Check-out Photo
+                          Camera Proofs
                         </p>
-                        {employee.checkOutPhoto ? (
-                          <div 
-                            className="rounded-lg overflow-hidden border bg-black/5 relative flex items-center justify-center cursor-pointer group"
-                            onClick={() => setFullScreenPhoto(employee.checkOutPhoto)}
-                          >
-                            <img src={employee.checkOutPhoto} alt="Check Out" className="max-w-full h-auto max-h-[500px] object-contain group-hover:opacity-90 transition-opacity" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Eye className="w-8 h-8 text-white" />
+                        <div className="flex flex-wrap gap-3">
+                          {employee.checkOutPhoto ? (
+                            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-md border border-slate-100 shadow-sm min-w-[140px]">
+                              <img
+                                src={employee.checkOutPhoto}
+                                alt="Check Out"
+                                className="w-10 h-10 object-cover rounded shadow-sm border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setFullScreenPhoto(employee.checkOutPhoto)}
+                              />
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Check-out</span>
+                                <span className="text-xs text-slate-700 font-bold flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-primary/60" /> {employee.checkOutTime}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/10 flex items-center justify-center h-32">
-                            <p className="text-sm text-muted-foreground">No photo available</p>
-                          </div>
-                        )}
+                          ) : (
+                            <div className="rounded-lg w-full border border-dashed border-muted-foreground/30 bg-muted/10 flex items-center justify-center h-32">
+                              <p className="text-sm text-muted-foreground">No photo available</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>

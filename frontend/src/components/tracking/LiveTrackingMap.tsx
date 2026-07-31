@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useMasterData } from '@/contexts/MasterDataContext';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,8 +14,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Play, Pause, Navigation, Clock, Banknote, MapPin, CheckCircle2, User, Camera, Receipt, Plus, X, Loader2, History } from 'lucide-react';
+import { Play, Pause, Navigation, Clock, Banknote, MapPin, CheckCircle2, User, Camera, Receipt, Plus, X, Loader2, History, ChevronLeft, SwitchCamera, FileText } from 'lucide-react';
 import { SiteVisitReportFormModal, SiteVisitReportData } from '@/components/modals/SiteVisitReportFormModal';
+import { format } from "date-fns";
+import { useTransparentLogo } from "@/hooks/useTransparentLogo";
 
 // Fix for default marker icons in Leaflet with Webpack/Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -25,14 +28,36 @@ L.Icon.Default.mergeOptions({
 });
 
 const RATE_PER_KM = 5; // ₹5 per km
+import { ChevronDown, Calendar, Briefcase } from "lucide-react";
 
-function LocationAutocomplete({ value, onChange, placeholder }: { value: string, onChange: (val: string) => void, placeholder: string }) {
+function MapResizer({ isFullScreen }: { isFullScreen: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [map, isFullScreen]);
+  return null;
+}
+
+function LocationAutocomplete({ value, onChange, placeholder, meetings = [] }: { value: string, onChange: (val: string, meetingObj?: any, coords?: any) => void, placeholder: string, meetings?: any[] }) {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
-    if (!value || value.length < 3 || !showDropdown) {
-      setSuggestions([]);
+    let meetingSuggestions = [];
+    if (meetings && meetings.length > 0) {
+      meetingSuggestions = meetings.map(m => ({
+        display_name: m.title || `Meeting with ${m.clientName || 'Client'}`,
+        isMeeting: true,
+        time: m.startTime,
+        meetingObj: m
+      })).filter(m => !value || m.display_name.toLowerCase().includes(value.toLowerCase()));
+    }
+
+    if (!value || value.length < 3) {
+      setSuggestions(meetingSuggestions);
       return;
     }
     const timer = setTimeout(async () => {
@@ -53,47 +78,95 @@ function LocationAutocomplete({ value, onChange, placeholder }: { value: string,
           
           // Filter out duplicates
           const unique = formattedSuggestions.filter((v, i, a) => a.findIndex(t => (t.display_name === v.display_name)) === i);
-          setSuggestions(unique);
+          setSuggestions([...meetingSuggestions, ...unique]);
         } else {
-          setSuggestions([]);
+          setSuggestions(meetingSuggestions);
         }
       } catch (e) {
         console.error(e);
+        setSuggestions(meetingSuggestions);
       }
     }, 500); // debounce 500ms
     return () => clearTimeout(timer);
-  }, [value, showDropdown]);
+  }, [value, showDropdown, meetings]);
 
   return (
     <div className="relative w-full">
-      <Input 
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setShowDropdown(true);
-        }}
-        onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-        onFocus={() => {
-          if (value.length >= 3) setShowDropdown(true);
-        }}
-      />
+      <div className="relative">
+        <Input 
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setShowDropdown(true);
+          }}
+          onClick={() => setShowDropdown(true)}
+          onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+          onFocus={() => setShowDropdown(true)}
+          className="pr-8"
+        />
+        <button 
+          type="button"
+          onClick={() => setShowDropdown(!showDropdown)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+        >
+          <ChevronDown className="w-4 h-4" />
+        </button>
+      </div>
       {showDropdown && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 shadow-xl rounded-md z-[2000] max-h-60 overflow-y-auto">
-          {suggestions.map((s, i) => (
-            <div 
-              key={i} 
-              className="p-2 md:p-3 text-sm cursor-pointer hover:bg-slate-100 border-b border-slate-100 last:border-0 truncate"
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent onBlur from firing before this
-                onChange(s.display_name.split(',')[0]); // Take the primary name part
-                setShowDropdown(false);
-              }}
-            >
-              <div className="font-medium text-slate-800">{s.display_name.split(',')[0]}</div>
-              <div className="text-xs text-muted-foreground truncate">{s.display_name}</div>
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 shadow-2xl rounded-xl z-[2000] max-h-72 overflow-y-auto overflow-x-hidden p-1">
+          {suggestions.filter(s => s.isMeeting).length > 0 && (
+            <div className="mb-1">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-3 h-3" /> Scheduled Meetings
+              </div>
+              {suggestions.filter(s => s.isMeeting).map((s, i) => (
+                <div 
+                  key={`meeting-${i}`} 
+                  className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-between group"
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Prevent onBlur from firing before this
+                    onChange(s.display_name.split(',')[0], s.meetingObj, null);
+                    setShowDropdown(false);
+                  }}
+                >
+                  <div className="overflow-hidden">
+                    <div className="font-semibold text-slate-700 group-hover:text-blue-700 flex items-center gap-2 transition-colors">
+                      {s.display_name.split(',')[0]}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground truncate mt-0.5">{s.display_name}</div>
+                  </div>
+                  {s.time && <div className="text-[10px] font-medium bg-white border border-blue-100 shadow-sm text-blue-600 px-2 py-0.5 rounded-full whitespace-nowrap">{s.time}</div>}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+          
+          {suggestions.filter(s => !s.isMeeting).length > 0 && (
+            <div>
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mt-1 border-t border-slate-100 pt-2">
+                <MapPin className="w-3 h-3" /> Locations
+              </div>
+              {suggestions.filter(s => !s.isMeeting).map((s, i) => (
+                <div 
+                  key={`location-${i}`} 
+                  className="px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 rounded-lg transition-colors flex items-center justify-between group"
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Prevent onBlur from firing before this
+                    onChange(s.display_name.split(',')[0], null, { lat: s.lat, lng: s.lon });
+                    setShowDropdown(false);
+                  }}
+                >
+                  <div className="overflow-hidden">
+                    <div className="font-medium text-slate-700 flex items-center gap-2">
+                      {s.display_name.split(',')[0]}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground truncate mt-0.5">{s.display_name}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -101,41 +174,425 @@ function LocationAutocomplete({ value, onChange, placeholder }: { value: string,
 }
 
 export function LiveTrackingMap() {
-  const { meetings, attendanceEntries, employees, trackingEntries } = useMasterData();
+  const { meetings, setMeetings, attendanceEntries, employees, trackingEntries } = useMasterData();
   const [selectedMeetingId, setSelectedMeetingId] = useState<string>("none");
   const lastDistanceRef = useRef<number | null>(null);
 
+  const empId = sessionStorage.getItem('employeeId') || sessionStorage.getItem('userId');
+  const currentDateStr = new Date().toISOString().split('T')[0];
+  const userMeetings = meetings.filter((m: any) => {
+    const isOrganizer = m.organizerId === empId;
+    const isAttendee = m.attendees?.some((a: any) => a.id === empId) || m.participants?.includes(empId);
+    // For demo/testing with mock data, we relax the date check to just show their meetings.
+    const hasRole = isOrganizer || isAttendee || empId === "1" || !empId;
+    const status = (m.status || '').toLowerCase();
+    return hasRole && (status === 'scheduled' || status === 'pending');
+  }).sort((a: any, b: any) => {
+    if (a.createdAt && b.createdAt) {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+    const dateCompare = new Date(b.date || '1970-01-01').getTime() - new Date(a.date || '1970-01-01').getTime();
+    if (dateCompare !== 0) return dateCompare;
+    
+    const timeA = a.startTime || '00:00';
+    const timeB = b.startTime || '00:00';
+    return timeB.localeCompare(timeA);
+  });
+
   const [detailedRoute, setDetailedRoute] = useState<any[]>([]);
-  const [currentPathIndex, setCurrentPathIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [simulationMode, setSimulationMode] = useState(false);
-  const [distance, setDistance] = useState(0); // km
-  const [timeSpent, setTimeSpent] = useState(0); // minutes
+  const getSaved = (key: string, def: any) => {
+    try {
+      const v = localStorage.getItem(`tracking_${sessionStorage.getItem('employeeId')}_${key}`);
+      return v !== null ? JSON.parse(v) : def;
+    } catch { return def; }
+  };
+
+  const [currentPathIndex, setCurrentPathIndex] = useState(() => getSaved('currentPathIndex', 0));
+  const [isPlaying, setIsPlaying] = useState(() => getSaved('isPlaying', false));
+  const [simulationMode, setSimulationMode] = useState(() => getSaved('simulationMode', false));
+  const [distance, setDistance] = useState(() => getSaved('distance', 0)); // km
+  const [timeSpent, setTimeSpent] = useState(() => getSaved('timeSpent', 0)); // minutes
 
   // Site Check-in States (OTP removed)
-  const [visitedSites, setVisitedSites] = useState<number[]>([]);
-  const [activeSite, setActiveSite] = useState<any>(null);
-  const [isNearDestination, setIsNearDestination] = useState(false);
-  const [arrivedSite, setArrivedSite] = useState<any>(null);
+  const [visitedSites, setVisitedSites] = useState<number[]>(() => getSaved('visitedSites', []));
+  const [activeSite, setActiveSite] = useState<any>(() => getSaved('activeSite', null));
+  const [isNearDestination, setIsNearDestination] = useState(() => getSaved('isNearDestination', false));
+  const [arrivedSite, setArrivedSite] = useState<any>(() => getSaved('arrivedSite', null));
   const [checkInModalOpen, setCheckInModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"checkin" | "checkout">("checkin");
   const [checkInPhoto, setCheckInPhoto] = useState<string | null>(null);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [activeMeetingId, setActiveMeetingId] = useState<string | null>(null);
 
   // Dynamic Route States
   const [hasStartedTrip, setHasStartedTrip] = useState(() => {
     return localStorage.getItem(`tracking_${sessionStorage.getItem('employeeId')}_trip_info`) !== null;
   });
   const [showPreTripModal, setShowPreTripModal] = useState(false);
+  const [showAdhocModal, setShowAdhocModal] = useState(false);
+  const [adhocTitle, setAdhocTitle] = useState("");
+  const [adhocDestination, setAdhocDestination] = useState("");
   const [startLocationInput, setStartLocationInput] = useState("");
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showExpenseHistoryModal, setShowExpenseHistoryModal] = useState(false);
-  const [clientVisits, setClientVisits] = useState([{ id: 1, name: "" }]);
+  const [clientVisits, setClientVisits] = useState<any[]>([{ id: 1, name: "", lat: undefined, lng: undefined, meetingId: undefined }]);
   const [dynamicDestinations, setDynamicDestinations] = useState<any[]>([]);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [purposeInput, setPurposeInput] = useState("");
-  const [vehicleType, setVehicleType] = useState("Bike");
+  const [vehicleType, setVehicleType] = useState("");
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [meterPhoto, setMeterPhoto] = useState<string | null>(null);
+
+  // Camera State
+  const [isCaptureModalOpen, setIsCaptureModalOpen] = useState(false);
+  const [captureType, setCaptureType] = useState<"startMeter" | "siteCheckIn" | "expense" | "startMeeting" | "endMeeting" | "endMeter">("startMeter");
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [currentLocationName, setCurrentLocationName] = useState<string>("Locating...");
+  const [currentLocationLat, setCurrentLocationLat] = useState<number | null>(null);
+  const [currentLocationLng, setCurrentLocationLng] = useState<number | null>(null);
+  const [pendingMeterPhoto, setPendingMeterPhoto] = useState<string | null>(null);
+  const [pendingMeterLocation, setPendingMeterLocation] = useState<{lat: number, lng: number, name: string} | null>(null);
+  const logoSrc = useTransparentLogo();
+  
+  const inProgressMeeting = meetings.find(m => m.organizerId === empId && m.status === 'in-progress');
+  const activeTripMeetingId = clientVisits[0]?.meetingId || arrivedSite?.meetingId || inProgressMeeting?.id;
+  let activeTripMeeting = activeTripMeetingId ? meetings.find(m => String(m.id) === String(activeTripMeetingId)) : undefined;
+  if (!activeTripMeeting && hasStartedTrip && clientVisits.length > 0) {
+    activeTripMeeting = {
+        id: "adhoc_active_trip",
+        title: purposeInput || clientVisits[0].name || "Ad-hoc Visit",
+        status: "scheduled",
+        date: new Date().toISOString(),
+        time: new Date().toLocaleTimeString(),
+        organizerId: empId
+    } as any;
+  }
+  const destinationMeeting = arrivedSite?.meetingId ? meetings.find(m => String(m.id) === String(arrivedSite.meetingId)) : undefined;
+  const isMeetingCompleted = destinationMeeting?.status === 'completed' || activeTripMeeting?.status === 'completed';
+  const isFullScreenTrip = hasStartedTrip && !isMeetingCompleted;
+
+  const startCamera = async (mode?: "user" | "environment") => {
+    try {
+      const activeMode = mode || facingMode;
+      if (videoRef.current && videoRef.current.srcObject) {
+        const currentStream = videoRef.current.srcObject as MediaStream;
+        currentStream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: activeMode } } });
+      setStream(mediaStream);
+      setFacingMode(activeMode);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err) {
+      toast.error("Could not access camera.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+  };
+
+  const openCamera = (type: "startMeter" | "siteCheckIn" | "expense" | "startMeeting" | "endMeeting" | "endMeter" | "endMeterForStartMeeting") => {
+    setCaptureType(type);
+    setIsCaptureModalOpen(true);
+    setTimeout(startCamera, 100);
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        setCurrentLocationLat(pos.coords.latitude);
+        setCurrentLocationLng(pos.coords.longitude);
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+          if (res.ok) {
+            const geoData = await res.json();
+            setCurrentLocationName(geoData.display_name || "Unknown Location");
+          }
+        } catch (e) {
+          setCurrentLocationName(`Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)}`);
+        }
+      });
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+
+      if (!video.videoWidth || !video.videoHeight) {
+        toast.error("Camera is still initializing, please wait.");
+        return;
+      }
+
+      const containerWidth = video.clientWidth > 100 ? video.clientWidth : (window.innerWidth > 0 ? window.innerWidth : 375);
+      const containerHeight = video.clientHeight > 100 ? video.clientHeight : (window.innerHeight > 0 ? window.innerHeight : 812);
+      const dpr = window.devicePixelRatio || 2;
+
+      canvas.width = containerWidth * dpr;
+      canvas.height = containerHeight * dpr;
+
+      const targetRatio = containerWidth / containerHeight;
+      const videoRatio = video.videoWidth / video.videoHeight;
+
+      let sWidth = video.videoWidth;
+      let sHeight = video.videoHeight;
+      let sx = 0;
+      let sy = 0;
+
+      if (videoRatio > targetRatio) {
+        sWidth = video.videoHeight * targetRatio;
+        sx = (video.videoWidth - sWidth) / 2;
+      } else {
+        sHeight = video.videoWidth / targetRatio;
+        sy = (video.videoHeight - sHeight) / 2;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        if (facingMode === 'user') {
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+        const scale = dpr;
+        const leftX = 16 * scale;
+
+        const now = new Date();
+        const timeStr = format(now, "hh:mm a");
+        const dateStr = format(now, "EEE, MMM dd, yyyy");
+        const locationStr = currentLocationName || "Unknown Location";
+        const type = captureType === "startMeter" ? "VEHICLE START METER" : (captureType === "siteCheckIn" ? "SITE CHECK-IN" : captureType === "startMeeting" ? "MEETING START" : captureType === "endMeeting" ? "MEETING END" : captureType === "endMeter" || captureType === "endMeterForStartMeeting" ? "VEHICLE END METER" : "EXPENSE BILL");
+
+        let currentY = canvas.height - (224 * scale) - (64 * scale);
+
+        ctx.font = `bold ${11 * scale}px 'Inter', sans-serif`;
+        const typeWidth = ctx.measureText(type).width;
+        ctx.font = `600 ${14 * scale}px 'Inter', sans-serif`;
+        const timeWidth = ctx.measureText(timeStr).width;
+
+        const badgeWidth = typeWidth + timeWidth + (38 * scale);
+        const badgeHeight = 26 * scale;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(leftX, currentY, badgeWidth, badgeHeight, 8 * scale);
+        else ctx.rect(leftX, currentY, badgeWidth, badgeHeight);
+        ctx.fill();
+
+        ctx.fillStyle = '#2563eb';
+        const pillWidth = typeWidth + (16 * scale);
+        const pillHeight = 18 * scale;
+        const pillX = leftX + (6 * scale);
+        const pillY = currentY + (4 * scale);
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillWidth, pillHeight, 4 * scale);
+        else ctx.rect(pillX, pillY, pillWidth, pillHeight);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${11 * scale}px 'Inter', sans-serif`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        ctx.fillText(type, pillX + pillWidth / 2, pillY + pillHeight / 2 + (1 * scale));
+
+        ctx.textAlign = 'left';
+        ctx.font = `600 ${14 * scale}px 'Inter', sans-serif`;
+        ctx.fillText(timeStr, pillX + pillWidth + (8 * scale), currentY + badgeHeight / 2 + (1 * scale));
+
+        currentY += badgeHeight + (12 * scale);
+
+        ctx.fillStyle = '#2563eb';
+        const lineHeight = 36 * scale;
+        ctx.fillRect(leftX, currentY, 3 * scale, lineHeight);
+
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4 * scale;
+        ctx.shadowOffsetX = 1 * scale;
+        ctx.shadowOffsetY = 1 * scale;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `500 ${15 * scale}px 'Inter', sans-serif`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(dateStr, leftX + (12 * scale), currentY);
+
+        ctx.font = `400 ${13 * scale}px 'Inter', sans-serif`;
+        const maxLocLength = 50;
+        const shortLoc = locationStr.length > maxLocLength ? locationStr.substring(0, maxLocLength) + '...' : locationStr;
+        ctx.fillText(shortLoc, leftX + (12 * scale), currentY + (20 * scale));
+
+        import('@/lib/watermark').then(({ addWatermarkToCanvas }) => {
+          addWatermarkToCanvas(ctx, canvas.width, canvas.height).then(() => {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            if (captureType === "startMeter") {
+              setMeterPhoto(dataUrl);
+            }
+            else if (captureType === "endMeterForStartMeeting" && activeMeetingId) {
+              setPendingMeterPhoto(dataUrl);
+              setPendingMeterLocation({ lat: currentLocationLat || 0, lng: currentLocationLng || 0, name: currentLocationName });
+              setCaptureType("startMeeting");
+              return;
+            }
+            else if (captureType === "siteCheckIn") setCheckInPhoto(dataUrl);
+            else if (captureType === "expense") setExpensePhoto(dataUrl);
+            else if (captureType === "endMeter" && activeMeetingId) {
+              setPendingMeterPhoto(dataUrl);
+              setCaptureType("endMeeting");
+              return;
+            }
+            else if (captureType === "startMeeting" && activeMeetingId) {
+              const processStartMeeting = async () => {
+                const now = new Date().toISOString();
+                
+                if (String(activeMeetingId).startsWith("adhoc")) {
+                   toast.success("Meeting started successfully!");
+                   setMeetings(prev => {
+                     const exists = prev.find(m => String(m.id) === String(activeMeetingId));
+                     if (exists) {
+                       return prev.map(m => String(m.id) === String(activeMeetingId) ? { ...m, status: 'in-progress' } : m);
+                     }
+                     return [...prev, { id: activeMeetingId, status: 'in-progress', title: activeTripMeeting?.title || "Ad-hoc Visit", organizerId: empId, date: now }];
+                   });
+                   window.dispatchEvent(new CustomEvent('meetingUpdated'));
+                   setIsCaptureModalOpen(false);
+                   return;
+                }
+                
+                let calcDist = 0;
+                const empId = sessionStorage.getItem('employeeId');
+                let startLat = 0, startLng = 0, startName = "", startPhotoStr = null, startMeterTimestamp = null;
+                
+                if (empId) {
+                  const infoStr = localStorage.getItem(`tracking_${empId}_trip_info`);
+                  if (infoStr) {
+                     const info = JSON.parse(infoStr);
+                     if (info.meterPhoto) {
+                       startPhotoStr = info.meterPhoto;
+                     }
+                     if (info.timestamp) {
+                       startMeterTimestamp = info.timestamp;
+                     }
+                     
+                     // Use last known meter location or the original start meter location
+                     const refLat = info.lastMeterLocationLat || info.startMeterLocationLat;
+                     const refLng = info.lastMeterLocationLng || info.startMeterLocationLng;
+                     
+                     if (refLat && refLng && pendingMeterLocation?.lat && pendingMeterLocation?.lng) {
+                       calcDist = await getRoadDistanceKms(refLat, refLng, pendingMeterLocation.lat, pendingMeterLocation.lng);
+                     }
+                     
+                     if (info.startMeterLocationLat && info.startMeterLocationLng) {
+                       startLat = info.startMeterLocationLat;
+                       startLng = info.startMeterLocationLng;
+                       startName = info.startMeterLocationName;
+                     }
+                     
+                     // Update total accumulated distance with this segment
+                     setDistance(prevDist => {
+                       const newTotal = prevDist + calcDist;
+                       localStorage.setItem(`tracking_${empId}_distance`, newTotal.toString());
+                       return newTotal;
+                     });
+                     
+                     // Update last meter location for the next segment
+                     info.lastMeterLocationLat = pendingMeterLocation?.lat;
+                     info.lastMeterLocationLng = pendingMeterLocation?.lng;
+                     localStorage.setItem(`tracking_${empId}_trip_info`, JSON.stringify(info));
+                  }
+                }
+  
+                const patchData = { 
+                  status: "in-progress", 
+                  actualStartTime: now, 
+                  startPhoto: dataUrl, 
+                  startMeterPhoto: startPhotoStr,
+                  endMeterPhoto: pendingMeterPhoto,
+                  startMeterLocationLat: startLat || null,
+                  startMeterLocationLng: startLng || null,
+                  startMeterLocationName: startName || null,
+                  endMeterLocationLat: pendingMeterLocation?.lat || null,
+                  endMeterLocationLng: pendingMeterLocation?.lng || null,
+                  endMeterLocationName: pendingMeterLocation?.name || null,
+                  startMeterTime: startMeterTimestamp,
+                  endMeterTime: now,
+                  calculatedDistanceKms: calcDist
+                };
+                
+                fetch(`/api/ops/meetings/${activeMeetingId}/`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(patchData),
+                }).then(res => {
+                  if (res.ok) {
+                    toast.success(`Meeting started! (+${calcDist.toFixed(1)} km)`);
+                    setMeetings(prev => prev.map(m => String(m.id) === String(activeMeetingId) ? { ...m, status: 'in-progress' } : m));
+                    window.dispatchEvent(new CustomEvent('meetingUpdated'));
+                  } else {
+                    toast.error("Failed to start meeting.");
+                  }
+                }).catch(() => toast.error("Network error."));
+                
+                setActiveMeetingId(null);
+                setPendingMeterPhoto(null);
+                setPendingMeterLocation(null);
+                setIsCaptureModalOpen(false);
+              };
+              processStartMeeting();
+            }
+            else if (captureType === "endMeeting" && activeMeetingId) {
+              const now = new Date().toISOString();
+              
+              if (String(activeMeetingId).startsWith("adhoc")) {
+                 toast.success("Meeting ended successfully!");
+                 setMeetings(prev => prev.map(m => String(m.id) === String(activeMeetingId) ? { ...m, status: 'completed' } : m));
+                 window.dispatchEvent(new CustomEvent('meetingUpdated'));
+                 setIsCaptureModalOpen(false);
+                 return;
+              }
+              
+              const patchData = { status: "completed", actualEndTime: now, endPhoto: dataUrl, endMeterPhoto: pendingMeterPhoto };
+              
+              fetch(`/api/ops/meetings/${activeMeetingId}/`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(patchData),
+              }).then(res => {
+                if (res.ok) {
+                  toast.success("Meeting ended successfully!");
+                  setMeetings(prev => prev.map(m => String(m.id) === String(activeMeetingId) ? { ...m, status: 'completed' } : m));
+                  window.dispatchEvent(new CustomEvent('meetingUpdated'));
+                  
+                  // Do not automatically redirect to MOM form anymore, user must click it manually.
+                  // localStorage.setItem('pendingMomMeetingId', activeMeetingId);
+                  // window.dispatchEvent(new CustomEvent('changeTab', { detail: 'meetings' }));
+                } else {
+                  toast.error("Failed to end meeting.");
+                }
+              }).catch(() => toast.error("Network error."));
+              
+              setActiveMeetingId(null);
+              
+              setActiveMeetingId(null);
+              setPendingMeterPhoto(null);
+            }
+            
+            stopCamera();
+            setIsCaptureModalOpen(false);
+          });
+        });
+      }
+    }
+  };
 
   // Expense States
   const [expenseType, setExpenseType] = useState("Food");
@@ -196,6 +653,87 @@ export function LiveTrackingMap() {
 
     const savedTime = localStorage.getItem(`tracking_${empId}_time`);
     if (savedTime) setTimeSpent(parseFloat(savedTime));
+
+    const savedTripInfoStr = localStorage.getItem(`tracking_${empId}_trip_info`);
+    if (savedTripInfoStr) {
+      try {
+        const info = JSON.parse(savedTripInfoStr);
+        if (info.vehicleType) setVehicleType(info.vehicleType);
+        if (info.purpose) setPurposeInput(info.purpose);
+        if (info.startLocation) setStartLocationInput(info.startLocation);
+        
+        const savedVisits = localStorage.getItem(`tracking_${empId}_client_visits`);
+        if (savedVisits) setClientVisits(JSON.parse(savedVisits));
+        
+        const savedSummary = localStorage.getItem(`tracking_${empId}_route_summary`);
+        if (savedSummary) setRouteSummary(JSON.parse(savedSummary));
+
+        const savedPlanned = localStorage.getItem(`tracking_${empId}_planned_data`);
+        if (savedPlanned) setPlannedRouteData(JSON.parse(savedPlanned));
+        
+      } catch(e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hasStartedTrip) {
+      const empId = sessionStorage.getItem('employeeId');
+      if (!empId) return;
+      const savedTripInfoStr = localStorage.getItem(`tracking_${empId}_trip_info`);
+      if (savedTripInfoStr) {
+        try {
+          const info = JSON.parse(savedTripInfoStr);
+          if (info.meetingId) {
+            const meeting = meetings.find((m: any) => m.id === info.meetingId);
+            if (!meeting || meeting.status === 'cancelled') {
+              toast.error("The scheduled meeting for this trip has been cancelled. Resetting travel route.");
+              
+              setIsPlaying(false);
+              setSimulationMode(false);
+              
+              setHasStartedTrip(false);
+              setRouteSummary(null);
+              setPlannedRouteData(null);
+              setDetailedRoute([]);
+              setClientVisits([{ id: 1, name: "", lat: undefined, lng: undefined, meetingId: undefined }]);
+              setDistance(0);
+              setTimeSpent(0);
+              setTripStartTime(null);
+              setTrackingEntryId(null);
+              
+              localStorage.removeItem(`tracking_${empId}_trip_info`);
+              localStorage.removeItem(`tracking_${empId}_route`);
+              localStorage.removeItem(`tracking_${empId}_destinations`);
+              localStorage.removeItem(`tracking_${empId}_client_visits`);
+              localStorage.removeItem(`tracking_${empId}_route_summary`);
+              localStorage.removeItem(`tracking_${empId}_planned_data`);
+              localStorage.removeItem(`tracking_${empId}_distance`);
+              localStorage.removeItem(`tracking_${empId}_time`);
+              localStorage.removeItem(`tracking_${empId}_start_time`);
+              localStorage.removeItem(`tracking_${empId}_currentPathIndex`);
+              localStorage.removeItem(`tracking_${empId}_isPlaying`);
+              localStorage.removeItem(`tracking_${empId}_simulationMode`);
+              localStorage.removeItem(`tracking_${empId}_entry_id`);
+            }
+          }
+        } catch(e) {}
+      }
+    }
+  }, [meetings, hasStartedTrip]);
+
+  useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const res = await fetch(`/api/ops/vehicles/`);
+        if (res.ok) {
+          const data = await res.json();
+          setVehicles(Array.isArray(data) ? data : (data.results || []));
+        }
+      } catch (e) {
+        console.error("Failed to fetch vehicles", e);
+      }
+    };
+    fetchVehicles();
   }, []);
 
   const [tripStartTime, setTripStartTime] = useState<Date | null>(() => {
@@ -243,6 +781,19 @@ export function LiveTrackingMap() {
     }
   };
 
+  const getRoadDistanceKms = async (lat1: number, lon1: number, lat2: number, lon2: number): Promise<number> => {
+    try {
+      const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=false`);
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        return data.routes[0].distance / 1000;
+      }
+    } catch (e) {
+      console.error("OSRM error:", e);
+    }
+    return getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2);
+  };
+
   // Haversine formula to calculate distance
   const getDistanceFromLatLonInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; // Radius of the earth in km
@@ -257,6 +808,24 @@ export function LiveTrackingMap() {
   };
 
   const [currentLocationMarker, setCurrentLocationMarker] = useState<any>(null);
+
+  // Dedicated timer for updating duration continuously
+  useEffect(() => {
+    let timer: any;
+    if (tripStartTime && !isMeetingCompleted) {
+      // Run once immediately to fix initial 0 mins bug if enough time has passed
+      const initialMins = (new Date().getTime() - tripStartTime.getTime()) / 60000;
+      setTimeSpent(initialMins);
+      
+      timer = setInterval(() => {
+        const mins = (new Date().getTime() - tripStartTime.getTime()) / 60000;
+        setTimeSpent(mins);
+      }, 30000); // update every 30 seconds
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [tripStartTime, isMeetingCompleted]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -407,8 +976,15 @@ export function LiveTrackingMap() {
   useEffect(() => {
     const empId = sessionStorage.getItem('employeeId');
     if (empId) {
-      localStorage.setItem(`tracking_${empId}_distance`, distance.toString());
-      localStorage.setItem(`tracking_${empId}_time`, timeSpent.toString());
+      localStorage.setItem(`tracking_${empId}_time`, JSON.stringify(timeSpent));
+      localStorage.setItem(`tracking_${empId}_distance`, JSON.stringify(distance));
+      localStorage.setItem(`tracking_${empId}_currentPathIndex`, JSON.stringify(currentPathIndex));
+      localStorage.setItem(`tracking_${empId}_isPlaying`, JSON.stringify(isPlaying));
+      localStorage.setItem(`tracking_${empId}_simulationMode`, JSON.stringify(simulationMode));
+      localStorage.setItem(`tracking_${empId}_visitedSites`, JSON.stringify(visitedSites));
+      localStorage.setItem(`tracking_${empId}_activeSite`, JSON.stringify(activeSite));
+      localStorage.setItem(`tracking_${empId}_isNearDestination`, JSON.stringify(isNearDestination));
+      localStorage.setItem(`tracking_${empId}_arrivedSite`, JSON.stringify(arrivedSite));
       
       let status = "Paused";
       if (isPlaying) status = "Traveling";
@@ -416,14 +992,9 @@ export function LiveTrackingMap() {
       
       localStorage.setItem(`tracking_${empId}_status`, status);
     }
-  }, [distance, timeSpent, isPlaying, activeSite, isNearDestination]);
+  }, [distance, timeSpent, isPlaying, activeSite, isNearDestination, currentPathIndex, simulationMode, visitedSites, arrivedSite]);
 
   const handleSiteCheckInCheckOut = async () => {
-    if (!checkInPhoto && modalType === "checkin") {
-      toast.error("Please capture a site photo as proof before checking in.");
-      return;
-    }
-
     if (modalType === "checkin") {
        try {
          const authHeaders = {
@@ -440,8 +1011,7 @@ export function LiveTrackingMap() {
               taskTitle: arrivedSite?.name || "Site Visit",
               taskType: 'Visit',
               status: 'in-progress',
-              proofUploaded: true,
-              proofUrl: checkInPhoto,
+              proofUploaded: false,
               deadline: new Date().toISOString().split('T')[0],
               assignedDate: new Date().toISOString().split('T')[0],
               assignedBy: sessionStorage.getItem('employeeId') || "self",
@@ -463,7 +1033,7 @@ export function LiveTrackingMap() {
        setActiveSite(arrivedSite);
        setSiteCheckInTime(new Date());
        sendAlert(`${empName} has checked in at ${arrivedSite?.name || 'Site'}.`, 'medium');
-       toast.success("Checked in successfully with photo proof!");
+       toast.success("Checked in successfully!");
     } else if (modalType === "checkout") {
        setCheckInModalOpen(false);
        setShowReportModal(true);
@@ -585,6 +1155,13 @@ export function LiveTrackingMap() {
     }
   };
 
+  useEffect(() => {
+    if (showPreTripModal && !startLocationInput && !hasStartedTrip) {
+      handleUseCurrentLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPreTripModal]);
+
   const handleCalculateRoute = async () => {
     let startCoords: { lat: number; lng: number } | null = null;
     
@@ -655,17 +1232,28 @@ export function LiveTrackingMap() {
          return;
        }
     } else {
-      if (!startLocationInput || clientVisits.some(v => !v.name)) {
-        toast.error("Please fill in start location and all client visits");
-        return;
+      if (!startLocationInput) {
+        if (navigator.geolocation) {
+          try {
+            setIsGeocoding(true);
+            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+            });
+            startCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            setStartLocationInput("Current Location");
+          } catch(e) {
+            toast.error("Failed to get current location. Please allow location access.");
+            setIsGeocoding(false);
+            return;
+          }
+        } else {
+          toast.error("Geolocation not supported and no start location provided.");
+          return;
+        }
+      } else {
+        setIsGeocoding(true);
+        startCoords = await geocodeAddress(startLocationInput);
       }
-      if (!purposeInput.trim()) {
-        toast.error("Please enter the purpose of the visit");
-        return;
-      }
-      
-      setIsGeocoding(true);
-      startCoords = await geocodeAddress(startLocationInput);
     }
     
     if (!startCoords) {
@@ -678,7 +1266,11 @@ export function LiveTrackingMap() {
     for (let i = 0; i < clientVisits.length; i++) {
        let coords = null;
        
-       if (selectedMeetingId !== "none" && i === 0) {
+       if (clientVisits[i].lat && clientVisits[i].lng) {
+          coords = { lat: clientVisits[i].lat, lng: clientVisits[i].lng };
+       }
+       
+       if (selectedMeetingId !== "none" && i === 0 && !coords) {
           const meeting = meetings.find(x => x.id === selectedMeetingId);
           if (meeting && meeting.startLocationLat && meeting.startLocationLng) {
              coords = { lat: meeting.startLocationLat, lng: meeting.startLocationLng };
@@ -686,7 +1278,7 @@ export function LiveTrackingMap() {
        }
        
        if (!coords) {
-         coords = await geocodeAddress(clientVisits[i].name);
+         coords = await geocodeAddress(clientVisits[i].fallbackAddress || clientVisits[i].name);
        }
        
        if (!coords) {
@@ -698,7 +1290,8 @@ export function LiveTrackingMap() {
           id: clientVisits[i].id,
           name: clientVisits[i].name,
           lat: coords.lat,
-          lng: coords.lng
+          lng: coords.lng,
+          meetingId: clientVisits[i].meetingId
        });
     }
     
@@ -723,9 +1316,8 @@ export function LiveTrackingMap() {
         }
       } catch(e) {}
       
-      const vehicleRateBike = parseFloat(localStorage.getItem("vehicle_rate_bike") || "5");
-      const vehicleRateCar = parseFloat(localStorage.getItem("vehicle_rate_car") || "12");
-      const currentRate = vehicleType === "Car" ? vehicleRateCar : vehicleRateBike;
+      const selectedVehicle = vehicles.find(v => v.name === vehicleType);
+      const currentRate = selectedVehicle ? selectedVehicle.ratePerKm : RATE_PER_KM;
       
       const payoutCost = dist * currentRate;
       
@@ -749,8 +1341,25 @@ export function LiveTrackingMap() {
     setIsGeocoding(false);
   };
 
+  useEffect(() => {
+    if (showPreTripModal && !routeSummary && !isGeocoding && clientVisits.length > 0 && clientVisits[0].name.trim() !== "") {
+      handleCalculateRoute();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPreTripModal, routeSummary, isGeocoding, clientVisits, startLocationInput]);
+
   const handleConfirmAndStart = async () => {
     if (!plannedRouteData) return;
+    
+    if (!vehicleType) {
+      toast.error("Please select a vehicle type for travel");
+      return;
+    }
+    if (!meterPhoto) {
+      toast.error("Please capture the live meter photo");
+      return;
+    }
+
     const { destinations, newRoute, totalDist } = plannedRouteData;
     
     setDynamicDestinations(destinations);
@@ -762,19 +1371,27 @@ export function LiveTrackingMap() {
       employeeName: empName,
       startLocation: startLocationInput,
       clientVisits: clientVisits.map(v => v.name),
+      meetingId: clientVisits[0]?.meetingId,
       purpose: purposeInput,
       vehicleType: vehicleType,
+      meterPhoto: meterPhoto,
+      startMeterLocationLat: currentLocationLat,
+      startMeterLocationLng: currentLocationLng,
+      startMeterLocationName: currentLocationName,
       timestamp: new Date().toISOString()
     };
     localStorage.setItem(`tracking_${sessionStorage.getItem('employeeId')}_trip_info`, JSON.stringify(tripInfo));
     localStorage.setItem(`tracking_${sessionStorage.getItem('employeeId')}_route`, JSON.stringify(newRoute));
     localStorage.setItem(`tracking_${sessionStorage.getItem('employeeId')}_destinations`, JSON.stringify(destinations));
+    localStorage.setItem(`tracking_${sessionStorage.getItem('employeeId')}_client_visits`, JSON.stringify(clientVisits));
+    localStorage.setItem(`tracking_${sessionStorage.getItem('employeeId')}_route_summary`, JSON.stringify(routeSummary));
+    localStorage.setItem(`tracking_${sessionStorage.getItem('employeeId')}_planned_data`, JSON.stringify({ destinations, newRoute, totalDist }));
     
     setShowPreTripModal(false);
     setHasStartedTrip(true);
     
-    // Set distance to planned total distance immediately
-    setDistance(totalDist);
+    // Set distance to 0 at the start of the trip (accumulates based on meter photos)
+    setDistance(0);
     
     const startTime = new Date();
     setTripStartTime(startTime);
@@ -795,6 +1412,7 @@ export function LiveTrackingMap() {
           date: new Date().toISOString().split('T')[0],
           plannedRouteSummary: routeSummary, // Save the pre-calculated summary to the DB for Admin
           vehicleType: vehicleType,
+          meterPhoto: meterPhoto,
           purpose: purposeInput,
           clientVisits: clientVisits.map(v => v.name)
         })
@@ -911,6 +1529,9 @@ export function LiveTrackingMap() {
     localStorage.removeItem(`tracking_${sessionStorage.getItem('employeeId')}_destinations`);
     localStorage.removeItem(`tracking_${sessionStorage.getItem('employeeId')}_distance`);
     localStorage.removeItem(`tracking_${sessionStorage.getItem('employeeId')}_time`);
+    localStorage.removeItem(`tracking_${sessionStorage.getItem('employeeId')}_client_visits`);
+    localStorage.removeItem(`tracking_${sessionStorage.getItem('employeeId')}_route_summary`);
+    localStorage.removeItem(`tracking_${sessionStorage.getItem('employeeId')}_planned_data`);
   };
 
   const handleSimulate = async () => {
@@ -922,12 +1543,11 @@ export function LiveTrackingMap() {
     setIsPlaying(!isPlaying);
   };
 
-  const vehicleRateBike = parseFloat(localStorage.getItem("vehicle_rate_bike") || "5");
-  const vehicleRateCar = parseFloat(localStorage.getItem("vehicle_rate_car") || "12");
-  const currentRate = vehicleType === "Car" ? vehicleRateCar : vehicleRateBike;
+  const selectedVehicleForCalc = vehicles.find(v => v.name === vehicleType);
+  const currentRate = selectedVehicleForCalc ? parseFloat(selectedVehicleForCalc.ratePerKm) : RATE_PER_KM;
   const reimbursement = (distance * currentRate).toFixed(2);
 
-  const handleDepositEarnings = async () => {
+  const handleEndRoute = async () => {
     const employeeId = sessionStorage.getItem('employeeId');
     if (!employeeId) {
       alert("Please select or login as an employee first.");
@@ -978,40 +1598,7 @@ export function LiveTrackingMap() {
     } catch(e) {
       console.error("Failed to save route analytics", e);
     }
-
     try {
-      if (finalAmount > 0) {
-        const res = await fetch(`/api/ops/wallets/?employeeId=${employeeId}`, { headers: authHeaders });
-        const data = await res.json();
-        let walletId = null;
-        let currentBalance = 0;
-        let currentTotalEarned = 0;
-
-        if (data && data.length > 0) {
-          walletId = data[0].id;
-          currentBalance = data[0].balance;
-          currentTotalEarned = data[0].totalEarned;
-        } else {
-           const createRes = await fetch(`/api/ops/wallets/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({ employeeId: employeeId, balance: 0, totalEarned: 0, totalWithdrawn: 0 })
-          });
-          const newWallet = await createRes.json();
-          walletId = newWallet.id;
-        }
-        if (walletId) {
-          await fetch(`/api/ops/wallets/${walletId}/`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({
-              balance: parseFloat(currentBalance as any) + finalAmount,
-              totalEarned: parseFloat(currentTotalEarned as any || 0) + finalAmount
-            })
-          });
-        }
-      }
-
       if (trackingEntryId) {
         await fetch(`/api/ops/tracking-entries/${trackingEntryId}/`, {
           method: 'PATCH',
@@ -1029,7 +1616,7 @@ export function LiveTrackingMap() {
         sendAlert(`${empName} has reached their final destination at ${clientVisits.length > 0 ? clientVisits[clientVisits.length - 1].name : "their final stop"}.`, 'high');
       }
 
-      toast.success(finalAmount > 0 ? `₹${finalAmount.toFixed(2)} has been deposited to the wallet, and the trip log was finalized!` : `Trip log was finalized!`);
+      toast.success(`Trip log was finalized!`);
       reset();
     } catch(e) {
       console.error(e);
@@ -1060,13 +1647,19 @@ export function LiveTrackingMap() {
     popupAnchor: [0, -48]
   });
 
-  return (
-    <div className="flex flex-col md:flex-row w-full h-[100dvh] md:h-[800px] rounded-none md:rounded-xl overflow-hidden shadow-xl border-0 md:border border-slate-200 bg-slate-50">
-      <div className="flex-1 relative z-0 min-h-[40vh] md:min-h-0">
-        <MapContainer center={[19.1136, 72.8697]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+
+  const mapContent = (
+    <div className={
+      isFullScreenTrip 
+        ? "fixed inset-0 z-[100] w-full h-[100dvh] bg-slate-50" 
+        : "relative w-full h-[calc(100dvh-5rem)] md:h-[calc(100dvh-7rem)] min-h-[500px] rounded-none md:rounded-2xl overflow-hidden md:shadow-2xl border-0 md:border border-slate-200/60 bg-slate-50 flex flex-col md:block"
+    }>
+      <div className={isFullScreenTrip ? "absolute inset-0 z-0" : "flex-1 md:absolute md:inset-0 z-0 relative"}>
+        <MapContainer center={[19.1136, 72.8697]} zoom={11} style={{ height: '100%', width: '100%', zIndex: 0 }} zoomControl={false}>
+          <MapResizer isFullScreen={isFullScreenTrip || false} />
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; OpenStreetMap contributors'
+            url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            attribution='&copy; Google Maps'
           />
           {dynamicDestinations.map(loc => (
             <Marker 
@@ -1088,7 +1681,12 @@ export function LiveTrackingMap() {
             </Marker>
           ))}
 
-          <Polyline positions={detailedRoute.map(p => [p.lat, p.lng])} color="#3b82f6" weight={5} opacity={0.8} />
+          {detailedRoute.length > 0 && (
+            <>
+              <Polyline positions={detailedRoute.slice(0, Math.max(1, Math.floor(detailedRoute.length * 0.85))).map(p => [p.lat, p.lng])} color="#10b981" weight={6} opacity={0.9} />
+              <Polyline positions={detailedRoute.slice(Math.max(0, Math.floor(detailedRoute.length * 0.85) - 1)).map(p => [p.lat, p.lng])} color="#ef4444" weight={6} opacity={0.9} />
+            </>
+          )}
           
           {currentLocationMarker && (
             <Marker position={[currentLocationMarker.lat, currentLocationMarker.lng]} icon={customMarkerIcon}>
@@ -1100,317 +1698,536 @@ export function LiveTrackingMap() {
         </MapContainer>
       </div>
 
-      <div className="flex-1 md:flex-none w-full md:w-[350px] bg-white border-t md:border-t-0 md:border-l border-slate-200 overflow-y-auto z-10 flex flex-col p-5 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)]">
-        <div className="space-y-4">
-          <div className="flex justify-between items-center mb-2 pb-3 border-b border-slate-100">
-            <h3 className="font-bold text-lg flex items-center gap-2">
-              <Navigation className="w-5 h-5 text-blue-600" />
+      {isFullScreenTrip ? (
+        <>
+          {/* Top Floating Content */}
+          <div className="absolute top-4 left-4 right-4 z-[1000] pointer-events-auto flex flex-col gap-3">
+            <div className="relative flex items-center justify-center h-12">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute left-0 h-12 w-12 rounded-full bg-white shadow-md hover:bg-slate-50 border border-slate-100" 
+                onClick={() => { if(window.confirm("Cancel this trip?")) { setIsPlaying(false); setSimulationMode(false); setHasStartedTrip(false); } }}
+              >
+                <ChevronLeft className="h-6 w-6 text-[#3b66f5]" />
+              </Button>
+              <div className="bg-white rounded-full px-6 py-2.5 shadow-sm border border-slate-100/60 font-semibold text-[15px] text-slate-800 tracking-tight">
+                Meeting Details
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`absolute right-0 h-12 w-12 rounded-full shadow-md border transition-colors ${simulationMode ? 'bg-[#3b66f5] text-white hover:bg-blue-600 border-blue-600' : 'bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-600 border-slate-100'}`}
+                onClick={() => {
+                  const newMode = !simulationMode;
+                  setSimulationMode(newMode);
+                  if (newMode && !isPlaying) setIsPlaying(true);
+                  toast.success(newMode ? "Demo Mode Enabled" : "Demo Mode Disabled");
+                }}
+                title="Toggle Demo Mode"
+              >
+                <Play className="h-5 w-5 fill-current" />
+              </Button>
+            </div>
+
+            {/* Main White Card */}
+            <div className="bg-white rounded-[32px] shadow-lg p-5 flex flex-col border border-slate-100 mt-1">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 bg-emerald-50 rounded-[14px] flex items-center justify-center border border-emerald-100/50">
+                    <Briefcase className="h-6 w-6 text-emerald-600" />
+                  </div>
+                  <span className="font-bold text-xl text-slate-800 tracking-tight">{activeTripMeeting?.title || purposeInput || "Trip"}</span>
+                </div>
+                <div className="bg-[#fff7e6] text-[#d97706] text-xs font-bold px-4 py-1.5 rounded-full border border-[#fef08a]/50">
+                  {inProgressMeeting ? "In Meeting" : "In Progress"}
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col px-2 w-[45%]">
+                  <span className="text-[13px] text-slate-400 font-semibold mb-1">Distance</span>
+                  <span className="font-bold text-[17px] text-slate-800">{distance.toFixed(1)} km</span>
+                </div>
+                <div className="w-[1px] h-8 bg-slate-100 mx-2" />
+                <div className="flex flex-col items-end px-2 w-[45%]">
+                  <span className="text-[13px] text-slate-400 font-semibold mb-1">ETA</span>
+                  <span className="font-bold text-[17px] text-slate-800">
+                    {routeSummary ? routeSummary.reduce((acc: number, seg: any) => acc + (seg.eta || 0), 0).toFixed(0) : "0"} mins
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Navigation Control floating */}
+          <div className="absolute top-[280px] right-4 z-[1000] flex flex-col gap-2 pointer-events-auto">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="rounded-full w-12 h-12 shadow-lg bg-white" 
+              onClick={() => {
+                const dest = dynamicDestinations.find(loc => String(loc.meetingId) === String(activeTripMeeting?.id)) || dynamicDestinations[0];
+                if (dest && dest.lat && dest.lng) {
+                  const url = `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}`;
+                  window.open(url, '_blank');
+                } else {
+                  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activeTripMeeting?.title || purposeInput || "Destination")}`;
+                  window.open(url, '_blank');
+                }
+              }}
+            >
+               <Navigation className="w-5 h-5 text-blue-600" />
+            </Button>
+          </div>
+
+          {/* Bottom Sheet */}
+          <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-white rounded-t-[36px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 pb-8 flex flex-col pointer-events-auto">
+            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4" />
+            <p className="text-center text-[13px] font-semibold text-slate-400 mb-6 tracking-tight">Swipe up for details</p>
+            
+            <div className="flex items-center gap-4 mb-6">
+               <div className="w-[54px] h-[54px] rounded-full bg-[#3b66f5] text-white flex items-center justify-center font-medium text-[26px] shadow-sm shrink-0">
+                 {(activeTripMeeting?.title || purposeInput || "T").charAt(0).toUpperCase()}
+               </div>
+               <div className="flex-1 flex flex-col justify-center">
+                 <h3 className="font-bold text-xl leading-tight text-slate-900 mb-0.5">{activeTripMeeting?.title || purposeInput || "Trip"}</h3>
+                 <p className="text-[14px] font-medium text-slate-400">Client Visit</p>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-6">
+               <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col">
+                 <div className="flex items-center gap-2 mb-2">
+                   <Calendar className="w-[18px] h-[18px] text-[#3b66f5]" />
+                   <span className="text-[13px] font-semibold text-slate-400">Date</span>
+                 </div>
+                 <p className="font-bold text-[16px] text-slate-800">{activeTripMeeting?.date ? new Date(activeTripMeeting.date).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</p>
+               </div>
+               <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col">
+                 <div className="flex items-center gap-2 mb-2">
+                   <Clock className="w-[18px] h-[18px] text-[#3b66f5]" />
+                   <span className="text-[13px] font-semibold text-slate-400">Time</span>
+                 </div>
+                 <p className="font-bold text-[16px] text-slate-800">
+                   {activeTripMeeting?.actualStartTime || activeTripMeeting?.time || new Date().toLocaleTimeString()}
+                 </p>
+               </div>
+               <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col">
+                 <div className="flex items-center gap-2 mb-2">
+                   <div className="w-[18px] h-[18px] text-[#3b66f5] flex items-center justify-center border-2 border-[#3b66f5] rounded-full">
+                     <div className="w-1.5 h-1.5 bg-[#3b66f5] rounded-full" />
+                   </div>
+                   <span className="text-[13px] font-semibold text-slate-400">Traffic</span>
+                 </div>
+                 <p className="font-bold text-[16px] text-slate-800">Light</p>
+               </div>
+               <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col">
+                 <div className="flex items-center gap-2 mb-2">
+                   <div className="w-[18px] h-[18px] text-[#3b66f5] flex items-center justify-center font-bold">!</div>
+                   <span className="text-[13px] font-semibold text-slate-400">Priority</span>
+                 </div>
+                 <p className="font-bold text-[16px] text-slate-800">Medium</p>
+               </div>
+            </div>
+
+            {inProgressMeeting ? (
+              <Button 
+                className="w-full bg-red-600 hover:bg-red-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px]"
+                onClick={() => {
+                  setActiveMeetingId(inProgressMeeting.id);
+                  openCamera("endMeeting");
+                }}
+              >
+                End Meeting
+              </Button>
+            ) : isNearDestination ? (
+              <Button 
+                className="w-full bg-[#3b66f5] hover:bg-blue-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px] transition-transform active:scale-[0.98]"
+                onClick={() => {
+                  if (arrivedSite?.meetingId) {
+                    setActiveMeetingId(arrivedSite.meetingId);
+                    openCamera("endMeterForStartMeeting");
+                  } else {
+                    // Fallback to simulate check-in
+                    setActiveMeetingId(activeTripMeeting?.id);
+                    openCamera("endMeterForStartMeeting");
+                  }
+                }}
+              >
+                Start Meeting
+              </Button>
+            ) : !isPlaying ? (
+              <Button 
+                className="w-full bg-[#3b66f5] hover:bg-blue-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px] transition-transform active:scale-[0.98]"
+                onClick={() => {
+                  setIsPlaying(true);
+                }}
+              >
+                Start Travel
+              </Button>
+            ) : (
+              <Button 
+                disabled
+                className="w-full bg-slate-400 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px]"
+              >
+                Traveling...
+              </Button>
+            )}
+          </div>
+        </>
+      ) : (
+      <div className="relative md:absolute md:top-4 md:left-4 z-40 w-full md:w-[380px] bg-white/95 md:bg-white/75 backdrop-blur-2xl md:border border-white/50 shadow-[0_-10px_40px_rgba(0,0,0,0.08)] md:shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-t-3xl md:rounded-2xl overflow-y-auto flex flex-col p-6 max-h-[55vh] md:max-h-[calc(100%-2rem)] transition-all duration-300">
+        <div className="space-y-5">
+          <div className="flex justify-between items-center pb-4 border-b border-slate-200/60">
+            <h3 className="font-bold text-xl flex items-center gap-2.5 text-slate-800 tracking-tight">
+              <div className="p-2 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl shadow-inner border border-blue-200/50">
+                <Navigation className="w-5 h-5 text-blue-600" />
+              </div>
               Live Tracking
               <div className="flex items-center space-x-2 ml-4">
                 <Switch id="sim-mode" checked={simulationMode} onCheckedChange={setSimulationMode} disabled={isPlaying} />
-                <Label htmlFor="sim-mode" className="text-xs cursor-pointer text-muted-foreground">Demo</Label>
               </div>
             </h3>
-            <Badge variant={isPlaying ? "default" : "secondary"} className={isPlaying ? "animate-pulse bg-green-500 text-white" : ""}>
+            <Badge variant={isPlaying ? "default" : "secondary"} className={`shadow-sm px-3 py-1 ${isPlaying ? "bg-green-500 hover:bg-green-600 text-white animate-pulse" : "bg-slate-100 text-slate-600"}`}>
               {isPlaying ? "Tracking" : "Paused"}
             </Badge>
           </div>
           
-          <div className="grid grid-cols-2 gap-3 mb-2">
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                <Navigation className="w-3 h-3" /> Distance
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white/80 p-4 rounded-xl border border-slate-200/60 shadow-sm transition-all hover:shadow-md hover:bg-white">
+              <p className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
+                <Navigation className="w-3.5 h-3.5" /> Distance
               </p>
-              <p className="text-sm font-bold">{distance.toFixed(2)} km</p>
+              <p className="text-lg font-black text-slate-800">{distance.toFixed(2)} <span className="text-sm font-medium text-slate-500">km</span></p>
             </div>
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                <Clock className="w-3 h-3" /> Duration
+            <div className="bg-white/80 p-4 rounded-xl border border-slate-200/60 shadow-sm transition-all hover:shadow-md hover:bg-white">
+              <p className="text-xs font-semibold text-slate-500 flex items-center gap-1.5 mb-1.5 uppercase tracking-wider">
+                <Clock className="w-3.5 h-3.5" /> Duration
               </p>
-              <p className="text-sm font-bold">{Math.floor(timeSpent)} mins</p>
+              <p className="text-lg font-black text-slate-800">{Math.floor(timeSpent)} <span className="text-sm font-medium text-slate-500">mins</span></p>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-100">
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-              <Banknote className="w-3 h-3 text-green-500" /> Est. Reimbursement
-            </p>
-            <p className="text-2xl font-bold text-green-600">
-              ₹{reimbursement}
-            </p>
+          <div className="pt-4 border-t border-slate-200/60">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl p-4 text-white shadow-lg shadow-emerald-500/20">
+              <p className="text-xs font-medium text-emerald-50 flex items-center gap-1.5 mb-1 tracking-wide uppercase">
+                <Banknote className="w-4 h-4" /> Estimated Reimbursement
+              </p>
+              <p className="text-3xl font-black tracking-tight">
+                ₹{reimbursement}
+              </p>
+            </div>
           </div>
 
           {hasStartedTrip && plannedRouteData && (
-            <div className="pt-3 border-t border-slate-100 space-y-2">
-              <p className="text-xs font-bold uppercase text-slate-500 mb-2 flex items-center gap-1">
-                <Navigation className="w-3 h-3" /> Trip Details
+            <div className="pt-4 border-t border-slate-200/60 space-y-3">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
+                <Navigation className="w-3.5 h-3.5" /> Trip Details
               </p>
-              <div className="text-xs text-slate-700 bg-blue-50 p-2 rounded border border-blue-100">
-                <span className="font-bold block mb-1">Purpose of Visit:</span>
+              <div className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200/60 shadow-sm">
+                <span className="font-bold block mb-1 text-slate-800">Purpose of Visit:</span>
                 {purposeInput || 'No purpose specified'}
               </div>
               
               {routeSummary && routeSummary.length > 0 && (
                 <div className="mt-2 space-y-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
                   {routeSummary.map((seg: any, i: number) => (
-                    <div key={i} className="text-xs bg-white border border-slate-100 p-2 rounded shadow-sm relative pl-4 before:content-[''] before:absolute before:-left-1 before:top-2 before:w-2 before:h-2 before:bg-blue-500 before:rounded-full">
+                    <div key={i} className="text-sm bg-white border border-slate-200/60 p-3 rounded-lg shadow-sm relative pl-5 before:content-[''] before:absolute before:left-1.5 before:top-4 before:w-1.5 before:h-1.5 before:bg-blue-500 before:rounded-full after:content-[''] after:absolute after:left-[8px] after:top-6 after:w-[1px] after:h-full after:bg-slate-200 last:after:hidden transition-all hover:border-blue-200">
                       <div className="font-bold truncate text-slate-800">{seg.startName} → {seg.endName}</div>
-                      <div className="flex justify-between mt-1 text-slate-500">
-                        <span>{seg.distance.toFixed(1)} km</span>
-                        <span>{seg.eta.toFixed(0)} min ETA</span>
+                      <div className="flex justify-between mt-1.5 text-xs text-slate-500 font-medium">
+                        <span className="flex items-center gap-1"><Navigation className="w-3 h-3"/> {seg.distance.toFixed(1)} km</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> {seg.eta.toFixed(0)} min</span>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-              
-              {(!activeSite && !checkInModalOpen && (arrivedSite || nextDestination)) && (
-                <Button 
-                  className="w-full mt-3 shadow-sm bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => {
-                    const site = arrivedSite || nextDestination;
-                    setArrivedSite(site);
-                    setModalType("checkin");
-                    setCheckInModalOpen(true);
-                  }}
-                >
-                  <MapPin className="w-4 h-4 mr-2 animate-pulse" />
-                  Check-in at {(arrivedSite || nextDestination).name}
-                </Button>
-              )}
-
-              {activeSite && !checkInModalOpen && (
-                <Button 
-                  variant="destructive"
-                  className="w-full mt-3 shadow-sm"
-                  onClick={() => {
-                    setModalType("checkout");
-                    setCheckInModalOpen(true);
-                  }}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Checkout from {activeSite?.name}
-                </Button>
-              )}
             </div>
           )}
 
-          {hasStartedTrip && (
+          {hasStartedTrip && isNearDestination && !inProgressMeeting && (
             <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-              <Button 
-                className="w-full bg-slate-800 hover:bg-slate-900 text-white"
-                onClick={handleDepositEarnings}
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">You have arrived at destination</p>
+              <div className="flex flex-col gap-2">
+                {isMeetingCompleted ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex flex-col items-center justify-center text-center space-y-2 shadow-sm">
+                       <CheckCircle2 className="w-8 h-8 text-green-500 mb-1" />
+                       <span className="text-sm font-bold text-green-800 tracking-tight">Meeting Completed!</span>
+                       <p className="text-xs text-green-700 font-medium leading-relaxed">You can fill out the Minutes of Meeting (MOM) now or save it for later.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <Button 
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md flex flex-col h-auto py-3 transition-all hover:-translate-y-0.5"
+                        onClick={async () => {
+                          await handleEndRoute();
+                          localStorage.setItem('pendingMomMeetingId', destinationMeeting.id);
+                          window.dispatchEvent(new CustomEvent('changeTab', { detail: 'meetings' }));
+                        }}
+                      >
+                        <FileText className="w-5 h-5 mb-1.5" />
+                        <span className="text-xs font-bold tracking-wide">Fill MOM Now</span>
+                      </Button>
+                      <Button 
+                        className="w-full bg-white hover:bg-slate-50 text-slate-700 shadow-sm border border-slate-200 flex flex-col h-auto py-3 transition-all hover:-translate-y-0.5"
+                        onClick={handleEndRoute}
+                      >
+                        <Clock className="w-5 h-5 mb-1.5 text-slate-500" />
+                        <span className="text-xs font-bold tracking-wide">Fill Later</span>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Button 
+                      className="w-full bg-slate-800 hover:bg-slate-900 text-white shadow-sm"
+                      onClick={handleEndRoute}
+                    >
+                      End Route
+                    </Button>
+                    {!inProgressMeeting && (
+                      <Button 
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                        onClick={() => {
+                          if (arrivedSite?.meetingId) {
+                            setActiveMeetingId(arrivedSite.meetingId);
+                            openCamera("endMeterForStartMeeting");
+                          } else {
+                            toast.error("No meeting associated with this destination.");
+                          }
+                        }}
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Start Meeting
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {inProgressMeeting ? (
+            <div className="mt-4 p-4 rounded-lg border border-blue-200 bg-blue-50 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.6)]" />
+                <span className="text-sm font-bold text-blue-900 tracking-tight uppercase">Meeting In Progress</span>
+              </div>
+              <p className="text-xs font-semibold text-blue-800 line-clamp-2 leading-relaxed">{inProgressMeeting.title}</p>
+              <Button
+                variant="destructive"
+                className="w-full text-xs font-bold tracking-wide shadow-sm hover:shadow transition-all"
+                onClick={() => {
+                  setActiveMeetingId(inProgressMeeting.id);
+                  openCamera("endMeeting");
+                }}
               >
-                <Banknote className="w-4 h-4 mr-2" />
-                Deposit Reimbursement & End Route
+                End Meeting
               </Button>
             </div>
-          )}
-          
-          {!hasStartedTrip && (
+          ) : !hasStartedTrip && (
             <Button 
-              className="w-full gradient-btn mt-2"
-              onClick={() => setShowPreTripModal(true)}
+              className="w-full gradient-btn mt-2 shadow-md hover:shadow-lg transition-all"
+              onClick={() => {
+                const scheduledMeeting = userMeetings.find(m => m.status === 'scheduled');
+                if (scheduledMeeting) {
+                  setClientVisits([{
+                    id: 1,
+                    name: scheduledMeeting.location || scheduledMeeting.title || "Meeting Location",
+                    lat: scheduledMeeting.startLocationLat,
+                    lng: scheduledMeeting.startLocationLng,
+                    meetingId: scheduledMeeting.id
+                  }]);
+                  setPurposeInput(scheduledMeeting.title || "");
+                  setShowPreTripModal(true);
+                } else {
+                  toast.error("There is no scheduled meeting available. Please schedule a meeting first.");
+                }
+              }}
             >
               Start New Route
             </Button>
           )}
 
-          {/* Expenses panel is always visible */}
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-xs font-semibold uppercase text-slate-500 mb-3 tracking-wider">Expenses</p>
-            <div className="flex gap-2">
-              <Button 
-                className="flex-1 flex items-center justify-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors text-xs"
-                variant="outline"
-                onClick={() => setShowExpenseModal(true)}
+          {hasStartedTrip && !inProgressMeeting && (
+            <div className="flex flex-col gap-2 mt-4">
+              {!isMeetingCompleted && (
+                <Button 
+                  variant={isPlaying ? "destructive" : "default"}
+                  className={`w-full h-12 shadow-lg transition-all duration-300 active:scale-[0.98] ${isPlaying ? 'hover:shadow-red-500/25' : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 hover:shadow-green-500/25 border-0'}`}
+                  onClick={handleSimulate}
+                >
+                  <div className="flex items-center justify-center gap-2 font-bold tracking-wide text-[15px]">
+                    {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+                    {isPlaying ? (simulationMode ? "Pause Demo" : "Pause Tracking") : (simulationMode ? "Simulate Travel" : "Start Tracking")}
+                  </div>
+                </Button>
+              )}
+              <Button
+                variant={isMeetingCompleted ? "default" : "outline"}
+                className={isMeetingCompleted 
+                  ? "w-full text-white bg-[#3b66f5] hover:bg-blue-700 h-12 shadow-md transition-all font-bold text-[15px]" 
+                  : "w-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 h-10 shadow-sm transition-all"}
+                onClick={() => {
+                  if(isMeetingCompleted || window.confirm("Are you sure you want to cancel this trip?")) {
+                    const empId = sessionStorage.getItem('employeeId');
+                    setIsPlaying(false);
+                    setSimulationMode(false);
+                    setHasStartedTrip(false);
+                    setRouteSummary(null);
+                    setPlannedRouteData(null);
+                    setDetailedRoute([]);
+                    setClientVisits([{ id: 1, name: "", lat: undefined, lng: undefined, meetingId: undefined }]);
+                    setDistance(0);
+                    setTimeSpent(0);
+                    setTripStartTime(null);
+                    setTrackingEntryId(null);
+                    
+                    if(empId) {
+                      localStorage.removeItem(`tracking_${empId}_trip_info`);
+                      localStorage.removeItem(`tracking_${empId}_route`);
+                      localStorage.removeItem(`tracking_${empId}_destinations`);
+                      localStorage.removeItem(`tracking_${empId}_client_visits`);
+                      localStorage.removeItem(`tracking_${empId}_route_summary`);
+                      localStorage.removeItem(`tracking_${empId}_planned_data`);
+                      localStorage.removeItem(`tracking_${empId}_distance`);
+                      localStorage.removeItem(`tracking_${empId}_time`);
+                      localStorage.removeItem(`tracking_${empId}_start_time`);
+                      localStorage.removeItem(`tracking_${empId}_currentPathIndex`);
+                      localStorage.removeItem(`tracking_${empId}_isPlaying`);
+                      localStorage.removeItem(`tracking_${empId}_simulationMode`);
+                      localStorage.removeItem(`tracking_${empId}_entry_id`);
+                    }
+                    toast.success(isMeetingCompleted ? "Tracking session ended successfully." : "Trip has been cancelled and reset.");
+                  }
+                }}
               >
-                <Receipt className="w-3 h-3" /> Add
-              </Button>
-              <Button 
-                className="flex-1 flex items-center justify-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors text-xs"
-                variant="outline"
-                onClick={() => setShowExpenseHistoryModal(true)}
-              >
-                <History className="w-3 h-3" /> History
+                {!isMeetingCompleted && <X className="w-4 h-4 mr-2" />} {isMeetingCompleted ? "End Tracking Session" : "Cancel Trip"}
               </Button>
             </div>
-          </div>
-
-          {hasStartedTrip && (
-            <Button 
-              variant={isPlaying ? "destructive" : "default"}
-              className={`w-full mt-auto mb-2 ${isPlaying ? '' : 'bg-green-600 hover:bg-green-700'}`}
-              onClick={handleSimulate}
-            >
-              {isPlaying ? (simulationMode ? "Pause Demo" : "Pause Tracking") : (simulationMode ? "Simulate Travel" : "Start Tracking")}
-            </Button>
           )}
         </div>
       </div>
+      )}
 
       <Dialog open={showPreTripModal && !hasStartedTrip} onOpenChange={setShowPreTripModal}>
         <DialogContent className="sm:max-w-md">
+          <DialogDescription className="sr-only">Pre-trip details</DialogDescription>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Navigation className="w-5 h-5 text-primary" />
               Start Travel Route
             </DialogTitle>
-            <DialogDescription>
-              Please provide details about your trip before starting the tracking.
+            <DialogDescription className="text-slate-500">
+              Your route details have been calculated automatically.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
+          
+          <div className="py-6">
             {!routeSummary ? (
-              <>
-                {selectedMeetingId === "none" && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label>Start Location</Label>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600" onClick={handleUseCurrentLocation} disabled={isLocating}>
-                        {isLocating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <MapPin className="w-3 h-3 mr-1" />}
-                        Use Current Location
-                      </Button>
+              <div className="flex flex-col items-center justify-center space-y-4 py-8">
+                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-2 shadow-inner">
+                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-700">Calculating Route</h3>
+                <p className="text-sm text-slate-500 text-center max-w-[250px]">
+                  Please wait while we determine the best path to your destination...
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-1 shadow-xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <Navigation className="w-24 h-24" />
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 relative z-10 text-white space-y-6">
+                    
+                    <div>
+                      <p className="text-blue-100 text-xs font-semibold uppercase tracking-wider mb-1">Meeting Title</p>
+                      <h3 className="text-2xl font-bold leading-tight">
+                        {purposeInput || clientVisits[0]?.name || "Upcoming Meeting"}
+                      </h3>
                     </div>
-                    <LocationAutocomplete 
-                      placeholder="e.g. Bandra West"
-                      value={startLocationInput}
-                      onChange={setStartLocationInput}
-                    />
+
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
+                      <div>
+                        <p className="text-blue-100 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                          <MapPin className="w-3 h-3" /> Total Distance
+                        </p>
+                        <p className="text-3xl font-black">{plannedRouteData?.totalDist.toFixed(1)} <span className="text-base font-medium opacity-80">km</span></p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-blue-100 text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                          <Clock className="w-3 h-3" /> Est. Travel Time
+                        </p>
+                        <p className="text-3xl font-black">
+                          {routeSummary.reduce((acc: number, seg: any) => acc + (seg.eta || 0), 0).toFixed(0)} <span className="text-base font-medium opacity-80">mins</span>
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                )}
-                
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <div className="flex justify-between items-center mb-2">
-                    <Label>Link Meeting (Optional)</Label>
-                  </div>
-                  <Select value={selectedMeetingId} onValueChange={(val) => {
-                    setSelectedMeetingId(val);
-                    if (val !== "none") {
-                      const m = meetings.find(x => x.id === val);
-                      if (m) {
-                        setClientVisits([{ id: 1, name: m.location || m.title }]);
-                        setPurposeInput(`Meeting with Client: ${m.title}`);
-                      }
-                    } else {
-                      setClientVisits([{ id: 1, name: "" }]);
-                      setPurposeInput("");
-                    }
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a scheduled meeting..." />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Vehicle Type <span className="text-destructive">*</span></Label>
+                  <Select value={vehicleType} onValueChange={setVehicleType}>
+                    <SelectTrigger className="h-12 rounded-xl">
+                      <SelectValue placeholder="Select Vehicle" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No Meeting Linked</SelectItem>
-                      {meetings
-                        .filter(m => {
-                          const isGlobalAdmin = sessionStorage.getItem('isGlobalAdmin') === 'true';
-                          const empId = sessionStorage.getItem('employeeId');
-                          const usrId = sessionStorage.getItem('userId');
-                          const isOwner = isGlobalAdmin || m.organizerId === empId || m.organizerId === usrId;
-                          const isValidStatus = m.status === 'scheduled' || m.status === 'in-progress';
-                          return isOwner && isValidStatus && m.date === localToday;
-                        })
-                        .map(m => (
-                        <SelectItem key={m.id} value={m.id}>{m.title} at {m.location}</SelectItem>
+                      {vehicles.map((v: any) => (
+                        <SelectItem key={v.id} value={v.name}>{v.name} ({v.type})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                
-                {selectedMeetingId === "none" && (
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <div className="flex justify-between items-center mb-2">
-                      <Label>Client Visits</Label>
-                      <Button variant="ghost" size="sm" className="h-6 text-xs text-blue-600" onClick={() => setClientVisits([...clientVisits, { id: clientVisits.length + 1, name: "" }])}>
-                        <Plus className="w-3 h-3 mr-1" /> Add Visit
+
+                {vehicleType && (
+                  <div className="space-y-2 pb-2">
+                    <Label>Meter Photo <span className="text-destructive">*</span></Label>
+                    {!meterPhoto ? (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => openCamera("startMeter")}
+                        className="w-full flex items-center justify-center border-blue-200 text-blue-600 hover:bg-blue-50 relative h-14 rounded-xl border-dashed border-2"
+                      >
+                        <Camera className="w-5 h-5 mr-2" />
+                        <span className="font-semibold text-sm">Capture Live Meter Photo</span>
                       </Button>
-                    </div>
-                    {clientVisits.map((visit, index) => (
-                      <div key={visit.id} className="flex items-center gap-2 mb-2">
-                        <LocationAutocomplete 
-                          placeholder={`Client Location ${index + 1}`}
-                          value={visit.name}
-                          onChange={(val) => {
-                            const newVisits = [...clientVisits];
-                            newVisits[index].name = val;
-                            setClientVisits(newVisits);
-                          }}
-                        />
-                        {clientVisits.length > 1 && (
-                          <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500 flex-shrink-0" onClick={() => setClientVisits(clientVisits.filter((_, i) => i !== index))}>
-                            <X className="w-4 h-4" />
+                    ) : (
+                      <div className="relative w-full h-40 rounded-xl border-2 border-slate-200 overflow-hidden shadow-sm group">
+                        <img src={meterPhoto} alt="Meter" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" className="text-white hover:text-white hover:bg-white/20" onClick={() => openCamera("startMeter")}>
+                            <Camera className="w-4 h-4 mr-2" /> Retake Photo
                           </Button>
-                        )}
+                        </div>
+                        <button 
+                          onClick={() => setMeterPhoto(null)}
+                          className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-black/80 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
-
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <Label>Purpose of Visit</Label>
-                  <Textarea 
-                    placeholder="e.g. Routine Inspection, Meeting with client..."
-                    value={purposeInput}
-                    onChange={(e) => setPurposeInput(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <Label>Vehicle Type</Label>
-                  <Select value={vehicleType} onValueChange={setVehicleType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Vehicle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Bike">Bike</SelectItem>
-                      <SelectItem value="Car">Car</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-4">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                    <Navigation className="w-4 h-4 text-blue-600" /> Planned Route Summary
-                  </h4>
-                  <div className="space-y-3">
-                    {routeSummary.map((seg, i) => (
-                      <div key={i} className="bg-white p-3 rounded-lg border border-slate-200 text-sm shadow-sm relative">
-                        <div className="font-semibold text-slate-700 truncate pr-4">{seg.startName} <span className="text-muted-foreground mx-1">→</span> {seg.endName}</div>
-                        <div className="flex gap-4 mt-2 text-xs text-slate-600">
-                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {seg.distance.toFixed(1)} km</span>
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {seg.eta.toFixed(0)} min ETA</span>
-                          <span className="flex items-center gap-1 text-green-600 font-medium"><Banknote className="w-3 h-3" /> ₹{seg.cost.toFixed(0)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-slate-200 flex justify-between font-bold text-slate-800">
-                    <span>Total Plan:</span>
-                    <span className="text-blue-600">{plannedRouteData?.totalDist.toFixed(1)} km</span>
-                  </div>
-                </div>
               </div>
             )}
           </div>
-          <DialogFooter>
-            {!routeSummary ? (
-              <Button className="w-full gradient-btn" onClick={handleCalculateRoute} disabled={isGeocoding}>
-                {isGeocoding ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                {isGeocoding ? "Generating Route..." : "Calculate Route"}
+          
+          <DialogFooter className="border-t-0 pt-0 sm:pt-0">
+            {routeSummary ? (
+              <Button className="w-full h-14 text-lg font-bold shadow-lg shadow-blue-500/30 rounded-xl bg-blue-600 hover:bg-blue-700 transition-all hover:-translate-y-0.5" onClick={handleConfirmAndStart}>
+                Start Journey
               </Button>
             ) : (
-              <div className="flex w-full gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setRouteSummary(null)}>
-                  Edit Plan
-                </Button>
-                <Button className="flex-1 gradient-btn" onClick={handleConfirmAndStart}>
-                  Confirm & Start
-                </Button>
-              </div>
+              <Button variant="outline" className="w-full h-14 rounded-xl" onClick={() => setShowPreTripModal(false)}>
+                Cancel
+              </Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -1418,6 +2235,7 @@ export function LiveTrackingMap() {
 
       <Dialog open={showExpenseModal} onOpenChange={setShowExpenseModal}>
         <DialogContent className="sm:max-w-md">
+          <DialogDescription className="sr-only">Expense Details</DialogDescription>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Receipt className="w-5 h-5 text-primary" />
@@ -1460,38 +2278,27 @@ export function LiveTrackingMap() {
               </Label>
               {!expensePhoto ? (
                 <div className="relative mt-1">
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    capture="environment" 
-                    id="expense-camera"
-                    className="hidden"
-                    onChange={(e) => handleCameraCapture(e, setExpensePhoto)}
-                  />
-                  <Label 
-                    htmlFor="expense-camera" 
+                  <button 
+                    type="button"
+                    onClick={() => openCamera("expense")}
                     className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary/50 rounded-xl bg-primary/5 hover:bg-primary/10 cursor-pointer transition-colors"
                   >
                     <Camera className="w-8 h-8 text-primary mb-2" />
                     <span className="text-sm text-primary font-medium">Capture Bill</span>
                     <span className="text-xs text-muted-foreground mt-1">Live camera only</span>
-                  </Label>
+                  </button>
                 </div>
               ) : (
                 <div className="relative rounded-xl overflow-hidden border border-border h-32 group mt-1">
                   <img src={expensePhoto} alt="Bill Proof" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Label htmlFor="expense-camera-retry" className="cursor-pointer text-white flex items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => openCamera("expense")}
+                      className="cursor-pointer text-white flex items-center gap-2 bg-transparent border-none"
+                    >
                       <Camera className="w-4 h-4" /> Retake
-                    </Label>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      capture="environment" 
-                      id="expense-camera-retry"
-                      className="hidden"
-                      onChange={(e) => handleCameraCapture(e, setExpensePhoto)}
-                    />
+                    </button>
                   </div>
                 </div>
               )}
@@ -1507,7 +2314,7 @@ export function LiveTrackingMap() {
       </Dialog>
 
       {checkInModalOpen && (
-        <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 transition-all">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 transition-all">
           <Card className="w-full max-w-sm shadow-2xl border-white/20 glass-card">
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center gap-3 text-primary mb-2">
@@ -1518,53 +2325,8 @@ export function LiveTrackingMap() {
               </div>
               <p className="text-sm text-muted-foreground">
                 You have reached <strong>{modalType === "checkin" ? arrivedSite?.name : activeSite?.name}</strong>. 
-                Please {modalType === "checkin" ? "provide site proof to check in" : "confirm to check out"}.
+                Please {modalType === "checkin" ? "confirm to check in" : "confirm to check out"}.
               </p>
-
-              {modalType === "checkin" && (
-                <div className="space-y-3 mt-4 border-t border-border pt-4">
-                  <p className="text-sm font-medium flex items-center gap-2">
-                    <Camera className="w-4 h-4" /> Live Site Proof Required
-                  </p>
-                  {!checkInPhoto ? (
-                    <div className="relative">
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        capture="environment" 
-                        id="site-camera"
-                        className="hidden"
-                        onChange={(e) => handleCameraCapture(e, setCheckInPhoto)}
-                      />
-                      <Label 
-                        htmlFor="site-camera" 
-                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary/50 rounded-xl bg-primary/5 hover:bg-primary/10 cursor-pointer transition-colors"
-                      >
-                        <Camera className="w-8 h-8 text-primary mb-2" />
-                        <span className="text-sm text-primary font-medium">Tap to Open Camera</span>
-                        <span className="text-xs text-muted-foreground mt-1">Live capture only</span>
-                      </Label>
-                    </div>
-                  ) : (
-                    <div className="relative rounded-xl overflow-hidden border border-border h-32 group">
-                      <img src={checkInPhoto} alt="Site Proof" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Label htmlFor="site-camera-retry" className="cursor-pointer text-white flex items-center gap-2">
-                          <Camera className="w-4 h-4" /> Retake
-                        </Label>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          capture="environment" 
-                          id="site-camera-retry"
-                          className="hidden"
-                          onChange={(e) => handleCameraCapture(e, setCheckInPhoto)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               <Button className="w-full gradient-btn mt-4" onClick={handleSiteCheckInCheckOut}>
                 {modalType === "checkin" ? "Confirm Check-in" : "Confirm Check-out"}
@@ -1584,6 +2346,7 @@ export function LiveTrackingMap() {
 
       <Dialog open={showExpenseHistoryModal} onOpenChange={setShowExpenseHistoryModal}>
         <DialogContent className="sm:max-w-md">
+          <DialogDescription className="sr-only">Expense History</DialogDescription>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="w-5 h-5 text-slate-600" />
@@ -1627,6 +2390,106 @@ export function LiveTrackingMap() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Camera Capture Modal */}
+      <Dialog open={isCaptureModalOpen} onOpenChange={(open) => {
+        if (!open) {
+          stopCamera();
+          setIsCaptureModalOpen(false);
+        }
+      }}>
+        <DialogContent className="!fixed !inset-0 !left-0 !top-0 !translate-x-0 !translate-y-0 !max-w-none !w-screen !h-[100dvh] !border-none !rounded-none !bg-black !p-0 !m-0 !z-[9999] !flex !flex-col !gap-0 [&>button]:hidden">
+          <DialogTitle className="sr-only">Camera</DialogTitle>
+          <DialogDescription className="sr-only">Capture photo</DialogDescription>
+          <div className="h-14 bg-primary flex items-center px-4 shrink-0 text-primary-foreground gap-4 z-10 relative pt-safe border-b border-white/10 shadow-sm">
+            <button onClick={() => { stopCamera(); setIsCaptureModalOpen(false); }} className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors">
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <span className="font-medium text-lg tracking-tight">Camera</span>
+          </div>
+
+          <div className="flex-1 relative bg-black flex flex-col overflow-hidden">
+            <video ref={videoRef} autoPlay playsInline muted className={`absolute inset-0 w-full h-full object-cover ${facingMode === 'user' ? '-scale-x-100' : ''}`} />
+            <canvas ref={canvasRef} className="hidden" />
+
+            {logoSrc && (
+              <img 
+                src={logoSrc} 
+                alt="Logo" 
+                className="absolute top-4 right-4 h-20 w-auto object-contain z-10 pointer-events-none"
+                onError={(e) => e.currentTarget.style.display = 'none'}
+              />
+            )}
+            <div className="absolute bottom-56 left-4 right-4 flex flex-col items-start gap-3 pointer-events-none z-10">
+              <div className="flex items-center gap-2 bg-black/50 backdrop-blur-md px-1.5 py-1.5 rounded-lg border border-white/10 shadow-lg">
+                <div className="bg-blue-600 px-2 py-0.5 rounded text-white font-bold text-[11px] tracking-wide">
+                  {captureType === "startMeter" ? "VEHICLE START METER" : (captureType === "siteCheckIn" ? "SITE CHECK-IN" : captureType === "startMeeting" ? "MEETING START" : captureType === "endMeeting" ? "MEETING END" : captureType === "endMeter" || captureType === "endMeterForStartMeeting" ? "VEHICLE END METER" : "EXPENSE BILL")}
+                </div>
+                <div className="font-semibold text-sm text-white pr-2">
+                  {format(new Date(), "hh:mm a")}
+                </div>
+              </div>
+
+              <div className="flex flex-col pl-3 border-l-[3px] border-blue-600">
+                <span className="font-medium text-[15px] text-white drop-shadow-md">
+                  {format(new Date(), "EEE, MMM dd, yyyy")}
+                </span>
+                <span className="text-[13px] text-white/90 drop-shadow-md line-clamp-2 mt-0.5">
+                  {currentLocationName}
+                </span>
+              </div>
+            </div>
+
+            <div className="absolute top-4 left-4 flex gap-3 z-50">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const newMode = facingMode === "user" ? "environment" : "user";
+                  startCamera(newMode);
+                }} 
+                className="p-3 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 shadow-lg border border-white/20"
+              >
+                <SwitchCamera className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); stopCamera(); setIsCaptureModalOpen(false); }} 
+                className="p-3 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 shadow-lg border border-white/20"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="absolute top-8 left-4 right-24 text-center z-10 pointer-events-none">
+              <div className="bg-black/50 backdrop-blur-md rounded-lg p-3 text-white/90 text-sm border border-white/10 inline-block shadow-xl">
+                {captureType === "startMeter" ? "Capture starting vehicle meter photo" : 
+                 captureType === "siteCheckIn" ? "Capture site check-in proof" : 
+                 captureType === "startMeeting" ? "Capture meeting start proof" :
+                 captureType === "endMeeting" ? "Capture meeting end proof" :
+                 captureType === "endMeter" ? "Capture vehicle end meter photo" :
+                 "Capture expense bill"}
+              </div>
+            </div>
+
+            <div className="absolute bottom-8 left-0 right-0 flex justify-center z-10">
+              <button 
+                onClick={(e) => { e.stopPropagation(); capturePhoto(); }} 
+                disabled={!stream} 
+                className="w-20 h-20 rounded-full border-4 border-white bg-transparent flex items-center justify-center hover:bg-white/10 transition-colors shadow-xl"
+              >
+                <div className="w-16 h-16 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm">
+                  <Camera className="w-8 h-8 text-white" />
+                </div>
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
+  if (isFullScreenTrip) {
+    return createPortal(mapContent, document.body);
+  }
+
+  return mapContent;
 }
