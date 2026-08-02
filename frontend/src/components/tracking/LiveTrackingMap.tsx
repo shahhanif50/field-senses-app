@@ -18,6 +18,7 @@ import { Play, Pause, Navigation, Clock, Banknote, MapPin, CheckCircle2, User, C
 import { SiteVisitReportFormModal, SiteVisitReportData } from '@/components/modals/SiteVisitReportFormModal';
 import { format } from "date-fns";
 import { useTransparentLogo } from "@/hooks/useTransparentLogo";
+import { Meeting } from "@/data/sharedTypes";
 
 // Fix for default marker icons in Leaflet with Webpack/Vite
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -230,6 +231,8 @@ export function LiveTrackingMap() {
     return localStorage.getItem(`tracking_${sessionStorage.getItem('employeeId')}_trip_info`) !== null;
   });
   const [showPreTripModal, setShowPreTripModal] = useState(false);
+  const [showEndTripModal, setShowEndTripModal] = useState(false);
+  const [endTripNextAction, setEndTripNextAction] = useState<"endMeter" | "endMeterForStartMeeting">("endMeter");
   const [showAdhocModal, setShowAdhocModal] = useState(false);
   const [adhocTitle, setAdhocTitle] = useState("");
   const [adhocDestination, setAdhocDestination] = useState("");
@@ -243,10 +246,12 @@ export function LiveTrackingMap() {
   const [vehicleType, setVehicleType] = useState("");
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [meterPhoto, setMeterPhoto] = useState<string | null>(null);
+  const [startMeterReading, setStartMeterReading] = useState<string>("");
+  const [endMeterReading, setEndMeterReading] = useState<string>("");
 
   // Camera State
   const [isCaptureModalOpen, setIsCaptureModalOpen] = useState(false);
-  const [captureType, setCaptureType] = useState<"startMeter" | "siteCheckIn" | "expense" | "startMeeting" | "endMeeting" | "endMeter">("startMeter");
+  const [captureType, setCaptureType] = useState<"startMeter" | "siteCheckIn" | "expense" | "startMeeting" | "endMeeting" | "endMeter" | "endMeterForStartMeeting">("startMeter");
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [stream, setStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -440,7 +445,7 @@ export function LiveTrackingMap() {
             else if (captureType === "endMeterForStartMeeting" && activeMeetingId) {
               setPendingMeterPhoto(dataUrl);
               setPendingMeterLocation({ lat: currentLocationLat || 0, lng: currentLocationLng || 0, name: currentLocationName });
-              setCaptureType("startMeeting");
+              setIsCaptureModalOpen(false);
               return;
             }
             else if (captureType === "siteCheckIn") setCheckInPhoto(dataUrl);
@@ -461,7 +466,7 @@ export function LiveTrackingMap() {
                      if (exists) {
                        return prev.map(m => String(m.id) === String(activeMeetingId) ? { ...m, status: 'in-progress' } : m);
                      }
-                     return [...prev, { id: activeMeetingId, status: 'in-progress', title: activeTripMeeting?.title || "Ad-hoc Visit", organizerId: empId, date: now }];
+                     return [...prev, { id: activeMeetingId, status: 'in-progress', title: activeTripMeeting?.title || "Ad-hoc Visit", organizerId: empId, date: now.split('T')[0] } as Meeting];
                    });
                    window.dispatchEvent(new CustomEvent('meetingUpdated'));
                    setIsCaptureModalOpen(false);
@@ -511,12 +516,11 @@ export function LiveTrackingMap() {
                   }
                 }
   
-                const patchData = { 
+                const patchData: any = { 
                   status: "in-progress", 
                   actualStartTime: now, 
                   startPhoto: dataUrl, 
                   startMeterPhoto: startPhotoStr,
-                  endMeterPhoto: pendingMeterPhoto,
                   startMeterLocationLat: startLat || null,
                   startMeterLocationLng: startLng || null,
                   startMeterLocationName: startName || null,
@@ -527,6 +531,9 @@ export function LiveTrackingMap() {
                   endMeterTime: now,
                   calculatedDistanceKms: calcDist
                 };
+                if (pendingMeterPhoto) {
+                  patchData.endMeterPhoto = pendingMeterPhoto;
+                }
                 
                 fetch(`/api/ops/meetings/${activeMeetingId}/`, {
                   method: "PATCH",
@@ -560,7 +567,19 @@ export function LiveTrackingMap() {
                  return;
               }
               
-              const patchData = { status: "completed", actualEndTime: now, endPhoto: dataUrl, endMeterPhoto: pendingMeterPhoto };
+              const calcDist = (Number(endMeterReading) - Number(startMeterReading)) || 0;
+              const patchData: any = { 
+                status: "completed", 
+                actualEndTime: now, 
+                endPhoto: dataUrl, 
+                startMeterReading: startMeterReading,
+                endMeterReading: endMeterReading,
+                calculatedDistanceKms: calcDist,
+                vehicleType: vehicleType
+              };
+              if (pendingMeterPhoto) {
+                patchData.endMeterPhoto = pendingMeterPhoto;
+              }
               
               fetch(`/api/ops/meetings/${activeMeetingId}/`, {
                 method: "PATCH",
@@ -572,9 +591,8 @@ export function LiveTrackingMap() {
                   setMeetings(prev => prev.map(m => String(m.id) === String(activeMeetingId) ? { ...m, status: 'completed' } : m));
                   window.dispatchEvent(new CustomEvent('meetingUpdated'));
                   
-                  // Do not automatically redirect to MOM form anymore, user must click it manually.
-                  // localStorage.setItem('pendingMomMeetingId', activeMeetingId);
-                  // window.dispatchEvent(new CustomEvent('changeTab', { detail: 'meetings' }));
+                  localStorage.setItem('pendingMomMeetingId', activeMeetingId);
+                  window.dispatchEvent(new CustomEvent('changeTab', { detail: 'meetings' }));
                 } else {
                   toast.error("Failed to end meeting.");
                 }
@@ -659,6 +677,7 @@ export function LiveTrackingMap() {
       try {
         const info = JSON.parse(savedTripInfoStr);
         if (info.vehicleType) setVehicleType(info.vehicleType);
+        if (info.startMeterReading) setStartMeterReading(info.startMeterReading);
         if (info.purpose) setPurposeInput(info.purpose);
         if (info.startLocation) setStartLocationInput(info.startLocation);
         
@@ -669,9 +688,18 @@ export function LiveTrackingMap() {
         if (savedSummary) setRouteSummary(JSON.parse(savedSummary));
 
         const savedPlanned = localStorage.getItem(`tracking_${empId}_planned_data`);
-        if (savedPlanned) setPlannedRouteData(JSON.parse(savedPlanned));
+        if (savedPlanned) {
+          const parsed = JSON.parse(savedPlanned);
+          setPlannedRouteData(parsed);
+          
+          if (parsed.newRoute && parsed.newRoute.length > 0) {
+            setDetailedRoute(parsed.newRoute);
+          }
+        }
         
-      } catch(e) {}
+      } catch(e) {
+        console.error("Error restoring tracking state:", e);
+      }
     }
   }, []);
 
@@ -684,7 +712,7 @@ export function LiveTrackingMap() {
         try {
           const info = JSON.parse(savedTripInfoStr);
           if (info.meetingId) {
-            const meeting = meetings.find((m: any) => m.id === info.meetingId);
+            const meeting = meetings.find((m: any) => String(m.id) === String(info.meetingId));
             if (!meeting || meeting.status === 'cancelled') {
               toast.error("The scheduled meeting for this trip has been cancelled. Resetting travel route.");
               
@@ -695,11 +723,13 @@ export function LiveTrackingMap() {
               setRouteSummary(null);
               setPlannedRouteData(null);
               setDetailedRoute([]);
+              setCurrentPathIndex(0);
               setClientVisits([{ id: 1, name: "", lat: undefined, lng: undefined, meetingId: undefined }]);
               setDistance(0);
               setTimeSpent(0);
               setTripStartTime(null);
               setTrackingEntryId(null);
+              setMeterPhoto(null);
               
               localStorage.removeItem(`tracking_${empId}_trip_info`);
               localStorage.removeItem(`tracking_${empId}_route`);
@@ -713,6 +743,17 @@ export function LiveTrackingMap() {
               localStorage.removeItem(`tracking_${empId}_currentPathIndex`);
               localStorage.removeItem(`tracking_${empId}_isPlaying`);
               localStorage.removeItem(`tracking_${empId}_simulationMode`);
+              localStorage.removeItem(`tracking_${empId}_visitedSites`);
+              localStorage.removeItem(`tracking_${empId}_activeSite`);
+              localStorage.removeItem(`tracking_${empId}_isNearDestination`);
+              localStorage.removeItem(`tracking_${empId}_arrivedSite`);
+              localStorage.removeItem(`tracking_${empId}_status`);
+              
+              setIsNearDestination(false);
+              setArrivedSite(null);
+              setVisitedSites([]);
+              setActiveSite(null);
+              setActiveMeetingId(null);
               localStorage.removeItem(`tracking_${empId}_entry_id`);
             }
           }
@@ -1355,6 +1396,7 @@ export function LiveTrackingMap() {
       toast.error("Please select a vehicle type for travel");
       return;
     }
+
     if (!meterPhoto) {
       toast.error("Please capture the live meter photo");
       return;
@@ -1374,6 +1416,7 @@ export function LiveTrackingMap() {
       meetingId: clientVisits[0]?.meetingId,
       purpose: purposeInput,
       vehicleType: vehicleType,
+      startMeterReading: startMeterReading,
       meterPhoto: meterPhoto,
       startMeterLocationLat: currentLocationLat,
       startMeterLocationLng: currentLocationLng,
@@ -1392,6 +1435,12 @@ export function LiveTrackingMap() {
     
     // Set distance to 0 at the start of the trip (accumulates based on meter photos)
     setDistance(0);
+    setCurrentPathIndex(0);
+    setIsNearDestination(false);
+    setArrivedSite(null);
+    setVisitedSites([]);
+    setActiveSite(null);
+    setActiveMeetingId(null);
     
     const startTime = new Date();
     setTripStartTime(startTime);
@@ -1412,6 +1461,7 @@ export function LiveTrackingMap() {
           date: new Date().toISOString().split('T')[0],
           plannedRouteSummary: routeSummary, // Save the pre-calculated summary to the DB for Admin
           vehicleType: vehicleType,
+          startMeterReading: startMeterReading,
           meterPhoto: meterPhoto,
           purpose: purposeInput,
           clientVisits: clientVisits.map(v => v.name)
@@ -1707,7 +1757,7 @@ export function LiveTrackingMap() {
                 variant="ghost" 
                 size="icon" 
                 className="absolute left-0 h-12 w-12 rounded-full bg-white shadow-md hover:bg-slate-50 border border-slate-100" 
-                onClick={() => { if(window.confirm("Cancel this trip?")) { setIsPlaying(false); setSimulationMode(false); setHasStartedTrip(false); } }}
+                onClick={() => { if(window.confirm("Cancel this trip?")) { setIsPlaying(false); setSimulationMode(false); setHasStartedTrip(false); setMeterPhoto(null); } }}
               >
                 <ChevronLeft className="h-6 w-6 text-[#3b66f5]" />
               </Button>
@@ -1731,28 +1781,28 @@ export function LiveTrackingMap() {
             </div>
 
             {/* Main White Card */}
-            <div className="bg-white rounded-[32px] shadow-lg p-5 flex flex-col border border-slate-100 mt-1">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 bg-emerald-50 rounded-[14px] flex items-center justify-center border border-emerald-100/50">
-                    <Briefcase className="h-6 w-6 text-emerald-600" />
+            <div className="bg-white rounded-[24px] shadow-lg p-4 flex flex-col border border-slate-100 mt-1">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 bg-emerald-50 rounded-[10px] flex items-center justify-center border border-emerald-100/50">
+                    <Briefcase className="h-5 w-5 text-emerald-600" />
                   </div>
-                  <span className="font-bold text-xl text-slate-800 tracking-tight">{activeTripMeeting?.title || purposeInput || "Trip"}</span>
+                  <span className="font-bold text-[17px] text-slate-800 tracking-tight">{activeTripMeeting?.title || purposeInput || "Trip"}</span>
                 </div>
-                <div className="bg-[#fff7e6] text-[#d97706] text-xs font-bold px-4 py-1.5 rounded-full border border-[#fef08a]/50">
+                <div className="bg-[#fff7e6] text-[#d97706] text-[11px] font-bold px-3 py-1 rounded-full border border-[#fef08a]/50">
                   {inProgressMeeting ? "In Meeting" : "In Progress"}
                 </div>
               </div>
               
               <div className="flex items-center justify-between">
                 <div className="flex flex-col px-2 w-[45%]">
-                  <span className="text-[13px] text-slate-400 font-semibold mb-1">Distance</span>
-                  <span className="font-bold text-[17px] text-slate-800">{distance.toFixed(1)} km</span>
+                  <span className="text-[12px] text-slate-400 font-semibold mb-0.5">Distance</span>
+                  <span className="font-bold text-[15px] text-slate-800">{distance.toFixed(1)} km</span>
                 </div>
-                <div className="w-[1px] h-8 bg-slate-100 mx-2" />
+                <div className="w-[1px] h-6 bg-slate-100 mx-2" />
                 <div className="flex flex-col items-end px-2 w-[45%]">
-                  <span className="text-[13px] text-slate-400 font-semibold mb-1">ETA</span>
-                  <span className="font-bold text-[17px] text-slate-800">
+                  <span className="text-[12px] text-slate-400 font-semibold mb-0.5">ETA</span>
+                  <span className="font-bold text-[15px] text-slate-800">
                     {routeSummary ? routeSummary.reduce((acc: number, seg: any) => acc + (seg.eta || 0), 0).toFixed(0) : "0"} mins
                   </span>
                 </div>
@@ -1782,10 +1832,10 @@ export function LiveTrackingMap() {
           </div>
 
           {/* Bottom Sheet */}
-          <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-white rounded-t-[36px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 pb-8 flex flex-col pointer-events-auto">
-            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4" />
-            <p className="text-center text-[13px] font-semibold text-slate-400 mb-6 tracking-tight">Swipe up for details</p>
-            
+          <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-white rounded-t-[36px] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] pt-6 flex flex-col pointer-events-auto max-h-[320px]">
+            <div className="px-6 overflow-y-auto pb-[100px] no-scrollbar">
+              <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-4" />
+              <p className="text-center text-[13px] font-semibold text-slate-400 mb-6 tracking-tight">Swipe up for details</p>
             <div className="flex items-center gap-4 mb-6">
                <div className="w-[54px] h-[54px] rounded-full bg-[#3b66f5] text-white flex items-center justify-center font-medium text-[26px] shadow-sm shrink-0">
                  {(activeTripMeeting?.title || purposeInput || "T").charAt(0).toUpperCase()}
@@ -1829,51 +1879,70 @@ export function LiveTrackingMap() {
                  </div>
                  <p className="font-bold text-[16px] text-slate-800">Medium</p>
                </div>
+             </div>
             </div>
 
-            {inProgressMeeting ? (
-              <Button 
-                className="w-full bg-red-600 hover:bg-red-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px]"
-                onClick={() => {
-                  setActiveMeetingId(inProgressMeeting.id);
-                  openCamera("endMeeting");
-                }}
-              >
-                End Meeting
-              </Button>
-            ) : isNearDestination ? (
-              <Button 
-                className="w-full bg-[#3b66f5] hover:bg-blue-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px] transition-transform active:scale-[0.98]"
-                onClick={() => {
-                  if (arrivedSite?.meetingId) {
-                    setActiveMeetingId(arrivedSite.meetingId);
-                    openCamera("endMeterForStartMeeting");
-                  } else {
-                    // Fallback to simulate check-in
-                    setActiveMeetingId(activeTripMeeting?.id);
-                    openCamera("endMeterForStartMeeting");
-                  }
-                }}
-              >
-                Start Meeting
-              </Button>
-            ) : !isPlaying ? (
-              <Button 
-                className="w-full bg-[#3b66f5] hover:bg-blue-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px] transition-transform active:scale-[0.98]"
-                onClick={() => {
-                  setIsPlaying(true);
-                }}
-              >
-                Start Travel
-              </Button>
-            ) : (
-              <Button 
-                disabled
-                className="w-full bg-slate-400 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px]"
-              >
-                Traveling...
-              </Button>
-            )}
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent pt-12 rounded-b-[36px]">
+              {inProgressMeeting ? (
+                <Button 
+                  className="w-full bg-red-600 hover:bg-red-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px]"
+                  onClick={() => {
+                    setActiveMeetingId(inProgressMeeting.id);
+                    openCamera("endMeeting");
+                  }}
+                >
+                  End Meeting
+                </Button>
+              ) : isNearDestination ? (
+                !pendingMeterPhoto ? (
+                  <Button 
+                    className="w-full bg-[#3b66f5] hover:bg-blue-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px] transition-transform active:scale-[0.98]"
+                    onClick={() => {
+                      if (arrivedSite?.meetingId) {
+                        setActiveMeetingId(arrivedSite.meetingId);
+                        setEndTripNextAction("endMeterForStartMeeting");
+                        setShowEndTripModal(true);
+                      } else {
+                        // Fallback to simulate check-in
+                        setActiveMeetingId(activeTripMeeting?.id);
+                        setEndTripNextAction("endMeterForStartMeeting");
+                        setShowEndTripModal(true);
+                      }
+                    }}
+                  >
+                    Reached
+                  </Button>
+                ) : (
+                  <Button 
+                    className="w-full bg-green-600 hover:bg-green-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px] transition-transform active:scale-[0.98]"
+                    onClick={() => {
+                      if (arrivedSite?.meetingId) {
+                        setActiveMeetingId(arrivedSite.meetingId);
+                      } else {
+                        setActiveMeetingId(activeTripMeeting?.id);
+                      }
+                      openCamera("startMeeting");
+                    }}
+                  >
+                    Start Meeting
+                  </Button>
+                )
+              ) : !isPlaying ? (
+                <Button 
+                  className="w-full bg-[#3b66f5] hover:bg-blue-700 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px] transition-transform active:scale-[0.98]"
+                  onClick={handleSimulate}
+                >
+                  Start Travel
+                </Button>
+              ) : (
+                <Button 
+                  disabled
+                  className="w-full bg-slate-400 text-white shadow-md h-[56px] text-[17px] tracking-wide font-medium rounded-[20px]"
+                >
+                  Traveling...
+                </Button>
+              )}
+            </div>
           </div>
         </>
       ) : (
@@ -1992,14 +2061,19 @@ export function LiveTrackingMap() {
                         onClick={() => {
                           if (arrivedSite?.meetingId) {
                             setActiveMeetingId(arrivedSite.meetingId);
-                            openCamera("endMeterForStartMeeting");
+                            if (!pendingMeterPhoto) {
+                              setEndTripNextAction("endMeterForStartMeeting");
+                              setShowEndTripModal(true);
+                            } else {
+                              openCamera("startMeeting");
+                            }
                           } else {
                             toast.error("No meeting associated with this destination.");
                           }
                         }}
                       >
                         <Calendar className="w-4 h-4 mr-2" />
-                        Start Meeting
+                        {pendingMeterPhoto ? "Start Meeting" : "Reached & Start Meeting"}
                       </Button>
                     )}
                   </>
@@ -2078,11 +2152,13 @@ export function LiveTrackingMap() {
                     setRouteSummary(null);
                     setPlannedRouteData(null);
                     setDetailedRoute([]);
+                    setCurrentPathIndex(0);
                     setClientVisits([{ id: 1, name: "", lat: undefined, lng: undefined, meetingId: undefined }]);
                     setDistance(0);
                     setTimeSpent(0);
                     setTripStartTime(null);
                     setTrackingEntryId(null);
+                    setMeterPhoto(null);
                     
                     if(empId) {
                       localStorage.removeItem(`tracking_${empId}_trip_info`);
@@ -2098,7 +2174,19 @@ export function LiveTrackingMap() {
                       localStorage.removeItem(`tracking_${empId}_isPlaying`);
                       localStorage.removeItem(`tracking_${empId}_simulationMode`);
                       localStorage.removeItem(`tracking_${empId}_entry_id`);
+                      localStorage.removeItem(`tracking_${empId}_visitedSites`);
+                      localStorage.removeItem(`tracking_${empId}_activeSite`);
+                      localStorage.removeItem(`tracking_${empId}_isNearDestination`);
+                      localStorage.removeItem(`tracking_${empId}_arrivedSite`);
+                      localStorage.removeItem(`tracking_${empId}_status`);
                     }
+                    
+                    setIsNearDestination(false);
+                    setArrivedSite(null);
+                    setVisitedSites([]);
+                    setActiveSite(null);
+                    setActiveMeetingId(null);
+
                     toast.success(isMeetingCompleted ? "Tracking session ended successfully." : "Trip has been cancelled and reset.");
                   }
                 }}
@@ -2111,8 +2199,8 @@ export function LiveTrackingMap() {
       </div>
       )}
 
-      <Dialog open={showPreTripModal && !hasStartedTrip} onOpenChange={setShowPreTripModal}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog modal={false} open={showPreTripModal && !hasStartedTrip} onOpenChange={setShowPreTripModal}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogDescription className="sr-only">Pre-trip details</DialogDescription>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -2184,6 +2272,8 @@ export function LiveTrackingMap() {
                   </Select>
                 </div>
 
+
+
                 {vehicleType && (
                   <div className="space-y-2 pb-2">
                     <Label>Meter Photo <span className="text-destructive">*</span></Label>
@@ -2233,8 +2323,42 @@ export function LiveTrackingMap() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showExpenseModal} onOpenChange={setShowExpenseModal}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog modal={false} open={showEndTripModal} onOpenChange={setShowEndTripModal}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogDescription className="sr-only">End trip details</DialogDescription>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Navigation className="w-5 h-5 text-primary" />
+              Complete Journey
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-sm text-slate-500 text-center py-2">
+              Please continue to capture the final meter reading photo.
+            </p>
+          </div>
+          
+          <DialogFooter className="border-t-0 pt-0 sm:pt-0">
+            <Button 
+              className="w-full h-14 text-lg font-bold shadow-lg shadow-blue-500/30 rounded-xl bg-blue-600 hover:bg-blue-700 transition-all hover:-translate-y-0.5" 
+              onClick={() => {
+
+                setShowEndTripModal(false);
+                openCamera(endTripNextAction);
+              }}
+            >
+              Continue to Photo Capture
+            </Button>
+            <Button variant="outline" className="w-full h-14 rounded-xl mt-2" onClick={() => setShowEndTripModal(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog modal={false} open={showExpenseModal} onOpenChange={setShowExpenseModal}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogDescription className="sr-only">Expense Details</DialogDescription>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -2344,7 +2468,7 @@ export function LiveTrackingMap() {
         initialDistance={distance}
       />
 
-      <Dialog open={showExpenseHistoryModal} onOpenChange={setShowExpenseHistoryModal}>
+      <Dialog modal={false} open={showExpenseHistoryModal} onOpenChange={setShowExpenseHistoryModal}>
         <DialogContent className="sm:max-w-md">
           <DialogDescription className="sr-only">Expense History</DialogDescription>
           <DialogHeader>
@@ -2392,7 +2516,7 @@ export function LiveTrackingMap() {
       </Dialog>
 
       {/* Camera Capture Modal */}
-      <Dialog open={isCaptureModalOpen} onOpenChange={(open) => {
+      <Dialog modal={false} open={isCaptureModalOpen} onOpenChange={(open) => {
         if (!open) {
           stopCamera();
           setIsCaptureModalOpen(false);

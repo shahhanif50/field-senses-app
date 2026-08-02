@@ -176,7 +176,7 @@ export function EmployeeProductBooking() {
             </div>
 
             {view === 'categories' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 pb-20">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-20">
                 {categories.map(c => (
                   <div 
                     key={c.id} 
@@ -232,7 +232,7 @@ export function EmployeeProductBooking() {
                   </div>
                 </div>
 
-                <div className={`grid gap-6 pb-20 ${displayMode === 'grid' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-1 max-w-4xl mx-auto'}`}>
+                <div className={`grid gap-6 pb-20 ${displayMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-1 max-w-4xl mx-auto'}`}>
                   {filteredProducts.map((product) => {
                     const isGrid = displayMode === 'grid';
                     return (
@@ -241,7 +241,7 @@ export function EmployeeProductBooking() {
                         animate={{ opacity: 1, y: 0 }}
                         key={product.id}
                         onClick={() => { setSelectedProduct(product); setView('detail'); }}
-                        className={`group bg-card/80 backdrop-blur-md hover:bg-card border border-border/40 hover:border-primary/40 rounded-[2rem] cursor-pointer shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden ${isGrid ? 'flex flex-col p-4' : 'flex flex-row p-5 items-center gap-6'}`}
+                        className={`group bg-card/80 backdrop-blur-md hover:bg-card border border-border/40 hover:border-primary/40 rounded-[2rem] cursor-pointer shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden ${isGrid ? 'flex flex-col p-4' : 'flex flex-col sm:flex-row p-5 items-center gap-6'}`}
                       >
                         <div className={`${isGrid ? 'w-full aspect-square mb-5' : 'w-28 h-28 shrink-0'} relative bg-gradient-to-br from-primary/5 via-muted/20 to-primary/10 rounded-[1.5rem] overflow-hidden shadow-inner group-hover:shadow-md transition-all duration-500 flex items-center justify-center p-4 border border-white/10`}>
                           <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

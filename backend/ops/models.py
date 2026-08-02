@@ -4,7 +4,7 @@ from core.models import generate_uuid, Employee
 class Meeting(models.Model):
     id = models.CharField(max_length=50, primary_key=True, default=generate_uuid, editable=False)
     title = models.CharField(max_length=200)
-    TYPE_CHOICES = (('internal', 'internal'), ('client', 'client'), ('sales', 'sales'), ('follow-up', 'follow-up'))
+    TYPE_CHOICES = (('internal', 'internal'), ('client', 'client'), ('sales', 'sales'), ('follow-up', 'follow-up'), ('demo', 'demo'), ('audit', 'audit'))
     type = models.CharField(max_length=50, choices=TYPE_CHOICES)
     date = models.DateField()
     startTime = models.TimeField()

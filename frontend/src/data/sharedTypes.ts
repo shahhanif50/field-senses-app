@@ -309,7 +309,14 @@ export interface Meeting {
   endMeterLocationName?: string | null;
   startMeterTime?: string | null;
   endMeterTime?: string | null;
-  calculatedDistanceKms?: number;
+  calculatedDistanceKms?: number | null;
+  startMeterReading?: string | null;
+  endMeterReading?: string | null;
+  momData?: any;
+  startLocationName?: string;
+  endLocationName?: string;
+  time?: string;
+  createdAt?: string;
 }
 
 // ============= INVENTORY TYPES =============

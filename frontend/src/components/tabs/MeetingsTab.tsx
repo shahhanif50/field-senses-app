@@ -16,53 +16,7 @@ import { useMasterData } from "@/contexts/MasterDataContext";
 import { TimePickerDialog } from "@/components/ui/time-picker-dialog";
 import { format } from "date-fns";
 import { useTransparentLogo } from "@/hooks/useTransparentLogo";
-
-interface Meeting {
-  id: string;
-  title: string;
-  type: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  organizer: string;
-  organizerId: string;
-  location: string;
-  mode: string;
-  meetingLink?: string;
-  agenda: string;
-  reminder: string;
-  attendees: any[];
-  status: string;
-  actualStartTime?: string;
-  actualEndTime?: string;
-  startLocationLat?: number;
-  startLocationLng?: number;
-  endLocationLat?: number;
-  endLocationLng?: number;
-  startPhoto?: string;
-  endPhoto?: string;
-  startLocationName?: string;
-  endLocationName?: string;
-  momData?: any;
-  recurring?: string;
-  cancelReason?: string;
-  priority?: string;
-  createdAt?: string;
-  vehicleType?: string;
-  vehicleRate?: number;
-  vehicleMeterPhoto?: string;
-  startMeterPhoto?: string | null;
-  endMeterPhoto?: string | null;
-  startMeterLocationLat?: number | null;
-  startMeterLocationLng?: number | null;
-  startMeterLocationName?: string | null;
-  endMeterLocationLat?: number | null;
-  endMeterLocationLng?: number | null;
-  endMeterLocationName?: string | null;
-  startMeterTime?: string | null;
-  endMeterTime?: string | null;
-  calculatedDistanceKms?: number;
-}
+import { Meeting } from "@/data/sharedTypes";
 
 const LiveMeetingDuration = ({ startTime, endTime }: { startTime: string; endTime?: string }) => {
   const [duration, setDuration] = useState<string>("");
@@ -699,6 +653,7 @@ export function MeetingsTab() {
     }
 
     if (captureType === "vehicleMeter") {
+      setIsUploading(true);
       setFormData({
         ...formData,
         vehicleMeterPhoto: photoData
@@ -706,11 +661,13 @@ export function MeetingsTab() {
       setTimeout(() => {
         setIsCaptureModalOpen(false);
         setPhotoData(null);
+        setIsUploading(false);
       }, 800);
       return;
     }
 
     if (captureType === "localBill" || captureType === "hotelBill" || captureType === "otherBill") {
+      setIsUploading(true);
       setMomFormData({
         ...momFormData,
         expenses: { ...momFormData.expenses, [captureType]: photoData }
@@ -718,6 +675,7 @@ export function MeetingsTab() {
       setTimeout(() => {
         setIsCaptureModalOpen(false);
         setPhotoData(null);
+        setIsUploading(false);
       }, 800);
       return;
     }
@@ -1201,7 +1159,7 @@ export function MeetingsTab() {
                                     <Button size="sm" className="h-6 text-[10px] px-2 font-semibold bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'approved')}>
                                       Approve
                                     </Button>
-                                    <Button size="sm" className="h-6 text-[10px] px-2 font-semibold bg-rose-600 hover:bg-rose-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'rejected')}>
+                                    <Button size="sm" className="h-6 text-[10px] px-2 font-semibold bg-rose-600 hover:bg-rose-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'denied')}>
                                       Reject
                                     </Button>
                                   </div>
@@ -1412,14 +1370,48 @@ export function MeetingsTab() {
                         </div>
                       )}
 
-                      {getMeetingDistance(meeting) && (
-                        <div className="mt-2 flex items-center">
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50/80 rounded-full border border-green-100/80">
+                      {(getMeetingDistance(meeting) || meeting.startMeterReading || meeting.endMeterReading) && (
+                        <div className="mt-2 flex flex-col gap-1.5 p-2 bg-green-50/50 rounded-lg border border-green-100">
+                          <div className="flex items-center gap-1.5 mb-1">
                             <MapPin className="w-3.5 h-3.5 text-green-500" />
-                            <span className="text-[11px] font-bold text-green-700">
-                              Travel: {getMeetingDistance(meeting)}
+                            <span className="text-[11px] font-bold text-green-800 uppercase tracking-wide">
+                              Travel Information
                             </span>
                           </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            {meeting.vehicleType && (
+                              <div className="flex flex-col">
+                                <span className="text-slate-400 font-semibold uppercase">Vehicle</span>
+                                <span className="font-bold text-slate-700">{meeting.vehicleType}</span>
+                              </div>
+                            )}
+                            {meeting.startMeterReading && (
+                              <div className="flex flex-col">
+                                <span className="text-slate-400 font-semibold uppercase">Start Meter</span>
+                                <span className="font-bold text-slate-700">{meeting.startMeterReading} km</span>
+                              </div>
+                            )}
+                            {meeting.endMeterReading && (
+                              <div className="flex flex-col">
+                                <span className="text-slate-400 font-semibold uppercase">End Meter</span>
+                                <span className="font-bold text-slate-700">{meeting.endMeterReading} km</span>
+                              </div>
+                            )}
+                            {(meeting.calculatedDistanceKms !== undefined && meeting.calculatedDistanceKms !== null) && (
+                              <div className="flex flex-col">
+                                <span className="text-slate-400 font-semibold uppercase">Distance</span>
+                                <span className="font-bold text-green-700">{meeting.calculatedDistanceKms.toFixed(2)} km</span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Fallback to old distance function if calculatedDistanceKms is missing but there's a route */}
+                          {(!meeting.calculatedDistanceKms && getMeetingDistance(meeting)) && (
+                             <span className="text-[10px] font-bold text-green-700 mt-1">
+                               {getMeetingDistance(meeting)}
+                             </span>
+                          )}
                         </div>
                       )}
 
@@ -1562,7 +1554,7 @@ export function MeetingsTab() {
                                           <Button size="sm" className="w-full text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'approved')}>
                                             Approve
                                           </Button>
-                                          <Button size="sm" className="w-full text-xs bg-rose-600 hover:bg-rose-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'rejected')}>
+                                          <Button size="sm" className="w-full text-xs bg-rose-600 hover:bg-rose-700 text-white" onClick={() => handleExpenseApproval(meeting.id, 'denied')}>
                                             Reject
                                           </Button>
                                         </div>

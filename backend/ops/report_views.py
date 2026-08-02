@@ -233,78 +233,72 @@ class ReportAPIView(APIView):
                     return 0.0
             
             for emp in emps:
-                track_qs = TrackingEntry.objects.filter(employeeId=emp.employeeId)
+                meetings = Meeting.objects.filter(organizerId=emp.employeeId, status='completed')
                 if from_date:
-                    track_qs = track_qs.filter(date__gte=from_date)
+                    meetings = meetings.filter(date__gte=from_date)
                 if to_date:
-                    track_qs = track_qs.filter(date__lte=to_date)
+                    meetings = meetings.filter(date__lte=to_date)
                 
-                for track in track_qs:
-                    date_str = track.date.strftime("%d/%m/%Y") if hasattr(track.date, 'strftime') else str(track.date)
-                    meetings = Meeting.objects.filter(organizerId=emp.employeeId, date=track.date)
+                daily_allow = safe_float(emp.dailyAllowance)
+                rate = safe_float(emp.perKmRate)
+                date_daily_applied = set()
+                
+                for m in meetings:
+                    date_str = m.date.strftime("%d/%m/%Y") if hasattr(m.date, 'strftime') else str(m.date)
                     
-                    daily_allow = emp.dailyAllowance or 0.0
-                    mode = track.vehicleType if track.vehicleType else (emp.vehicleType if emp.vehicleType != 'None' else "-")
-                    rate = emp.perKmRate or 0.0
+                    t_start = m.actualStartTime.strftime("%H:%M") if m.actualStartTime else ""
+                    t_end = m.actualEndTime.strftime("%H:%M") if m.actualEndTime else ""
+                    m_time = f"{t_start} - {t_end}" if t_start and t_end else (t_start or t_end or "N/A")
                     
-                    segments = track.plannedRouteSummary if isinstance(track.plannedRouteSummary, list) else []
+                    meeting_name = m.title or "N/A"
+                    station = m.endLocationName or m.location or "Unknown"
+                    mode = m.vehicleType if m.vehicleType else (emp.vehicleType if emp.vehicleType != 'None' else "-")
                     
-                    if not segments:
-                        continue
+                    dist = safe_float(m.calculatedDistanceKms)
+                    fuel = round(dist * rate, 2)
+                    
+                    m_local = 0.0
+                    m_hotel = 0.0
+                    m_other = 0.0
+                    m_proofs = []
+                    
+                    if m.momData and isinstance(m.momData, dict) and 'expenses' in m.momData:
+                        exp = m.momData['expenses']
+                        m_local = safe_float(exp.get('local'))
+                        m_hotel = safe_float(exp.get('hotel'))
+                        m_other = safe_float(exp.get('other'))
+                        if exp.get('localBill'): m_proofs.append({'type': 'Local Conveyance', 'url': exp.get('localBill')})
+                        if exp.get('hotelBill'): m_proofs.append({'type': 'Hotel Expense', 'url': exp.get('hotelBill')})
+                        if exp.get('otherBill'): m_proofs.append({'type': 'Other Expense', 'url': exp.get('otherBill')})
+                            
+                    m_daily = 0.0
+                    if date_str not in date_daily_applied:
+                        m_daily = daily_allow
+                        date_daily_applied.add(date_str)
                         
-                    for idx, seg in enumerate(segments):
-                        station = seg.get('endName', 'Unknown')
-                        dist = safe_float(seg.get('distance'))
-                        eta_mins = safe_float(seg.get('eta'))
-                        fuel = safe_float(seg.get('cost'))
-                        
-                        m_time = f"ETA: {int(eta_mins)} mins"
-                        
-                        m_local = 0.0
-                        m_hotel = 0.0
-                        m_other = 0.0
-                        m_proofs = []
-                        
-                        matched_meeting = None
-                        for m in meetings:
-                            if m.title and m.title.lower() in station.lower():
-                                matched_meeting = m
-                                break
-                        
-                        if matched_meeting and matched_meeting.momData and isinstance(matched_meeting.momData, dict) and 'expenses' in matched_meeting.momData:
-                            exp = matched_meeting.momData['expenses']
-                            if exp.get('status') == 'approved':
-                                m_local = safe_float(exp.get('local'))
-                                m_hotel = safe_float(exp.get('hotel'))
-                                m_other = safe_float(exp.get('other'))
-                                if exp.get('localBill'): m_proofs.append({'type': 'Local Conveyance', 'url': exp.get('localBill')})
-                                if exp.get('hotelBill'): m_proofs.append({'type': 'Hotel Expense', 'url': exp.get('hotelBill')})
-                                if exp.get('otherBill'): m_proofs.append({'type': 'Other Expense', 'url': exp.get('otherBill')})
-                                
-                        m_daily = daily_allow if idx == 0 else 0.0
-                        
-                        total_rs = round(fuel + m_daily + m_local + m_hotel + m_other, 2)
-                        
-                        total_kms_all += dist
-                        total_destinations_all += 1
-                        total_expense_all += total_rs
-                        
-                        data.append({
-                            "date": date_str,
-                            "time": m_time,
-                            "employee": emp.fullName,
-                            "station": station,
-                            "mode": mode,
-                            "rate": rate,
-                            "kms": round(dist, 2),
-                            "fuel": round(fuel, 2),
-                            "daily": m_daily,
-                            "local": m_local,
-                            "hotel": m_hotel,
-                            "other": m_other,
-                            "total": total_rs,
-                            "proofs": m_proofs
-                        })
+                    total_rs = round(fuel + m_daily + m_local + m_hotel + m_other, 2)
+                    
+                    total_kms_all += dist
+                    total_destinations_all += 1
+                    total_expense_all += total_rs
+                    
+                    data.append({
+                        "date": date_str,
+                        "time": m_time,
+                        "employee": emp.fullName,
+                        "meetingName": meeting_name,
+                        "station": station,
+                        "mode": mode,
+                        "rate": rate,
+                        "kms": round(dist, 2),
+                        "fuel": round(fuel, 2),
+                        "daily": m_daily,
+                        "local": m_local,
+                        "hotel": m_hotel,
+                        "other": m_other,
+                        "total": total_rs,
+                        "proofs": m_proofs
+                    })
             
             summary = [
                 {"label": "Total KMs", "value": f"{total_kms_all:.1f}", "trend": "", "icon": "Navigation"},

@@ -224,7 +224,7 @@ export const ReportsTab = () => {
         tTotal += Number(row.total) || 0;
       });
       totalRow = [
-        "", "", "", "Grand Total:", "", "",
+        "", "", "", "", "Grand Total:", "", "",
         tKms.toFixed(2), tFuel.toFixed(2), tDaily.toFixed(2),
         tLocal.toFixed(2), tHotel.toFixed(2), tOther.toFixed(2), tTotal.toFixed(2)
       ];
@@ -250,7 +250,7 @@ export const ReportsTab = () => {
         worksheet.addRow([`From: ${dateRange.from}`, `To: ${dateRange.to}`]);
         worksheet.addRow([]);
         
-        const tableColumn = Object.keys(reportData[0] || {}).filter(k => k !== 'proofs');
+        const tableColumn = getTableColumns();
         worksheet.addRow(tableColumn);
         
         const tableRows = reportData.map(row => {
@@ -278,7 +278,7 @@ export const ReportsTab = () => {
           }
         }
       } else {
-        const tableColumn = Object.keys(reportData[0] || {}).filter(k => k !== 'proofs');
+        const tableColumn = getTableColumns();
         worksheet.addRow(tableColumn);
         reportData.forEach(row => {
            const rowData = { ...row };
@@ -291,7 +291,8 @@ export const ReportsTab = () => {
       const buffer = await workbook.xlsx.writeBuffer();
       saveAs(new Blob([buffer]), `${fileName}.xlsx`);
     } else {
-      const doc = new jsPDF();
+      const orientation = currentModuleConfig.module === 'meeting-travel' ? 'landscape' : 'portrait';
+      const doc = new jsPDF(orientation);
       let startY = 30;
       
       if (currentModuleConfig.module === 'meeting-travel') {
@@ -319,7 +320,7 @@ export const ReportsTab = () => {
         doc.text(`Date Range: ${dateRange.from} to ${dateRange.to}`, 14, 22);
       }
       
-      const tableColumn = Object.keys(reportData[0] || {}).filter(k => k !== 'proofs');
+      const tableColumn = getTableColumns();
       const tableRows = reportData.map(row => {
         const rowData = { ...row };
         delete rowData.proofs;
@@ -331,7 +332,24 @@ export const ReportsTab = () => {
         head: [tableColumn],
         body: tableRows,
         startY: startY,
-        margin: { top: 35 },
+        margin: { top: 35, left: 10, right: 10 },
+        styles: { fontSize: 8, cellPadding: 1, overflow: 'linebreak' },
+        columnStyles: currentModuleConfig.module === 'meeting-travel' ? {
+          0: { cellWidth: 15 },
+          1: { cellWidth: 15 },
+          2: { cellWidth: 20 },
+          3: { cellWidth: 25 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 15 },
+          6: { cellWidth: 12 },
+          7: { cellWidth: 15 },
+          8: { cellWidth: 15 },
+          9: { cellWidth: 15 },
+          10: { cellWidth: 15 },
+          11: { cellWidth: 15 },
+          12: { cellWidth: 15 },
+          13: { cellWidth: 18 }
+        } : {},
       });
       
       const finalY = (doc as any).lastAutoTable.finalY || startY + 50;
@@ -473,7 +491,7 @@ export const ReportsTab = () => {
       "sales-executive": ["Employee ID", "Employee", "Territory", "Visits", "Target (₹)", "Achieved (₹)", "Coverage"],
       "employee-portal": ["Employee ID", "Employee", "Attendance", "Tasks Completed", "KPI Score", "Leaves"],
       "inventory": ["Item", "SKU", "Opening", "Inward", "Outward", "Closing", "Value"],
-      "meeting-travel": ["Date", "Time (Dep-Arr)", "Employee", "Station Visited", "Type of Vehicle", "Rate per KM", "KMs Covered", "Fuel (Rs)", "Daily Allowance (Rs)", "Local Conveyances (Rs)", "Hotel Exp (Rs)", "Mobile/Other (Rs)", "Total (Rs)"]
+      "meeting-travel": ["Date", "Time (Dep-Arr)", "Employee", "Meeting Name", "Station Visited", "Type of Vehicle", "Rate per KM", "KMs Covered", "Fuel (Rs)", "Daily Allowance (Rs)", "Local Conveyances (Rs)", "Hotel Exp (Rs)", "Mobile/Other (Rs)", "Total (Rs)"]
     };
     return columns[selectedModule];
   };
@@ -841,7 +859,7 @@ export const ReportsTab = () => {
                         <TableBody>
                           {reportData.map((row, index) => (
                             <TableRow key={index} className="hover:bg-muted/30">
-                              {Object.values(row).map((value, i) => (
+                              {Object.entries(row).filter(([k]) => k !== 'proofs').map(([_, value], i) => (
                                 <TableCell key={i} className="text-sm py-2">
                                   {typeof value === "string" && (value === "High" || value === "Active" || value === "Expiring Soon") ? (
                                     <Badge variant={value === "High" || value === "Expiring Soon" ? "destructive" : value === "Active" ? "default" : "secondary"} className="text-xs">
@@ -862,7 +880,7 @@ export const ReportsTab = () => {
                           {/* Grand Total Row */}
                           {selectedModule === 'meeting-travel' && reportData.length > 0 && (
                             <TableRow className="bg-slate-50 font-bold border-t-2 border-slate-200 hover:bg-slate-50">
-                               <TableCell colSpan={6} className="text-right py-3 pr-4 text-slate-700">Grand Total:</TableCell>
+                               <TableCell colSpan={7} className="text-right py-3 pr-4 text-slate-700">Grand Total:</TableCell>
                                <TableCell className="py-3 text-sm">{reportData.reduce((sum, row) => sum + (Number(row.kms) || 0), 0).toFixed(2)}</TableCell>
                                <TableCell className="py-3 text-sm">₹{reportData.reduce((sum, row) => sum + (Number(row.fuel) || 0), 0).toFixed(2)}</TableCell>
                                <TableCell className="py-3 text-sm">₹{reportData.reduce((sum, row) => sum + (Number(row.daily) || 0), 0).toFixed(2)}</TableCell>
@@ -913,6 +931,22 @@ export const ReportsTab = () => {
                                 <Line type="monotone" dataKey="kpiScore" stroke="#8884d8" name="KPI Score" strokeWidth={2} />
                                 <Line type="monotone" dataKey="tasksCompleted" stroke="#82ca9d" name="Tasks" strokeWidth={2} />
                               </LineChart>
+                            ) : selectedModule === 'meeting-travel' ? (
+                              <BarChart data={Object.values(reportData.reduce((acc, row) => {
+                                const key = row.date;
+                                if (!acc[key]) acc[key] = { name: key, kms: 0, expenses: 0 };
+                                acc[key].kms += Number(row.kms || 0);
+                                acc[key].expenses += Number(row.total || 0);
+                                return acc;
+                              }, {} as Record<string, any>)).slice(-7)}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" tick={{fontSize: 12}} />
+                                <YAxis tick={{fontSize: 12}} />
+                                <RechartsTooltip />
+                                <Legend />
+                                <Bar dataKey="kms" fill="#8884d8" name="KMs Covered" />
+                                <Bar dataKey="expenses" fill="#82ca9d" name="Expenses (₹)" />
+                              </BarChart>
                             ) : (
                               <BarChart data={reportData.slice(0, 10)}>
                                 <CartesianGrid strokeDasharray="3 3" />
@@ -928,27 +962,44 @@ export const ReportsTab = () => {
                         <div className="h-[300px] rounded-lg border bg-card p-4">
                           <h5 className="text-sm font-medium text-center mb-4">Distribution Metrics</h5>
                           <ResponsiveContainer width="100%" height="100%">
-                            <RechartsPieChart>
-                              <Pie
-                                data={reportData.slice(0, 5).map(d => ({
-                                  name: d.employee || d.item || d.alert || d.document || 'Item',
-                                  value: Number(d.tasksCompleted || d.visits || d.distance || d.opening || d.leaves || 10)
-                                }))}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={80}
-                                fill="#8884d8"
-                                paddingAngle={5}
-                                dataKey="value"
-                              >
-                                {reportData.slice(0, 5).map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'][index % 5]} />
-                                ))}
-                              </Pie>
-                              <RechartsTooltip />
-                              <Legend />
-                            </RechartsPieChart>
+                            {(() => {
+                              const pieData = selectedModule === 'meeting-travel' ? (() => {
+                                const totals = reportData.reduce((acc, row) => {
+                                  acc.Fuel += Number(row.fuel || 0);
+                                  acc.Daily += Number(row.daily || 0);
+                                  acc.Local += Number(row.local || 0);
+                                  acc.Hotel += Number(row.hotel || 0);
+                                  acc.Other += Number(row.other || 0);
+                                  return acc;
+                                }, { Fuel: 0, Daily: 0, Local: 0, Hotel: 0, Other: 0 });
+                                const entries = Object.entries(totals).filter((entry: any) => entry[1] > 0).map((entry: any) => ({ name: entry[0], value: entry[1] }));
+                                return entries.length > 0 ? entries : [{ name: 'No Data', value: 1 }];
+                              })() : reportData.slice(0, 5).map(d => ({
+                                name: d.employee || d.item || d.alert || d.document || 'Item',
+                                value: Number(d.tasksCompleted || d.visits || d.distance || d.opening || d.leaves || 10)
+                              }));
+                              
+                              return (
+                                <RechartsPieChart>
+                                  <Pie
+                                    data={pieData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    fill="#8884d8"
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                  >
+                                    {pieData.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'][index % 5]} />
+                                    ))}
+                                  </Pie>
+                                  <RechartsTooltip />
+                                  <Legend />
+                                </RechartsPieChart>
+                              );
+                            })()}
                           </ResponsiveContainer>
                         </div>
                       </div>

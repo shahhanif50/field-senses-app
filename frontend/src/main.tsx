@@ -3,6 +3,15 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+// Suppress known Radix UI aria-hidden warning that spams the console
+const originalConsoleError = console.error;
+console.error = (...args: any[]) => {
+  if (typeof args[0] === 'string' && args[0].includes('Blocked aria-hidden on an element')) {
+    return;
+  }
+  originalConsoleError(...args);
+};
+
 class ErrorBoundary extends React.Component<any, any> {
   constructor(props: any) {
     super(props);
