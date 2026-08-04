@@ -530,6 +530,24 @@ class AlertViewSet(viewsets.ModelViewSet):
     serializer_class = AlertSerializer
 
     def get_queryset(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        from .models import Meeting, Alert
+        
+        threshold_time = timezone.now() - timedelta(hours=24)
+        completed_meetings = Meeting.objects.filter(status='completed', actualEndTime__lt=threshold_time)
+        
+        for meeting in completed_meetings:
+            if not meeting.momData or not meeting.momData.get('agenda'):
+                if not Alert.objects.filter(type='compliance', relatedEntityType='meeting', relatedEntityId=meeting.id).exists():
+                    Alert.objects.create(
+                        type='compliance',
+                        message=f"MOM pending for meeting '{meeting.title}' (Employee: {meeting.organizer}). It has been over 24 hours.",
+                        severity='high',
+                        relatedEntityId=meeting.id,
+                        relatedEntityType='meeting'
+                    )
+                    
         queryset = super().get_queryset()
         org_id = self.request.headers.get('X-Organization-Id')
         user_id = self.request.headers.get('X-User-Id')
